@@ -56,7 +56,7 @@ Messages:
 ${chunk.map((msg, idx) => `${idx + 1}. 
 Start time: ${msg.start_datetime}
 Interests: ${msg.interesting_message.interests_matched.join(', ')}
-Content: ${msg.interesting_message.message.content}
+Content: ${msg.interesting_message.message.content.replace(/\n/g, ' ')}
 Link: ${msg.interesting_message.message.link}`).join('\n\n')}
 
 CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):

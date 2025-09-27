@@ -88,7 +88,7 @@ ONLY INCLUDE messages that announce ONE specific event with:
 - Clear event details (title, location, etc.)
 
 Messages:
-${chunk.map((msg, idx) => `${idx + 1}. ${msg.content}`).join('\n\n')}
+${chunk.map((msg, idx) => `${idx + 1}. ${msg.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
 Respond with only the numbers of messages that are SINGLE event announcements, separated by commas (e.g., "1,3,7"). If none qualify, respond with "none".`;
 
@@ -176,12 +176,19 @@ export async function filterByInterests(messages: TelegramMessage[], config: Con
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
     
-    const prompt = `Analyze these event messages and identify which user interests they match.
+    const prompt = `Analyze these event messages and identify which user interests they match. Be VERY STRICT - only match if the event is DIRECTLY about the interest topic as the main subject.
 
 User interests: ${config.userInterests.join(', ')}
 
+CRITICAL MATCHING RULES:
+- Only match if the event's PRIMARY topic/focus is about the interest
+- Do NOT match events that merely mention the interest in passing
+- Do NOT match events conducted in a language but not ABOUT that language
+- Do NOT match events by speakers who happen to have expertise in an interest area
+- The event content must be specifically designed for people interested in that topic
+
 Messages:
-${chunk.map((msg, idx) => `${idx + 1}. ${msg.content}`).join('\n\n')}
+${chunk.map((msg, idx) => `${idx + 1}. ${msg.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
 For each message that matches at least one interest, respond in this format:
 MESSAGE_NUMBER: interest1, interest2
@@ -311,7 +318,7 @@ export async function filterBySchedule(messages: InterestingMessage[], config: C
     const prompt = `Extract the start date and time for each event. Today's date is ${new Date().toDateString()}.
 
 Messages:
-${chunk.map((msg, idx) => `${idx + 1}. ${msg.message.content}`).join('\n\n')}
+${chunk.map((msg, idx) => `${idx + 1}. ${msg.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
 For each message, respond in this format:
 MESSAGE_NUMBER: DD MMM YYYY HH:MM
