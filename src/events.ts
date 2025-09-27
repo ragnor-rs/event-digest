@@ -50,7 +50,7 @@ export async function convertToEvents(messages: ScheduledMessage[], config: Conf
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-    const prompt = `Convert these event messages into structured event information.
+    const prompt = `Convert these event messages into structured event information. Respond in English.
 
 Messages:
 ${chunk.map((msg, idx) => `${idx + 1}. 
@@ -59,11 +59,11 @@ Interests: ${msg.interesting_message.interests_matched.join(', ')}
 Content: ${msg.interesting_message.message.content}
 Link: ${msg.interesting_message.message.link}`).join('\n\n')}
 
-For each message, create an event with this format:
+CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):
 MESSAGE_NUMBER:
-TITLE: [short catchy title]
-SUMMARY: [1-2 sentence summary]
-DESCRIPTION: [full description from the message]
+TITLE: [short catchy title in English]
+SUMMARY: [1-2 sentence summary in English]
+DESCRIPTION: [full description from the message, can be original language]
 
 Example:
 1:
@@ -80,25 +80,22 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
 
       const result = response.choices[0].message.content?.trim();
       if (result) {
-        const eventBlocks = result.split(/\d+:/).filter(block => block.trim());
+        const eventBlocks = result.split(/^\d+:/m).filter(block => block.trim());
         
         for (let i = 0; i < eventBlocks.length && i < chunk.length; i++) {
           const block = eventBlocks[i];
-          const lines = block.split('\n').filter(line => line.trim());
+          console.log(`    Processing block ${i + 1}:`, block.substring(0, 200) + '...');
           
-          let title = '';
-          let summary = '';
-          let description = '';
+          // Find TITLE, SUMMARY, DESCRIPTION using more robust matching
+          const titleMatch = block.match(/\bTITLE:\s*(.+?)(?=\n|$)/i);
+          const summaryMatch = block.match(/\bSUMMARY:\s*(.+?)(?=\n\s*DESCRIPTION:|$)/is);
+          const descriptionMatch = block.match(/\bDESCRIPTION:\s*([\s\S]*?)(?=\n\s*Link:|$)/i);
           
-          for (const line of lines) {
-            if (line.startsWith('TITLE:')) {
-              title = line.replace('TITLE:', '').trim();
-            } else if (line.startsWith('SUMMARY:')) {
-              summary = line.replace('SUMMARY:', '').trim();
-            } else if (line.startsWith('DESCRIPTION:')) {
-              description = line.replace('DESCRIPTION:', '').trim();
-            }
-          }
+          const title = titleMatch ? titleMatch[1].trim() : '';
+          const summary = summaryMatch ? summaryMatch[1].trim() : '';
+          const description = descriptionMatch ? descriptionMatch[1].trim() : '';
+          
+          console.log(`    Extracted for message ${i + 1}: title="${title}", summary="${summary}", description="${description ? description.substring(0, 50) + '...' : 'empty'}"`);
           
           const eventData = {
             title: title || 'Event',
