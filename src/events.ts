@@ -41,7 +41,7 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
       });

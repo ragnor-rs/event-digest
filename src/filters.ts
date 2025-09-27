@@ -60,7 +60,7 @@ Respond with only the numbers of messages that are SINGLE event announcements, s
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
       });
@@ -115,7 +115,7 @@ If a message doesn't match any interests, don't include it in your response.`;
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
       });
@@ -183,7 +183,7 @@ CRITICAL FORMAT REQUIREMENTS:
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
       });
