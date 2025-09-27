@@ -1,0 +1,38 @@
+Here's a description for a program which generates summary for events posted on Telegram.
+
+
+Program input (description | name | example values):
+- List of public groups | groupsToParse | ["Terra_Georgia", "tbilisi_js_chat", "unicornembassy_georgia"] 
+- List of public channels | channelsToParse | ["auditoria_tbilisi", "georgiaafisha", "F0RTHSP4CE"]
+- Date of last digest generation (if set) | lastGenerationTimestamp | "2011-08-12T20:17:46.384Z"
+- Max number of messages to parse | maxInputMessages
+- List of user interests | userInterests | ["физика", "астрономия", "английский", "фантастика", "джаз", "ИИ"]
+- List of desired days and earliest time in format "%w %H:%M" | weeklyTimeslots | ["6 14:00", "0 14:00"]
+- List of event message cues in different languages| eventMessageCues | {"ru": ["сентября" , "сегодня", "часов"], "en": ["january", "tonight"]}
+
+
+Logic:
+
+1) Fetch messages to parse
+-- Each message is timestamp, message content, link to the message
+-- For each specified group in groupsToParse, fetch messages dated from lastGenerationTimestamp to now, include only last maxInputMessages messages, or just last maxInputMessages if lastGenerationTimestamp is not set
+-- For each specified group in channelsToParse, fetch messages dated from lastGenerationTimestamp to now, include only last maxInputMessages messages, or just last maxInputMessages if lastGenerationTimestamp is not set
+
+2) Discard the messages that don't look like event announcements (don't contain any of eventMessageCues in any language) 
+
+3) Next filter: discard the messages from the previous step which are not considered to be event announcements (use GPT, ask LLM about 10 messages at once)
+
+4) Next filter: convert the messages from the previous step tha match userInterests to InterestingMessage ({message: ..., interests_matched: ["jazz", "science", ...]}) - ask a LLM which messages meet which userInterests (use GPT, ask LLM to provide a formatted response about 10 messages at once) and discard InterestingMessages which don't meet userInterests
+
+5) Next filter: convert InterestingMessage to ScheduledMessage ({interesting_message: ..., start_datetime: "08 Jan 2025 14:00"}) - ask a LLM when each event mentioned in the message starts (use GPT, ask LLM to provide a formatted response about 10 messages at once) and discard ScheduledMessages which don't meet weeklyTimeslots (too early or wrong week day) 
+
+6) Convert ScheduledMessage to Event entities (see below)
+
+7) Print all Event entities
+
+
+Program output:
+- List of events which meet the input criteria:
+-- Events are relevant to user interests (userInterests)
+-- Events fit the schedule of the user (weeklyTimeslots)
+- Each event entity has the following fields: date and time, list of met interests, title, short sumary, full description, link to original message
