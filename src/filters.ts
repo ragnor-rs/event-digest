@@ -149,7 +149,7 @@ If a message doesn't match any interests, don't include it in your response.`;
 }
 
 export async function filterBySchedule(messages: InterestingMessage[], config: Config): Promise<ScheduledMessage[]> {
-  console.log(`Step 5: Filtering ${messages.length} messages by schedule...`);
+  console.log(`Step 5: Filtering ${messages.length} messages by schedule and future dates...`);
   
   const chunks = [];
   for (let i = 0; i < messages.length; i += 16) {
@@ -212,6 +212,14 @@ CRITICAL FORMAT REQUIREMENTS:
               // Check if the date is valid
               if (!isValid(eventDate)) {
                 console.log(`    Could not parse date: "${dateTime}" from message: ${chunk[messageIdx].message.link}`);
+                continue;
+              }
+              
+              // Check if the event is in the future
+              const now = new Date();
+              if (eventDate <= now) {
+                const properDateTime = dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
+                console.log(`    ✗ Past event: ${properDateTime} - ${chunk[messageIdx].message.link}`);
                 continue;
               }
               
