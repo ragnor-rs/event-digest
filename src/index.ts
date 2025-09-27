@@ -33,7 +33,7 @@ async function main() {
     const scheduledMessages = await filterBySchedule(interestingMessages, config);
     console.log('');
 
-    const events = await convertToEvents(scheduledMessages);
+    const events = await convertToEvents(scheduledMessages, config);
     console.log('');
 
     printEvents(events);

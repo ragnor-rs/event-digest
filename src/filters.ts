@@ -3,6 +3,13 @@ import { TelegramMessage, InterestingMessage, ScheduledMessage, Config } from '.
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 import { Cache } from './cache';
 
+// Single source of truth for date normalization
+function normalizeDateTime(dateTime: string): string {
+  if (dateTime === 'unknown') return dateTime;
+  // Fix incomplete format: "06 Sep 2025 18" → "06 Sep 2025 18:00"
+  return dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
@@ -136,7 +143,7 @@ export async function filterByInterests(messages: TelegramMessage[], config: Con
   let cacheHits = 0;
 
   for (const message of messages) {
-    const cachedInterests = cache.getInterestResult(message.link);
+    const cachedInterests = cache.getInterestResult(message.link, config.userInterests);
     if (cachedInterests !== null) {
       cacheHits++;
       if (cachedInterests.length > 0) {
@@ -204,7 +211,7 @@ If a message doesn't match any interests, don't include it in your response.`;
               message: chunk[messageIdx],
               interests_matched: interests
             });
-            cache.setInterestResult(chunk[messageIdx].link, interests);
+            cache.setInterestResult(chunk[messageIdx].link, interests, config.userInterests);
             processedMessages.add(messageIdx);
           }
         }
@@ -212,13 +219,13 @@ If a message doesn't match any interests, don't include it in your response.`;
         // Cache empty results for unmatched messages
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedMessages.has(idx)) {
-            cache.setInterestResult(chunk[idx].link, []);
+            cache.setInterestResult(chunk[idx].link, [], config.userInterests);
           }
         }
       } else {
         // No matches in this chunk
         for (const message of chunk) {
-          cache.setInterestResult(message.link, []);
+          cache.setInterestResult(message.link, [], config.userInterests);
         }
       }
     } catch (error) {
@@ -243,18 +250,14 @@ export async function filterBySchedule(messages: InterestingMessage[], config: C
   let cacheHits = 0;
 
   for (const message of messages) {
-    const cachedDateTime = cache.getScheduleResult(message.message.link);
+    const cachedDateTime = cache.getScheduleResult(message.message.link, config.weeklyTimeslots);
     if (cachedDateTime !== null) {
       cacheHits++;
       if (cachedDateTime !== 'unknown') {
         // Re-validate against current time and schedule
         try {
-          let eventDate: Date;
-          if (cachedDateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/)) {
-            eventDate = parse(cachedDateTime + ':00', 'dd MMM yyyy HH:mm', new Date());
-          } else {
-            eventDate = parse(cachedDateTime, 'dd MMM yyyy HH:mm', new Date());
-          }
+          const normalizedCachedDateTime = normalizeDateTime(cachedDateTime);
+          const eventDate = parse(normalizedCachedDateTime, 'dd MMM yyyy HH:mm', new Date());
           
           const now = new Date();
           if (eventDate > now) {
@@ -270,10 +273,9 @@ export async function filterBySchedule(messages: InterestingMessage[], config: C
             });
             
             if (matchesSchedule) {
-              const properDateTime = cachedDateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? cachedDateTime + ':00' : cachedDateTime;
               scheduledMessages.push({
                 interesting_message: message,
-                start_datetime: properDateTime
+                start_datetime: normalizedCachedDateTime
               });
             }
           }
@@ -342,24 +344,18 @@ CRITICAL FORMAT REQUIREMENTS:
           const messageIdx = parseInt(numPart.trim()) - 1;
           const dateTime = datePart.trim();
           
-          // Cache the extracted datetime
+          // Cache the extracted datetime with proper formatting
           if (messageIdx >= 0 && messageIdx < chunk.length) {
-            cache.setScheduleResult(chunk[messageIdx].message.link, dateTime);
+            const normalizedDateTime = normalizeDateTime(dateTime);
+            cache.setScheduleResult(chunk[messageIdx].message.link, normalizedDateTime, config.weeklyTimeslots);
             processedMessages.add(messageIdx);
           }
           
           if (messageIdx >= 0 && messageIdx < chunk.length && dateTime !== 'unknown') {
             try {
-              let eventDate: Date;
-              
-              // Try multiple date formats
-              if (dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/)) {
-                // Format like "06 Sep 2025 18" - add :00 for minutes
-                eventDate = parse(dateTime + ':00', 'dd MMM yyyy HH:mm', new Date());
-              } else {
-                // Standard format "06 Sep 2025 18:00"
-                eventDate = parse(dateTime, 'dd MMM yyyy HH:mm', new Date());
-              }
+              // Use normalized date for all processing
+              const normalizedDateTime = normalizeDateTime(dateTime);
+              const eventDate = parse(normalizedDateTime, 'dd MMM yyyy HH:mm', new Date());
               
               // Check if the date is valid
               if (!isValid(eventDate)) {
@@ -389,18 +385,14 @@ CRITICAL FORMAT REQUIREMENTS:
               });
               
               if (matchesSchedule) {
-                // Store the properly formatted date
-                const properDateTime = dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
-                
                 scheduledMessages.push({
                   interesting_message: chunk[messageIdx],
-                  start_datetime: properDateTime
+                  start_datetime: normalizedDateTime
                 });
                 
-                console.log(`    ✓ Included: ${properDateTime} (day ${dayOfWeek}, ${timeStr}) - ${chunk[messageIdx].message.link}`);
+                console.log(`    ✓ Included: ${normalizedDateTime} (day ${dayOfWeek}, ${timeStr}) - ${chunk[messageIdx].message.link}`);
               } else {
-                const properDateTime = dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
-                console.log(`    ✗ Filtered out: ${properDateTime} (day ${dayOfWeek}, ${timeStr}) - doesn't match timeslots ${config.weeklyTimeslots.join(', ')} - ${chunk[messageIdx].message.link}`);
+                console.log(`    ✗ Filtered out: ${normalizedDateTime} (day ${dayOfWeek}, ${timeStr}) - doesn't match timeslots ${config.weeklyTimeslots.join(', ')} - ${chunk[messageIdx].message.link}`);
               }
             } catch (error) {
               console.log(`    Could not parse date: ${dateTime}`);
@@ -411,13 +403,13 @@ CRITICAL FORMAT REQUIREMENTS:
         // Cache 'unknown' for unprocessed messages
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedMessages.has(idx)) {
-            cache.setScheduleResult(chunk[idx].message.link, 'unknown');
+            cache.setScheduleResult(chunk[idx].message.link, 'unknown', config.weeklyTimeslots);
           }
         }
       } else {
         // No results from GPT, cache as unknown
         for (const message of chunk) {
-          cache.setScheduleResult(message.message.link, 'unknown');
+          cache.setScheduleResult(message.message.link, 'unknown', config.weeklyTimeslots);
         }
       }
     } catch (error) {

@@ -1,12 +1,12 @@
 import OpenAI from 'openai';
-import { ScheduledMessage, Event } from './types';
+import { ScheduledMessage, Event, Config } from './types';
 import { Cache } from './cache';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-export async function convertToEvents(messages: ScheduledMessage[]): Promise<Event[]> {
+export async function convertToEvents(messages: ScheduledMessage[], config: Config): Promise<Event[]> {
   const cache = new Cache();
   console.log(`Step 6: Converting ${messages.length} scheduled messages to events...`);
   
@@ -16,7 +16,7 @@ export async function convertToEvents(messages: ScheduledMessage[]): Promise<Eve
   let cacheHits = 0;
 
   for (const message of messages) {
-    const cachedEvent = cache.getEventConversion(message.interesting_message.message.link);
+    const cachedEvent = cache.getEventConversion(message.interesting_message.message.link, config.userInterests);
     if (cachedEvent !== null) {
       cacheHits++;
       // Update cached event with current data (interests might have changed)
@@ -116,7 +116,7 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
           events.push(finalEvent);
           
           // Cache the extracted event data (without dynamic fields like date_time and interests)
-          cache.setEventConversion(chunk[i].interesting_message.message.link, eventData);
+          cache.setEventConversion(chunk[i].interesting_message.message.link, eventData, config.userInterests);
           
           if (title && summary && description) {
             console.log(`    ✓ Created event: ${title}`);

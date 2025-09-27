@@ -65,32 +65,58 @@ export class Cache {
   }
 
   // Step 4: Interest matching
-  getInterestResult(messageLink: string): string[] | null {
-    return this.cache.step4_interests[messageLink] ?? null;
+  getInterestResult(messageLink: string, userInterests: string[]): string[] | null {
+    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    return this.cache.step4_interests[cacheKey] ?? null;
   }
 
-  setInterestResult(messageLink: string, interests: string[]): void {
-    this.cache.step4_interests[messageLink] = interests;
+  setInterestResult(messageLink: string, interests: string[], userInterests: string[]): void {
+    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    this.cache.step4_interests[cacheKey] = interests;
     this.saveCache();
+  }
+
+  private createInterestCacheKey(messageLink: string, userInterests: string[]): string {
+    // Normalize interests: lowercase and sort alphabetically
+    const normalizedInterests = userInterests
+      .map(interest => interest.toLowerCase().trim())
+      .sort()
+      .join(',');
+    
+    return `${messageLink}|${normalizedInterests}`;
   }
 
   // Step 5: Schedule filtering (datetime extraction)
-  getScheduleResult(messageLink: string): string | null {
-    return this.cache.step5_schedule[messageLink] ?? null;
+  getScheduleResult(messageLink: string, weeklyTimeslots: string[]): string | null {
+    const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
+    return this.cache.step5_schedule[cacheKey] ?? null;
   }
 
-  setScheduleResult(messageLink: string, datetime: string): void {
-    this.cache.step5_schedule[messageLink] = datetime;
+  setScheduleResult(messageLink: string, datetime: string, weeklyTimeslots: string[]): void {
+    const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
+    this.cache.step5_schedule[cacheKey] = datetime;
     this.saveCache();
   }
 
-  // Step 6: Event conversion
-  getEventConversion(messageLink: string): any | null {
-    return this.cache.step6_events[messageLink] ?? null;
+  private createScheduleCacheKey(messageLink: string, weeklyTimeslots: string[]): string {
+    // Normalize timeslots: sort alphabetically for consistent cache keys
+    const normalizedTimeslots = weeklyTimeslots
+      .map(slot => slot.trim())
+      .sort()
+      .join(',');
+    
+    return `${messageLink}|${normalizedTimeslots}`;
   }
 
-  setEventConversion(messageLink: string, event: any): void {
-    this.cache.step6_events[messageLink] = event;
+  // Step 6: Event conversion
+  getEventConversion(messageLink: string, userInterests: string[]): any | null {
+    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    return this.cache.step6_events[cacheKey] ?? null;
+  }
+
+  setEventConversion(messageLink: string, event: any, userInterests: string[]): void {
+    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    this.cache.step6_events[cacheKey] = event;
     this.saveCache();
   }
 
