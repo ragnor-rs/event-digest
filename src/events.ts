@@ -81,6 +81,9 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
     } catch (error) {
       console.error('Error with OpenAI:', error);
     }
+    
+    // Add delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   console.log(`Created ${events.length} events`);

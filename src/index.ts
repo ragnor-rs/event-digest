@@ -1,10 +1,10 @@
 import dotenv from 'dotenv';
+dotenv.config();
+
 import { parseArgs } from './config';
 import { TelegramClient } from './telegram';
 import { filterEventMessages, filterWithGPT, filterByInterests, filterBySchedule } from './filters';
 import { convertToEvents, printEvents } from './events';
-
-dotenv.config();
 
 async function main() {
   try {

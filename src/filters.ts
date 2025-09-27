@@ -21,7 +21,7 @@ export async function filterEventMessages(messages: TelegramMessage[], config: C
     return false;
   });
 
-  console.log(`Found ${eventMessages.length} messages with event cues`);
+  console.log(`  Found ${eventMessages.length} messages with event cues`);
   return eventMessages;
 }
 
@@ -29,13 +29,16 @@ export async function filterWithGPT(messages: TelegramMessage[]): Promise<Telegr
   console.log(`Step 3: Using GPT to filter ${messages.length} messages for event announcements...`);
   
   const chunks = [];
-  for (let i = 0; i < messages.length; i += 10) {
-    chunks.push(messages.slice(i, i + 10));
+  for (let i = 0; i < messages.length; i += 20) {
+    chunks.push(messages.slice(i, i + 20));
   }
 
   const eventMessages: TelegramMessage[] = [];
 
-  for (const chunk of chunks) {
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    
     const prompt = `Analyze these messages and identify which ones are event announcements (concerts, meetups, conferences, workshops, etc.).
 
 Messages:
@@ -62,9 +65,12 @@ Respond with only the numbers of messages that are event announcements, separate
     } catch (error) {
       console.error('Error with OpenAI:', error);
     }
+    
+    // Add delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`GPT identified ${eventMessages.length} event announcements`);
+  console.log(`  GPT identified ${eventMessages.length} event announcements`);
   return eventMessages;
 }
 
@@ -72,13 +78,16 @@ export async function filterByInterests(messages: TelegramMessage[], config: Con
   console.log(`Step 4: Filtering ${messages.length} messages by user interests...`);
   
   const chunks = [];
-  for (let i = 0; i < messages.length; i += 10) {
-    chunks.push(messages.slice(i, i + 10));
+  for (let i = 0; i < messages.length; i += 20) {
+    chunks.push(messages.slice(i, i + 20));
   }
 
   const interestingMessages: InterestingMessage[] = [];
 
-  for (const chunk of chunks) {
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    
     const prompt = `Analyze these event messages and identify which user interests they match.
 
 User interests: ${config.userInterests.join(', ')}
@@ -118,9 +127,12 @@ If a message doesn't match any interests, don't include it in your response.`;
     } catch (error) {
       console.error('Error with OpenAI:', error);
     }
+    
+    // Add delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`Found ${interestingMessages.length} messages matching user interests`);
+  console.log(`  Found ${interestingMessages.length} messages matching user interests`);
   return interestingMessages;
 }
 
@@ -128,13 +140,16 @@ export async function filterBySchedule(messages: InterestingMessage[], config: C
   console.log(`Step 5: Filtering ${messages.length} messages by schedule...`);
   
   const chunks = [];
-  for (let i = 0; i < messages.length; i += 10) {
-    chunks.push(messages.slice(i, i + 10));
+  for (let i = 0; i < messages.length; i += 20) {
+    chunks.push(messages.slice(i, i + 20));
   }
 
   const scheduledMessages: ScheduledMessage[] = [];
 
-  for (const chunk of chunks) {
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    
     const prompt = `Extract the start date and time for each event. Today's date is ${new Date().toDateString()}.
 
 Messages:
@@ -182,9 +197,12 @@ If you can't determine the date/time, use "unknown".`;
                   interesting_message: chunk[messageIdx],
                   start_datetime: dateTime
                 });
+                console.log(`    ✓ Included: ${dateTime} (day ${dayOfWeek}, ${timeStr}) - ${chunk[messageIdx].message.link}`);
+              } else {
+                console.log(`    ✗ Filtered out: ${dateTime} (day ${dayOfWeek}, ${timeStr}) - doesn't match timeslots ${config.weeklyTimeslots.join(', ')} - ${chunk[messageIdx].message.link}`);
               }
             } catch (error) {
-              console.log(`Could not parse date: ${dateTime}`);
+              console.log(`    Could not parse date: ${dateTime}`);
             }
           }
         }
@@ -192,8 +210,11 @@ If you can't determine the date/time, use "unknown".`;
     } catch (error) {
       console.error('Error with OpenAI:', error);
     }
+    
+    // Add delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`Found ${scheduledMessages.length} messages matching schedule`);
+  console.log(`  Found ${scheduledMessages.length} messages matching schedule`);
   return scheduledMessages;
 }
