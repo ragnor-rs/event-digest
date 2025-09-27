@@ -205,28 +205,39 @@ If a message doesn't match any interests, don't include it in your response.`;
 
       const result = response.choices[0].message.content?.trim();
       if (result) {
-        const lines = result.split('\n').filter(line => line.includes(':'));
-        const processedMessages = new Set<number>();
-        
-        for (const line of lines) {
-          const [numPart, interestsPart] = line.split(':');
-          const messageIdx = parseInt(numPart.trim()) - 1;
-          const interests = interestsPart.split(',').map(s => s.trim()).filter(s => s);
-          
-          if (messageIdx >= 0 && messageIdx < chunk.length && interests.length > 0) {
-            interestingMessages.push({
-              message: chunk[messageIdx],
-              interests_matched: interests
-            });
-            cache.setInterestResult(chunk[messageIdx].link, interests, config.userInterests);
-            processedMessages.add(messageIdx);
+        // Check for explicit "no matches" responses
+        if (result.toLowerCase().includes('no messages match') || 
+            result.toLowerCase().includes('none qualify') ||
+            result.toLowerCase().trim() === 'none') {
+          // All messages have no matches - cache them as empty
+          for (const message of chunk) {
+            cache.setInterestResult(message.link, [], config.userInterests);
           }
-        }
-        
-        // Cache empty results for unmatched messages
-        for (let idx = 0; idx < chunk.length; idx++) {
-          if (!processedMessages.has(idx)) {
-            cache.setInterestResult(chunk[idx].link, [], config.userInterests);
+        } else {
+          // Parse normal MESSAGE_NUMBER: interests format
+          const lines = result.split('\n').filter(line => /^\s*\d+\s*:/.test(line));
+          const processedMessages = new Set<number>();
+          
+          for (const line of lines) {
+            const [numPart, interestsPart] = line.split(':');
+            const messageIdx = parseInt(numPart.trim()) - 1;
+            const interests = interestsPart.split(',').map(s => s.trim()).filter(s => s);
+            
+            if (messageIdx >= 0 && messageIdx < chunk.length && interests.length > 0) {
+              interestingMessages.push({
+                message: chunk[messageIdx],
+                interests_matched: interests
+              });
+              cache.setInterestResult(chunk[messageIdx].link, interests, config.userInterests);
+              processedMessages.add(messageIdx);
+            }
+          }
+          
+          // Cache empty results for unmatched messages
+          for (let idx = 0; idx < chunk.length; idx++) {
+            if (!processedMessages.has(idx)) {
+              cache.setInterestResult(chunk[idx].link, [], config.userInterests);
+            }
           }
         }
       } else {
