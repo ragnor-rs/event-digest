@@ -86,7 +86,7 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`Created ${events.length} events`);
+  console.log(`  Created ${events.length} events`);
   return events;
 }
 

@@ -26,11 +26,22 @@ export class TelegramClient {
           input: process.stdin,
           output: process.stdout
         });
+        
         return new Promise((resolve) => {
+          rl.stdoutMuted = true;
           rl.question('Password? ', (answer: string) => {
+            rl.stdoutMuted = false;
+            rl.output.write('\n');
             rl.close();
             resolve(answer);
           });
+          rl._writeToOutput = (stringToWrite: string) => {
+            if (rl.stdoutMuted && stringToWrite !== 'Password? ') {
+              rl.output.write('*');
+            } else {
+              rl.output.write(stringToWrite);
+            }
+          };
         });
       },
       phoneCode: async () => {
@@ -39,11 +50,22 @@ export class TelegramClient {
           input: process.stdin,
           output: process.stdout
         });
+        
         return new Promise((resolve) => {
-          rl.question('Code? ', (answer: string) => {
+          rl.stdoutMuted = true;
+          rl.question('Verification Code? ', (answer: string) => {
+            rl.stdoutMuted = false;
+            rl.output.write('\n');
             rl.close();
             resolve(answer);
           });
+          rl._writeToOutput = (stringToWrite: string) => {
+            if (rl.stdoutMuted && stringToWrite !== 'Verification Code? ') {
+              rl.output.write('*');
+            } else {
+              rl.output.write(stringToWrite);
+            }
+          };
         });
       },
       onError: (err: any) => console.log(err),
@@ -58,7 +80,7 @@ export class TelegramClient {
     
     for (const channelName of allChannels) {
       try {
-        console.log(`Fetching messages from ${channelName}...`);
+        console.log(`  Fetching messages from ${channelName}...`);
         
         const entity = await this.client.getEntity(channelName);
         
@@ -79,7 +101,7 @@ export class TelegramClient {
           }
         }
         
-        console.log(`Fetched ${messages.length} messages from ${channelName}`);
+        console.log(`  Fetched ${messages.length} messages from ${channelName}`);
       } catch (error) {
         console.error(`Error fetching from ${channelName}:`, error);
       }
