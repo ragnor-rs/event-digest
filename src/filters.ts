@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { TelegramMessage, InterestingMessage, ScheduledMessage, Config } from './types';
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
+import { Cache } from './cache';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -26,14 +27,40 @@ export async function filterEventMessages(messages: TelegramMessage[], config: C
 }
 
 export async function filterWithGPT(messages: TelegramMessage[]): Promise<TelegramMessage[]> {
+  const cache = new Cache();
   console.log(`Step 3: Using GPT to filter ${messages.length} messages for event announcements...`);
   
-  const chunks = [];
-  for (let i = 0; i < messages.length; i += 16) {
-    chunks.push(messages.slice(i, i + 16));
+  // Check cache first
+  const uncachedMessages: TelegramMessage[] = [];
+  const eventMessages: TelegramMessage[] = [];
+  let cacheHits = 0;
+
+  for (const message of messages) {
+    const cachedResult = cache.getEventResult(message.link);
+    if (cachedResult !== null) {
+      cacheHits++;
+      if (cachedResult) {
+        eventMessages.push(message);
+      }
+    } else {
+      uncachedMessages.push(message);
+    }
   }
 
-  const eventMessages: TelegramMessage[] = [];
+  if (cacheHits > 0) {
+    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+  }
+
+  if (uncachedMessages.length === 0) {
+    console.log(`  All messages cached, skipping GPT calls`);
+    console.log(`  GPT identified ${eventMessages.length} event announcements`);
+    return eventMessages;
+  }
+  
+  const chunks = [];
+  for (let i = 0; i < uncachedMessages.length; i += 16) {
+    chunks.push(uncachedMessages.slice(i, i + 16));
+  }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -71,7 +98,20 @@ Respond with only the numbers of messages that are SINGLE event announcements, s
         for (const idx of indices) {
           if (idx >= 0 && idx < chunk.length) {
             eventMessages.push(chunk[idx]);
+            cache.setEventResult(chunk[idx].link, true);
           }
+        }
+        
+        // Cache negative results too
+        for (let idx = 0; idx < chunk.length; idx++) {
+          if (!indices.includes(idx)) {
+            cache.setEventResult(chunk[idx].link, false);
+          }
+        }
+      } else {
+        // All messages in chunk are not events
+        for (const message of chunk) {
+          cache.setEventResult(message.link, false);
         }
       }
     } catch (error) {
@@ -87,14 +127,43 @@ Respond with only the numbers of messages that are SINGLE event announcements, s
 }
 
 export async function filterByInterests(messages: TelegramMessage[], config: Config): Promise<InterestingMessage[]> {
+  const cache = new Cache();
   console.log(`Step 4: Filtering ${messages.length} messages by user interests...`);
   
-  const chunks = [];
-  for (let i = 0; i < messages.length; i += 16) {
-    chunks.push(messages.slice(i, i + 16));
+  // Check cache first
+  const uncachedMessages: TelegramMessage[] = [];
+  const interestingMessages: InterestingMessage[] = [];
+  let cacheHits = 0;
+
+  for (const message of messages) {
+    const cachedInterests = cache.getInterestResult(message.link);
+    if (cachedInterests !== null) {
+      cacheHits++;
+      if (cachedInterests.length > 0) {
+        interestingMessages.push({
+          message,
+          interests_matched: cachedInterests
+        });
+      }
+    } else {
+      uncachedMessages.push(message);
+    }
   }
 
-  const interestingMessages: InterestingMessage[] = [];
+  if (cacheHits > 0) {
+    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+  }
+
+  if (uncachedMessages.length === 0) {
+    console.log(`  All messages cached, skipping GPT calls`);
+    console.log(`  Found ${interestingMessages.length} messages matching user interests`);
+    return interestingMessages;
+  }
+  
+  const chunks = [];
+  for (let i = 0; i < uncachedMessages.length; i += 16) {
+    chunks.push(uncachedMessages.slice(i, i + 16));
+  }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -123,17 +192,33 @@ If a message doesn't match any interests, don't include it in your response.`;
       const result = response.choices[0].message.content?.trim();
       if (result) {
         const lines = result.split('\n').filter(line => line.includes(':'));
+        const processedMessages = new Set<number>();
+        
         for (const line of lines) {
           const [numPart, interestsPart] = line.split(':');
           const messageIdx = parseInt(numPart.trim()) - 1;
-          const interests = interestsPart.split(',').map(s => s.trim());
+          const interests = interestsPart.split(',').map(s => s.trim()).filter(s => s);
           
           if (messageIdx >= 0 && messageIdx < chunk.length && interests.length > 0) {
             interestingMessages.push({
               message: chunk[messageIdx],
               interests_matched: interests
             });
+            cache.setInterestResult(chunk[messageIdx].link, interests);
+            processedMessages.add(messageIdx);
           }
+        }
+        
+        // Cache empty results for unmatched messages
+        for (let idx = 0; idx < chunk.length; idx++) {
+          if (!processedMessages.has(idx)) {
+            cache.setInterestResult(chunk[idx].link, []);
+          }
+        }
+      } else {
+        // No matches in this chunk
+        for (const message of chunk) {
+          cache.setInterestResult(message.link, []);
         }
       }
     } catch (error) {
@@ -149,14 +234,73 @@ If a message doesn't match any interests, don't include it in your response.`;
 }
 
 export async function filterBySchedule(messages: InterestingMessage[], config: Config): Promise<ScheduledMessage[]> {
+  const cache = new Cache();
   console.log(`Step 5: Filtering ${messages.length} messages by schedule and future dates...`);
   
-  const chunks = [];
-  for (let i = 0; i < messages.length; i += 16) {
-    chunks.push(messages.slice(i, i + 16));
+  // Check cache first
+  const uncachedMessages: InterestingMessage[] = [];
+  const scheduledMessages: ScheduledMessage[] = [];
+  let cacheHits = 0;
+
+  for (const message of messages) {
+    const cachedDateTime = cache.getScheduleResult(message.message.link);
+    if (cachedDateTime !== null) {
+      cacheHits++;
+      if (cachedDateTime !== 'unknown') {
+        // Re-validate against current time and schedule
+        try {
+          let eventDate: Date;
+          if (cachedDateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/)) {
+            eventDate = parse(cachedDateTime + ':00', 'dd MMM yyyy HH:mm', new Date());
+          } else {
+            eventDate = parse(cachedDateTime, 'dd MMM yyyy HH:mm', new Date());
+          }
+          
+          const now = new Date();
+          if (eventDate > now) {
+            const dayOfWeek = getDay(eventDate);
+            const hour = getHours(eventDate);
+            const minute = getMinutes(eventDate);
+            const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            
+            const matchesSchedule = config.weeklyTimeslots.some(slot => {
+              const [slotDay, slotTime] = slot.split(' ');
+              const slotDayNum = parseInt(slotDay);
+              return slotDayNum === dayOfWeek && timeStr >= slotTime;
+            });
+            
+            if (matchesSchedule) {
+              const properDateTime = cachedDateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? cachedDateTime + ':00' : cachedDateTime;
+              scheduledMessages.push({
+                interesting_message: message,
+                start_datetime: properDateTime
+              });
+            }
+          }
+        } catch (error) {
+          // If cached data is invalid, re-process
+          uncachedMessages.push(message);
+        }
+      }
+    } else {
+      uncachedMessages.push(message);
+    }
   }
 
-  const scheduledMessages: ScheduledMessage[] = [];
+  if (cacheHits > 0) {
+    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+  }
+
+  if (uncachedMessages.length === 0) {
+    console.log(`  All messages cached, skipping GPT calls`);
+    console.log(`  Found ${scheduledMessages.length} messages matching schedule`);
+    return scheduledMessages;
+  }
+  
+  const chunks = [];
+  for (let i = 0; i < uncachedMessages.length; i += 16) {
+    chunks.push(uncachedMessages.slice(i, i + 16));
+  }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -191,10 +335,18 @@ CRITICAL FORMAT REQUIREMENTS:
       const result = response.choices[0].message.content?.trim();
       if (result) {
         const lines = result.split('\n').filter(line => line.includes(':'));
+        const processedMessages = new Set<number>();
+        
         for (const line of lines) {
           const [numPart, datePart] = line.split(':');
           const messageIdx = parseInt(numPart.trim()) - 1;
           const dateTime = datePart.trim();
+          
+          // Cache the extracted datetime
+          if (messageIdx >= 0 && messageIdx < chunk.length) {
+            cache.setScheduleResult(chunk[messageIdx].message.link, dateTime);
+            processedMessages.add(messageIdx);
+          }
           
           if (messageIdx >= 0 && messageIdx < chunk.length && dateTime !== 'unknown') {
             try {
@@ -254,6 +406,18 @@ CRITICAL FORMAT REQUIREMENTS:
               console.log(`    Could not parse date: ${dateTime}`);
             }
           }
+        }
+        
+        // Cache 'unknown' for unprocessed messages
+        for (let idx = 0; idx < chunk.length; idx++) {
+          if (!processedMessages.has(idx)) {
+            cache.setScheduleResult(chunk[idx].message.link, 'unknown');
+          }
+        }
+      } else {
+        // No results from GPT, cache as unknown
+        for (const message of chunk) {
+          cache.setScheduleResult(message.message.link, 'unknown');
         }
       }
     } catch (error) {

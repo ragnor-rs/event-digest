@@ -5,6 +5,7 @@ import { parseArgs } from './config';
 import { TelegramClient } from './telegram';
 import { filterEventMessages, filterWithGPT, filterByInterests, filterBySchedule } from './filters';
 import { convertToEvents, printEvents } from './events';
+import { Cache } from './cache';
 
 async function main() {
   try {
@@ -36,6 +37,16 @@ async function main() {
     console.log('');
 
     printEvents(events);
+
+    // Show cache statistics
+    const cache = new Cache();
+    const stats = cache.getStats();
+    console.log('\n=== CACHE STATISTICS ===');
+    console.log(`Step 3 cached: ${stats.step3_cached} messages`);
+    console.log(`Step 4 cached: ${stats.step4_cached} messages`);
+    console.log(`Step 5 cached: ${stats.step5_cached} messages`);
+    console.log(`Step 6 cached: ${stats.step6_cached} messages`);
+    console.log(`Total cached: ${stats.total_cached} results`);
 
     await telegramClient.disconnect();
     console.log('\nDisconnected from Telegram');
