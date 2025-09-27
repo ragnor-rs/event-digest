@@ -145,7 +145,7 @@ export function printEvents(events: Event[]): void {
   events.forEach((event, index) => {
     console.log(`${index + 1}. ${event.title}`);
     console.log(`   📅 ${event.date_time}`);
-    console.log(`   🏷️  ${event.met_interests.join(', ')}`);
+    console.log(`   🏷️ ${event.met_interests.join(', ')}`);
     console.log(`   📝 ${event.short_summary}`);
     console.log(`   🔗 ${event.link}`);
     console.log('');
