@@ -39,17 +39,24 @@ export async function filterWithGPT(messages: TelegramMessage[]): Promise<Telegr
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
     
-    const prompt = `Analyze these messages and identify which ones are event announcements (concerts, meetups, conferences, workshops, etc.).
+    const prompt = `Analyze these messages and identify which ones are announcements for a SINGLE SPECIFIC EVENT.
 
-IMPORTANT: Only include messages about SINGLE specific events. Exclude:
-- Event digests or lists of multiple events
-- General announcements without specific events
-- Recurring event series without specific dates
+CRITICAL: You must EXCLUDE any message that:
+- Lists multiple events or contains phrases like "events this week", "upcoming events", "event digest"
+- Contains multiple dates or mentions several different activities
+- Is a schedule or calendar listing
+- Mentions "events" in plural form
+- Is a roundup or compilation of events
+
+ONLY INCLUDE messages that announce ONE specific event with:
+- One specific date/time
+- One specific activity/event
+- Clear event details (title, location, etc.)
 
 Messages:
 ${chunk.map((msg, idx) => `${idx + 1}. ${msg.content}`).join('\n\n')}
 
-Respond with only the numbers of messages that are event announcements, separated by commas (e.g., "1,3,7"). If none are events, respond with "none".`;
+Respond with only the numbers of messages that are SINGLE event announcements, separated by commas (e.g., "1,3,7"). If none qualify, respond with "none".`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -222,13 +229,18 @@ CRITICAL FORMAT REQUIREMENTS:
               });
               
               if (matchesSchedule) {
+                // Store the properly formatted date
+                const properDateTime = dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
+                
                 scheduledMessages.push({
                   interesting_message: chunk[messageIdx],
-                  start_datetime: dateTime
+                  start_datetime: properDateTime
                 });
-                console.log(`    ✓ Included: ${dateTime} (day ${dayOfWeek}, ${timeStr}) - ${chunk[messageIdx].message.link}`);
+                
+                console.log(`    ✓ Included: ${properDateTime} (day ${dayOfWeek}, ${timeStr}) - ${chunk[messageIdx].message.link}`);
               } else {
-                console.log(`    ✗ Filtered out: ${dateTime} (day ${dayOfWeek}, ${timeStr}) - doesn't match timeslots ${config.weeklyTimeslots.join(', ')} - ${chunk[messageIdx].message.link}`);
+                const properDateTime = dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
+                console.log(`    ✗ Filtered out: ${properDateTime} (day ${dayOfWeek}, ${timeStr}) - doesn't match timeslots ${config.weeklyTimeslots.join(', ')} - ${chunk[messageIdx].message.link}`);
               }
             } catch (error) {
               console.log(`    Could not parse date: ${dateTime}`);

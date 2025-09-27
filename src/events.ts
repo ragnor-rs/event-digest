@@ -15,7 +15,9 @@ export async function convertToEvents(messages: ScheduledMessage[]): Promise<Eve
 
   const events: Event[] = [];
 
-  for (const chunk of chunks) {
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
     const prompt = `Convert these event messages into structured event information.
 
 Messages:
@@ -73,6 +75,19 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
               title,
               short_summary: summary,
               full_description: description,
+              link: chunk[i].interesting_message.message.link
+            });
+            console.log(`    ✓ Created event: ${title}`);
+          } else {
+            console.log(`    ✗ Failed to extract complete event info for ${chunk[i].interesting_message.message.link}`);
+            
+            // Create event with fallback values to ensure no messages are lost
+            events.push({
+              date_time: chunk[i].start_datetime,
+              met_interests: chunk[i].interesting_message.interests_matched,
+              title: title || 'Event',
+              short_summary: summary || 'Event details not extracted properly',
+              full_description: description || chunk[i].interesting_message.message.content.substring(0, 200) + '...',
               link: chunk[i].interesting_message.message.link
             });
           }

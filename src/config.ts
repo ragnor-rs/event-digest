@@ -2,6 +2,7 @@ import { Config } from './types';
 
 export function parseArgs(): Config {
   const args = process.argv.slice(2);
+  console.log(`DEBUG: Raw arguments:`, args);
   
   if (args.length === 0) {
     console.log(`Usage: npm run dev -- \\
@@ -19,6 +20,7 @@ export function parseArgs(): Config {
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     const value = args[i + 1];
+    console.log(`DEBUG: Processing ${key} = ${value}`);
     
     switch (key) {
       case '--groups':
@@ -38,11 +40,15 @@ export function parseArgs(): Config {
         break;
       case '--max-messages':
         config.maxInputMessages = parseInt(value);
+        console.log(`DEBUG: Parsed --max-messages: ${value} -> ${config.maxInputMessages}`);
         break;
     }
   }
 
-  config.maxInputMessages = config.maxInputMessages || 100;
+  if (config.maxInputMessages === undefined) {
+    config.maxInputMessages = 100;
+  }
+  console.log(`DEBUG: Setting maxInputMessages = ${config.maxInputMessages}`);
   config.eventMessageCues = {
     ru: ["сентября", "сегодня", "часов", "завтра", "послезавтра", "января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "октября", "ноября", "декабря"],
     en: ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "tonight", "tomorrow", "today"]
