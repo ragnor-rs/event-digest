@@ -409,9 +409,9 @@ CRITICAL FORMAT REQUIREMENTS:
                   start_datetime: normalizedDateTime
                 });
                 
-                console.log(`    ✓ Included: ${normalizedDateTime} (day ${dayOfWeek}, ${timeStr}) - ${chunk[messageIdx].message.link}`);
+                console.log(`    ✓ Included: ${normalizedDateTime} (day ${dayOfWeek}) - ${chunk[messageIdx].message.link}`);
               } else {
-                console.log(`    ✗ Filtered out: ${normalizedDateTime} (day ${dayOfWeek}, ${timeStr}) - doesn't match timeslots ${config.weeklyTimeslots.join(', ')} - ${chunk[messageIdx].message.link}`);
+                console.log(`    ✗ Filtered out: ${normalizedDateTime} (day ${dayOfWeek}) - ${chunk[messageIdx].message.link}`);
               }
             } catch (error) {
               console.log(`    Could not parse date: ${dateTime}`);
