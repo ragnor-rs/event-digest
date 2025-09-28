@@ -187,6 +187,8 @@ CRITICAL MATCHING RULES:
 - Do NOT match events conducted in a language but not ABOUT that language
 - Do NOT match events by speakers who happen to have expertise in an interest area
 - The event content must be specifically designed for people interested in that topic
+- ONLY use interests from the exact list provided above - do NOT invent new interests
+- If no interests from the list match, do NOT include the message in your response
 
 Messages:
 ${chunk.map((msg, idx) => `${idx + 1}. ${msg.content.replace(/\n/g, ' ')}`).join('\n\n')}

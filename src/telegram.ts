@@ -166,9 +166,11 @@ export class TelegramClient {
       // Give a brief moment for any ongoing operations to complete
       await new Promise(resolve => setTimeout(resolve, 100));
       await this.client.disconnect();
+      await this.client.destroy();
+      console.log('Disconnected from Telegram');
     } catch (error) {
-      // Ignore disconnect errors as they're often harmless timeouts
-      console.log('Disconnect completed (ignoring any timeout errors)');
+      // Ignore disconnect errors as they're often harmless timeouts from _updateLoop
+      console.log('Disconnection completed (ignoring timeout errors)');
     }
   }
 }

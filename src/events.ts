@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { ScheduledMessage, Event, Config } from './types';
 import { Cache } from './cache';
+import { parse } from 'date-fns';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -141,7 +142,19 @@ export function printEvents(events: Event[]): void {
 
   console.log('');
 
-  events.forEach((event, index) => {
+  // Sort events by date in chronological order
+  const sortedEvents = events.sort((a, b) => {
+    try {
+      const dateA = parse(a.date_time, 'dd MMM yyyy HH:mm', new Date());
+      const dateB = parse(b.date_time, 'dd MMM yyyy HH:mm', new Date());
+      return dateA.getTime() - dateB.getTime();
+    } catch (error) {
+      // If date parsing fails, keep original order
+      return 0;
+    }
+  });
+
+  sortedEvents.forEach((event, index) => {
     console.log(`${index + 1}. ${event.title}`);
     console.log(`   📅 ${event.date_time}`);
     console.log(`   🏷️ ${event.met_interests.join(', ')}`);

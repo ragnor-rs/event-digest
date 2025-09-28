@@ -41,7 +41,6 @@ async function main() {
     console.log('');
 
     await telegramClient.disconnect();
-    console.log('Disconnected from Telegram');
   } catch (error) {
     console.error('Error:', error);
     process.exit(1);
