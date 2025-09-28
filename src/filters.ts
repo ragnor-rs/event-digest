@@ -329,8 +329,13 @@ export async function filterBySchedule(messages: InterestingMessage[], config: C
     
     const prompt = `Extract the start date and time for each event. Today's date is ${new Date().toDateString()}.
 
-Messages:
-${chunk.map((msg, idx) => `${idx + 1}. ${msg.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
+CRITICAL: Use message timestamps to infer the correct year for events. If an event mentions "March 15" and the message was posted on "March 10, 2024", the event is "March 15, 2024". If a message from "Dec 10, 2023" mentions "Jan 5", the event is "Jan 5, 2024" (next occurrence).
+
+Messages with timestamps:
+${chunk.map((msg, idx) => {
+  const messageDate = new Date(msg.message.timestamp);
+  return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${msg.message.content.replace(/\n/g, ' ')}`;
+}).join('\n\n')}
 
 For each message, respond in this format:
 MESSAGE_NUMBER: DD MMM YYYY HH:MM
@@ -344,7 +349,12 @@ CRITICAL FORMAT REQUIREMENTS:
 - If you can't determine the complete date/time, use "unknown"
 - NEVER use formats like "06 Sep 2025 18" - this is WRONG
 - CORRECT: "06 Sep 2025 18:00"
-- WRONG: "06 Sep 2025 18"`;
+- WRONG: "06 Sep 2025 18"
+
+YEAR INFERENCE RULES:
+- If event date is after message date in same year, use same year
+- If event date is before message date, use next year (e.g., Dec message mentioning Jan event = next year)
+- Always ensure the event date is in the future relative to message timestamp`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -382,11 +392,21 @@ CRITICAL FORMAT REQUIREMENTS:
                 continue;
               }
               
-              // Check if the event is in the future
+              // Validate event date against message timestamp
+              const messageDate = new Date(chunk[messageIdx].message.timestamp);
               const now = new Date();
+              
+              // Check if the event is in the future relative to current time
               if (eventDate <= now) {
                 const properDateTime = dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
                 console.log(`    ✗ Past event: ${properDateTime} - ${chunk[messageIdx].message.link}`);
+                continue;
+              }
+              
+              // Check if event date is reasonable relative to message date (not more than 2 years in the future)
+              const maxFutureDate = new Date(messageDate.getTime() + (2 * 365 * 24 * 60 * 60 * 1000)); // 2 years from message
+              if (eventDate > maxFutureDate) {
+                console.log(`    ✗ Event too far in future: ${normalizedDateTime} (message from ${messageDate.toDateString()}) - ${chunk[messageIdx].message.link}`);
                 continue;
               }
               
