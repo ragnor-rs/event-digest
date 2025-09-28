@@ -84,7 +84,6 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
         
         for (let i = 0; i < eventBlocks.length && i < chunk.length; i++) {
           const block = eventBlocks[i];
-          console.log(`    Processing block ${i + 1}:`, block.substring(0, 200) + '...');
           
           // Find TITLE, SUMMARY, DESCRIPTION using more robust matching
           const titleMatch = block.match(/\bTITLE:\s*(.+?)(?=\n|$)/i);
@@ -94,8 +93,6 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
           const title = titleMatch ? titleMatch[1].trim() : '';
           const summary = summaryMatch ? summaryMatch[1].trim() : '';
           const description = descriptionMatch ? descriptionMatch[1].trim() : '';
-          
-          console.log(`    Extracted for message ${i + 1}: title="${title}", summary="${summary}", description="${description ? description.substring(0, 50) + '...' : 'empty'}"`);
           
           const eventData = {
             title: title || 'Event',

@@ -12,6 +12,20 @@ npm run dev      # Run with ts-node for development
 ```
 
 **Example Usage:**
+
+Option 1 - YAML Configuration (Recommended):
+```bash
+# Copy config.example.yaml to config.yaml and customize
+cp config.example.yaml config.yaml
+npm run dev
+```
+
+Option 2 - Custom YAML file:
+```bash
+npm run dev -- --config=my-config.yaml
+```
+
+Option 3 - Command line arguments:
 ```bash
 npm run dev -- \
   --groups "group1,group2" \
@@ -49,8 +63,9 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - Cache keys include user preferences to prevent incorrect hits when settings change
 
 **Configuration** (`src/config.ts`):
-- Command-line argument parsing with detailed validation
-- Supports groups, channels, interests, timeslots, and message limits
+- Supports YAML configuration files (config.yaml/config.yml) or command-line arguments
+- YAML config provides better organization and version control
+- Detailed validation for groups, channels, interests, timeslots, and message limits
 
 ### Important Implementation Details
 

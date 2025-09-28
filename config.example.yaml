@@ -1,0 +1,70 @@
+# Event Digest Configuration Example
+# Copy this file to config.yaml and customize for your needs
+
+# Telegram groups to monitor (without @ prefix)
+groupsToParse:
+  - "tbilisi_js_chat"
+  - "unicornembassy_georgia" 
+
+# Telegram channels to monitor (without @ prefix)
+channelsToParse:
+  - "georgiaafisha"
+  - "auditoria_tbilisi"
+
+# Your interests - events will be matched against these topics
+userInterests:
+  - "VC"
+  - "английский" 
+  - "походы"
+  - "JavaScript"
+  - "технологии"
+
+# Weekly availability timeslots
+# Format: "DAY_OF_WEEK TIME" where DAY_OF_WEEK is 0-6 (0=Sunday, 6=Saturday)
+# Events must start at or after the specified time on that day
+weeklyTimeslots:
+  - "6 14:00"  # Saturday after 14:00
+  - "0 14:00"  # Sunday after 14:00
+
+# Optional: Timestamp to fetch messages after (ISO format)
+# lastGenerationTimestamp: "2024-01-15T10:00:00.000Z"
+
+# Optional: Maximum number of messages to fetch per channel/group (default: 100)
+maxInputMessages: 100
+
+# Optional: Custom event message cues (words that indicate event announcements)
+# If not specified, built-in cues will be used
+eventMessageCues:
+  ru:
+    - "сентября"
+    - "сегодня"
+    - "часов"
+    - "завтра"
+    - "послезавтра"
+    - "января"
+    - "февраля"
+    - "марта"
+    - "апреля"
+    - "мая"
+    - "июня"
+    - "июля"
+    - "августа"
+    - "октября"
+    - "ноября"
+    - "декабря"
+  en:
+    - "january"
+    - "february"
+    - "march"
+    - "april"
+    - "may"
+    - "june"
+    - "july"
+    - "august"
+    - "september"
+    - "october"
+    - "november"
+    - "december"
+    - "tonight"
+    - "tomorrow"
+    - "today"

@@ -7,3 +7,4 @@ session/
 .idea/
 .cache/
 .telegram-session
+/config.yaml

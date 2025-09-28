@@ -8,6 +8,7 @@ This tool fetches messages from specified Telegram groups and channels, then use
 
 ## Features
 
+- **YAML Configuration**: Easy-to-manage configuration files with organized settings
 - **Smart Event Detection**: Uses GPT to identify genuine event announcements vs general messages
 - **Interest-Based Filtering**: Matches events to your specific interests with strict relevance criteria
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
@@ -30,6 +31,8 @@ npm install
 
 ## Configuration
 
+### Environment Variables
+
 Create a `.env` file (use `.env.example` as template):
 
 ```env
@@ -39,9 +42,54 @@ TELEGRAM_PHONE_NUMBER=your_phone_number_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-## Usage
+### Configuration Options
 
-### Basic Example
+You can configure the tool in three ways:
+
+#### Option 1: YAML Configuration (Recommended)
+
+Create a `config.yaml` file in the project root:
+
+```yaml
+# Telegram channels to monitor (without @ prefix)
+channelsToParse:
+  - "auditoria_tbilisi"
+  - "georgiaafisha"
+
+# Telegram groups to monitor (without @ prefix)
+groupsToParse:
+  - "tbilisi_js_chat"
+  - "unicornembassy_georgia"
+
+# Your interests - events will be matched against these topics
+userInterests:
+  - "VC"
+  - "English"
+  - "ML"
+  - "Board games"
+
+# Weekly availability timeslots
+# Format: "DAY_OF_WEEK TIME" where DAY_OF_WEEK is 0-6 (0=Sunday, 6=Saturday)
+weeklyTimeslots:
+  - "6 14:00"  # Saturday after 14:00
+  - "0 14:00"  # Sunday after 14:00
+
+# Maximum number of messages to fetch per channel/group
+maxInputMessages: 100
+```
+
+Then run:
+```bash
+npm run dev
+```
+
+#### Option 2: Custom YAML File
+
+```bash
+npm run dev -- --config=my-config.yaml
+```
+
+#### Option 3: Command Line Arguments
 
 ```bash
 npm run dev -- \
@@ -52,13 +100,15 @@ npm run dev -- \
   --max-messages 50
 ```
 
-### Parameters
+### Configuration Parameters
 
-- `--groups`: Comma-separated list of Telegram group usernames
-- `--channels`: Comma-separated list of Telegram channel usernames  
-- `--interests`: Your interests (events must be directly about these topics)
-- `--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
-- `--max-messages`: Maximum messages to fetch per group/channel (default: 100)
+- `groupsToParse`/`--groups`: Telegram group usernames (without @)
+- `channelsToParse`/`--channels`: Telegram channel usernames (without @)
+- `userInterests`/`--interests`: Your interests (events must be directly about these topics)
+- `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
+- `maxInputMessages`/`--max-messages`: Maximum messages to fetch per group/channel (default: 100)
+
+## Authentication & Session Management
 
 ### First Run
 
@@ -66,7 +116,16 @@ On your first run, you'll be prompted to:
 1. Enter the verification code sent to your phone
 2. Enter your 2FA password (if enabled)
 
-Subsequent runs will use the saved session automatically.
+The tool will save your Telegram session to `.telegram-session` file for future use.
+
+### Session Persistence
+
+- **Automatic Login**: After initial setup, the tool uses the saved session for subsequent runs
+- **Session Storage**: Session data is securely stored in `.telegram-session` file
+- **No Re-authentication**: You won't need to enter codes again unless the session expires
+- **Session Management**: The session is saved only after successful login, not on every disconnect
+
+**Important**: Keep the `.telegram-session` file secure and add it to `.gitignore` to avoid committing sensitive session data.
 
 ## How It Works
 
