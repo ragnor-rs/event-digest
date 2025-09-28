@@ -29,8 +29,16 @@ weeklyTimeslots:
 # Optional: Timestamp to fetch messages after (ISO format)
 # lastGenerationTimestamp: "2024-01-15T10:00:00.000Z"
 
-# Optional: Maximum number of messages to fetch per channel/group (default: 100)
-maxInputMessages: 100
+# Maximum number of messages to fetch from groups (default: 150)
+# Groups typically have more conversational noise, so need more messages
+maxGroupMessages: 150
+
+# Maximum number of messages to fetch from channels (default: 100)  
+# Channels are more focused, so fewer messages needed
+maxChannelMessages: 100
+
+# Optional: Legacy parameter for backward compatibility
+# maxInputMessages: 100
 
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used

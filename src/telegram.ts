@@ -108,38 +108,52 @@ export class TelegramClient {
     console.log('Connected to Telegram');
   }
 
+  private async fetchMessagesFromSource(sourceName: string, sourceType: 'group' | 'channel', limit: number, config: Config): Promise<TelegramMessage[]> {
+    const messages: TelegramMessage[] = [];
+    
+    try {
+      console.log(`  Fetching messages from ${sourceType} ${sourceName}...`);
+      
+      const entity = await this.client.getEntity(sourceName);
+      
+      const telegramMessages = await this.client.getMessages(entity, {
+        limit: limit,
+        offsetDate: config.lastGenerationTimestamp ? 
+          Math.floor(parse(config.lastGenerationTimestamp, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", new Date()).getTime() / 1000) : 
+          undefined
+      });
+
+      for (const msg of telegramMessages) {
+        if (msg.message) {
+          messages.push({
+            timestamp: new Date(msg.date * 1000).toISOString(),
+            content: msg.message,
+            link: `https://t.me/${sourceName}/${msg.id}`
+          });
+        }
+      }
+      
+      console.log(`  Fetched ${telegramMessages.length} messages from ${sourceType} ${sourceName}`);
+    } catch (error) {
+      console.error(`Error fetching from ${sourceType} ${sourceName}:`, error);
+    }
+    
+    return messages;
+  }
+
   async fetchMessages(config: Config): Promise<TelegramMessage[]> {
     const allMessages: TelegramMessage[] = [];
     
-    const allChannels = [...config.groupsToParse, ...config.channelsToParse];
-    
-    for (const channelName of allChannels) {
-      try {
-        console.log(`  Fetching messages from ${channelName}...`);
-        
-        const entity = await this.client.getEntity(channelName);
-        
-        const messages = await this.client.getMessages(entity, {
-          limit: config.maxInputMessages,
-          offsetDate: config.lastGenerationTimestamp ? 
-            Math.floor(parse(config.lastGenerationTimestamp, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", new Date()).getTime() / 1000) : 
-            undefined
-        });
+    // Process groups with higher message limit
+    for (const groupName of config.groupsToParse) {
+      const messages = await this.fetchMessagesFromSource(groupName, 'group', config.maxGroupMessages, config);
+      allMessages.push(...messages);
+    }
 
-        for (const msg of messages) {
-          if (msg.message) {
-            allMessages.push({
-              timestamp: new Date(msg.date * 1000).toISOString(),
-              content: msg.message,
-              link: `https://t.me/${channelName}/${msg.id}`
-            });
-          }
-        }
-        
-        console.log(`  Fetched ${messages.length} messages from ${channelName}`);
-      } catch (error) {
-        console.error(`Error fetching from ${channelName}:`, error);
-      }
+    // Process channels with separate limit
+    for (const channelName of config.channelsToParse) {
+      const messages = await this.fetchMessagesFromSource(channelName, 'channel', config.maxChannelMessages, config);
+      allMessages.push(...messages);
     }
 
     return allMessages.sort((a, b) => 

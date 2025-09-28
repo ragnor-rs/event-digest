@@ -32,7 +32,8 @@ npm run dev -- \
   --channels "channel1,channel2" \
   --interests "VC,английский,походы" \
   --timeslots "6 14:00,0 14:00" \
-  --max-messages 100
+  --max-group-messages 150 \
+  --max-channel-messages 100
 ```
 
 ## Architecture

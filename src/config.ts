@@ -90,6 +90,14 @@ export function parseArgs(): Config {
         config.maxInputMessages = parseInt(value);
         console.log(`DEBUG: Parsed --max-messages: ${value} -> ${config.maxInputMessages}`);
         break;
+      case '--max-group-messages':
+        config.maxGroupMessages = parseInt(value);
+        console.log(`DEBUG: Parsed --max-group-messages: ${value} -> ${config.maxGroupMessages}`);
+        break;
+      case '--max-channel-messages':
+        config.maxChannelMessages = parseInt(value);
+        console.log(`DEBUG: Parsed --max-channel-messages: ${value} -> ${config.maxChannelMessages}`);
+        break;
     }
   }
 
@@ -97,11 +105,23 @@ export function parseArgs(): Config {
 }
 
 function validateAndCompleteConfig(config: Partial<Config>): Config {
-  // Set defaults
-  if (config.maxInputMessages === undefined) {
-    config.maxInputMessages = 100;
+  // Set defaults for separate limits
+  if (config.maxGroupMessages === undefined && config.maxChannelMessages === undefined) {
+    // If neither is specified, use legacy maxInputMessages or defaults
+    const legacyLimit = config.maxInputMessages || 100;
+    config.maxGroupMessages = Math.floor(legacyLimit * 1.5); // Groups need more messages due to noise
+    config.maxChannelMessages = legacyLimit;
+  } else {
+    // Set individual defaults if only one is specified
+    if (config.maxGroupMessages === undefined) {
+      config.maxGroupMessages = config.maxChannelMessages ? Math.floor(config.maxChannelMessages * 1.5) : 150;
+    }
+    if (config.maxChannelMessages === undefined) {
+      config.maxChannelMessages = config.maxGroupMessages ? Math.floor(config.maxGroupMessages / 1.5) : 100;
+    }
   }
-  console.log(`DEBUG: Setting maxInputMessages = ${config.maxInputMessages}`);
+  
+  console.log(`DEBUG: Setting maxGroupMessages = ${config.maxGroupMessages}, maxChannelMessages = ${config.maxChannelMessages}`);
   
   if (!config.eventMessageCues) {
     config.eventMessageCues = {

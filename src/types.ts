@@ -27,7 +27,9 @@ export interface Config {
   groupsToParse: string[];
   channelsToParse: string[];
   lastGenerationTimestamp?: string;
-  maxInputMessages: number;
+  maxInputMessages?: number; // Legacy support
+  maxGroupMessages: number;
+  maxChannelMessages: number;
   userInterests: string[];
   weeklyTimeslots: string[];
   eventMessageCues: Record<string, string[]>;
