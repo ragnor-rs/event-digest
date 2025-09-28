@@ -58,9 +58,10 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - First run requires phone verification, subsequent runs are automatic
 
 **Caching System** (`src/cache.ts`):
-- Comprehensive GPT result caching with interest/schedule-aware cache keys
-- Separate cache stores for each pipeline step (steps 3-6)
-- Cache keys include user preferences to prevent incorrect hits when settings change
+- Comprehensive GPT result caching with optimized hash-based cache keys
+- Separate cache stores for each pipeline step (steps 3-6) 
+- Cache keys use message links + hashed preferences for efficient storage
+- Hash-based keys prevent cache bloat while maintaining preference isolation
 
 **Configuration** (`src/config.ts`):
 - Supports YAML configuration files (config.yaml/config.yml) or command-line arguments

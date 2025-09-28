@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 interface CacheEntry {
   result: any;
@@ -83,7 +84,9 @@ export class Cache {
       .sort()
       .join(',');
     
-    return `${messageLink}|${normalizedInterests}`;
+    // Hash the normalized interests for shorter, consistent cache keys
+    const preferencesHash = this.hashPreferences(normalizedInterests);
+    return `${messageLink}|interests:${preferencesHash}`;
   }
 
   // Step 5: Schedule filtering (datetime extraction)
@@ -105,7 +108,9 @@ export class Cache {
       .sort()
       .join(',');
     
-    return `${messageLink}|${normalizedTimeslots}`;
+    // Hash the normalized timeslots for shorter, consistent cache keys
+    const preferencesHash = this.hashPreferences(normalizedTimeslots);
+    return `${messageLink}|schedule:${preferencesHash}`;
   }
 
   // Step 6: Event conversion
@@ -156,5 +161,17 @@ export class Cache {
       this.saveCache();
       console.log('  Cache cleared (older than 30 days)');
     }
+  }
+
+  // Clear step 4 cache specifically
+  clearStep4Cache(): void {
+    this.cache.step4_interests = {};
+    this.saveCache();
+    console.log('  Step 4 cache cleared');
+  }
+
+  // Create hash for preferences (interests/timeslots) for shorter cache keys
+  private hashPreferences(preferences: string): string {
+    return crypto.createHash('sha256').update(preferences).digest('hex').substring(0, 16);
   }
 }
