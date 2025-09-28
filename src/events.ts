@@ -62,7 +62,7 @@ Link: ${msg.interesting_message.message.link}`).join('\n\n')}
 CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):
 MESSAGE_NUMBER:
 TITLE: [short catchy title in English]
-SUMMARY: [1-2 sentence summary in English]
+SUMMARY: [1-2 sentence summary in English - DO NOT mention dates/times as they are displayed separately]
 DESCRIPTION: [full description from the message, can be original language]
 
 Example:
