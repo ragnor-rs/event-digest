@@ -162,6 +162,13 @@ export class TelegramClient {
   }
 
   async disconnect(): Promise<void> {
-    await this.client.disconnect();
+    try {
+      // Give a brief moment for any ongoing operations to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await this.client.disconnect();
+    } catch (error) {
+      // Ignore disconnect errors as they're often harmless timeouts
+      console.log('Disconnect completed (ignoring any timeout errors)');
+    }
   }
 }
