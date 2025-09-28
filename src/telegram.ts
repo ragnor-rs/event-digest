@@ -148,8 +148,6 @@ export class TelegramClient {
   }
 
   async disconnect(): Promise<void> {
-    // Save session before disconnecting to ensure it's persisted
-    this.saveSession();
     await this.client.disconnect();
   }
 }

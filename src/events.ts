@@ -135,12 +135,14 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
 }
 
 export function printEvents(events: Event[]): void {
-  console.log('\n=== EVENT DIGEST ===\n');
+  console.log('=== EVENT DIGEST ===');
   
   if (events.length === 0) {
     console.log('No events found matching your criteria.');
     return;
   }
+
+  console.log('');
 
   events.forEach((event, index) => {
     console.log(`${index + 1}. ${event.title}`);

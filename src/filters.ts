@@ -34,9 +34,10 @@ export async function filterEventMessages(messages: TelegramMessage[], config: C
 }
 
 export async function filterWithGPT(messages: TelegramMessage[]): Promise<TelegramMessage[]> {
-  const cache = new Cache();
   console.log(`Step 3: Using GPT to filter ${messages.length} messages for event announcements...`);
   
+  const cache = new Cache();
+
   // Check cache first
   const uncachedMessages: TelegramMessage[] = [];
   const eventMessages: TelegramMessage[] = [];

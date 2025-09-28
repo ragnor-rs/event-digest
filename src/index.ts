@@ -12,10 +12,11 @@ async function main() {
     console.log('Starting Event Digest CLI...\n');
 
     const config = parseArgs();
-    console.log('Configuration loaded successfully\n');
+    console.log('Configuration loaded successfully');
 
     const telegramClient = new TelegramClient();
     await telegramClient.connect();
+    console.log('');
 
     console.log('Step 1: Fetching messages...');
     const allMessages = await telegramClient.fetchMessages(config);
@@ -37,20 +38,10 @@ async function main() {
     console.log('');
 
     printEvents(events);
-
-    // Show cache statistics
-    const cache = new Cache();
-    const stats = cache.getStats();
-    console.log('\n=== CACHE STATISTICS ===');
-    console.log(`Step 3 cached: ${stats.step3_cached} messages`);
-    console.log(`Step 4 cached: ${stats.step4_cached} messages`);
-    console.log(`Step 5 cached: ${stats.step5_cached} messages`);
-    console.log(`Step 6 cached: ${stats.step6_cached} messages`);
-    console.log(`Total cached: ${stats.total_cached} results`);
+    console.log('');
 
     await telegramClient.disconnect();
-    console.log('\nDisconnected from Telegram');
-
+    console.log('Disconnected from Telegram');
   } catch (error) {
     console.error('Error:', error);
     process.exit(1);
