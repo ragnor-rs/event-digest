@@ -97,8 +97,7 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
           
           const eventData = {
             title: title || 'Event',
-            short_summary: summary || 'Event details not extracted properly',
-            full_description: description || chunk[i].interesting_message.message.content.substring(0, 200) + '...'
+            short_summary: summary || 'Event details not extracted properly'
           };
 
           const finalEvent = {

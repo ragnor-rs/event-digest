@@ -19,7 +19,6 @@ export interface Event {
   met_interests: string[];
   title: string;
   short_summary: string;
-  full_description: string;
   link: string;
 }
 
