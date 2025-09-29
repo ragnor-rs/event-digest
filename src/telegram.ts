@@ -9,6 +9,7 @@ export class TelegramClient {
   private client: GramJSClient;
   private session: StringSession;
   private sessionFile: string;
+  private isNewSession: boolean;
 
   constructor() {
     const apiId = parseInt(process.env.TELEGRAM_API_ID!);
@@ -17,6 +18,7 @@ export class TelegramClient {
     this.sessionFile = path.join(process.cwd(), '.telegram-session');
     const savedSession = this.loadSession();
     this.session = new StringSession(savedSession);
+    this.isNewSession = !savedSession;
     this.client = new GramJSClient(this.session, apiId, apiHash, {
       connectionRetries: 5,
     });
@@ -103,8 +105,10 @@ export class TelegramClient {
       onError: (err: any) => console.log(err),
     });
     
-    // Save session after successful connection
-    this.saveSession();
+    // Save session only if it's a new session
+    if (this.isNewSession) {
+      this.saveSession();
+    }
     console.log('Connected to Telegram');
   }
 

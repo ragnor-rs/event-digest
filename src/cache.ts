@@ -8,7 +8,7 @@ interface CacheEntry {
 }
 
 interface CacheStore {
-  step3_events: Record<string, boolean>; // message link -> is event
+  step3_events: Record<string, {isEvent: boolean, event_type?: 'offline' | 'online' | 'hybrid'}>; // message link -> event result
   step4_interests: Record<string, string[]>; // message link -> matched interests
   step5_schedule: Record<string, string>; // message link -> extracted datetime
   step6_events: Record<string, any>; // message link -> event object
@@ -55,14 +55,27 @@ export class Cache {
     }
   }
 
-  // Step 3: Event announcement filtering
-  getEventResult(messageLink: string): boolean | null {
-    return this.cache.step3_events[messageLink] ?? null;
+  // Public method to manually save cache when batching updates
+  public save(): void {
+    this.saveCache();
   }
 
-  setEventResult(messageLink: string, isEvent: boolean): void {
-    this.cache.step3_events[messageLink] = isEvent;
-    this.saveCache();
+  // Step 3: Event announcement filtering
+  getEventResult(messageLink: string, offlineEventsOnly: boolean): {isEvent: boolean, event_type?: 'offline' | 'online' | 'hybrid'} | null {
+    const cacheKey = this.createEventCacheKey(messageLink, offlineEventsOnly);
+    return this.cache.step3_events[cacheKey] ?? null;
+  }
+
+  setEventResult(messageLink: string, isEvent: boolean, eventType: 'offline' | 'online' | 'hybrid' | undefined, offlineEventsOnly: boolean, autoSave: boolean = true): void {
+    const cacheKey = this.createEventCacheKey(messageLink, offlineEventsOnly);
+    this.cache.step3_events[cacheKey] = { isEvent, event_type: eventType };
+    if (autoSave) {
+      this.saveCache();
+    }
+  }
+
+  private createEventCacheKey(messageLink: string, offlineEventsOnly: boolean): string {
+    return `${messageLink}|offline_only:${offlineEventsOnly}`;
   }
 
   // Step 4: Interest matching
@@ -71,10 +84,12 @@ export class Cache {
     return this.cache.step4_interests[cacheKey] ?? null;
   }
 
-  setInterestResult(messageLink: string, interests: string[], userInterests: string[]): void {
+  setInterestResult(messageLink: string, interests: string[], userInterests: string[], autoSave: boolean = true): void {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.step4_interests[cacheKey] = interests;
-    this.saveCache();
+    if (autoSave) {
+      this.saveCache();
+    }
   }
 
   private createInterestCacheKey(messageLink: string, userInterests: string[]): string {
@@ -95,10 +110,12 @@ export class Cache {
     return this.cache.step5_schedule[cacheKey] ?? null;
   }
 
-  setScheduleResult(messageLink: string, datetime: string, weeklyTimeslots: string[]): void {
+  setScheduleResult(messageLink: string, datetime: string, weeklyTimeslots: string[], autoSave: boolean = true): void {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     this.cache.step5_schedule[cacheKey] = datetime;
-    this.saveCache();
+    if (autoSave) {
+      this.saveCache();
+    }
   }
 
   private createScheduleCacheKey(messageLink: string, weeklyTimeslots: string[]): string {
@@ -119,10 +136,12 @@ export class Cache {
     return this.cache.step6_events[cacheKey] ?? null;
   }
 
-  setEventConversion(messageLink: string, event: any, userInterests: string[]): void {
+  setEventConversion(messageLink: string, event: any, userInterests: string[], autoSave: boolean = true): void {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.step6_events[cacheKey] = event;
-    this.saveCache();
+    if (autoSave) {
+      this.saveCache();
+    }
   }
 
   // Cache statistics

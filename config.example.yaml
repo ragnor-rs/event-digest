@@ -29,9 +29,9 @@ weeklyTimeslots:
 # Optional: Timestamp to fetch messages after (ISO format)
 # lastGenerationTimestamp: "2024-01-15T10:00:00.000Z"
 
-# Maximum number of messages to fetch from groups (default: 150)
+# Maximum number of messages to fetch from groups (default: 200)
 # Groups typically have more conversational noise, so need more messages
-maxGroupMessages: 150
+maxGroupMessages: 200
 
 # Maximum number of messages to fetch from channels (default: 100)  
 # Channels are more focused, so fewer messages needed
@@ -39,6 +39,11 @@ maxChannelMessages: 100
 
 # Optional: Legacy parameter for backward compatibility
 # maxInputMessages: 100
+
+# Filter for offline events only (default: true)
+# When enabled, excludes virtual events, webinars, and online-only events
+# Set to false to include online and hybrid events
+offlineEventsOnly: true
 
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used

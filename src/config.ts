@@ -19,7 +19,6 @@ function loadYamlConfig(filePath: string): Partial<Config> | null {
 
 export function parseArgs(): Config {
   const args = process.argv.slice(2);
-  console.log(`DEBUG: Raw arguments:`, args);
   
   // Check for YAML config file first
   const configArg = args.find(arg => arg.startsWith('--config='));
@@ -68,7 +67,6 @@ export function parseArgs(): Config {
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     const value = args[i + 1];
-    console.log(`DEBUG: Processing ${key} = ${value}`);
     
     switch (key) {
       case '--groups':
@@ -88,15 +86,12 @@ export function parseArgs(): Config {
         break;
       case '--max-messages':
         config.maxInputMessages = parseInt(value);
-        console.log(`DEBUG: Parsed --max-messages: ${value} -> ${config.maxInputMessages}`);
         break;
       case '--max-group-messages':
         config.maxGroupMessages = parseInt(value);
-        console.log(`DEBUG: Parsed --max-group-messages: ${value} -> ${config.maxGroupMessages}`);
         break;
       case '--max-channel-messages':
         config.maxChannelMessages = parseInt(value);
-        console.log(`DEBUG: Parsed --max-channel-messages: ${value} -> ${config.maxChannelMessages}`);
         break;
     }
   }
@@ -114,20 +109,24 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   } else {
     // Set individual defaults if only one is specified
     if (config.maxGroupMessages === undefined) {
-      config.maxGroupMessages = config.maxChannelMessages ? Math.floor(config.maxChannelMessages * 1.5) : 150;
+      config.maxGroupMessages = 200;
     }
     if (config.maxChannelMessages === undefined) {
-      config.maxChannelMessages = config.maxGroupMessages ? Math.floor(config.maxGroupMessages / 1.5) : 100;
+      config.maxChannelMessages = 100;
     }
   }
   
-  console.log(`DEBUG: Setting maxGroupMessages = ${config.maxGroupMessages}, maxChannelMessages = ${config.maxChannelMessages}`);
   
   if (!config.eventMessageCues) {
     config.eventMessageCues = {
       ru: ["сентября", "сегодня", "часов", "завтра", "послезавтра", "января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "октября", "ноября", "декабря"],
       en: ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "tonight", "tomorrow", "today"]
     };
+  }
+
+  // Set default for offline events only
+  if (config.offlineEventsOnly === undefined) {
+    config.offlineEventsOnly = true;
   }
 
   // Validate required fields
@@ -137,5 +136,20 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
     process.exit(1);
   }
 
-  return config as Config;
+  // Log final configuration
+  const finalConfig = config as Config;
+  console.log('Configuration loaded successfully:');
+  console.log(`  groupsToParse: ${finalConfig.groupsToParse.length} (${finalConfig.groupsToParse.join(', ')})`);
+  console.log(`  channelsToParse: ${finalConfig.channelsToParse.length} (${finalConfig.channelsToParse.join(', ')})`);
+  console.log(`  userInterests: ${finalConfig.userInterests.length} (${finalConfig.userInterests.join(', ')})`);
+  console.log(`  weeklyTimeslots: ${finalConfig.weeklyTimeslots.length} (${finalConfig.weeklyTimeslots.join(', ')})`);
+  console.log(`  maxGroupMessages: ${finalConfig.maxGroupMessages}`);
+  console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}`);
+  console.log(`  offlineEventsOnly: ${finalConfig.offlineEventsOnly}`);
+  if (finalConfig.lastGenerationTimestamp) {
+    console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp}`);
+  }
+  console.log('');
+
+  return finalConfig;
 }

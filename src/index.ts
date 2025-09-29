@@ -12,7 +12,6 @@ async function main() {
     console.log('Starting Event Digest CLI...\n');
 
     const config = parseArgs();
-    console.log('Configuration loaded successfully');
 
     const telegramClient = new TelegramClient();
     await telegramClient.connect();
@@ -25,7 +24,7 @@ async function main() {
     const eventCueMessages = await filterEventMessages(allMessages, config);
     console.log('');
 
-    const eventMessages = await filterWithGPT(eventCueMessages);
+    const eventMessages = await filterWithGPT(eventCueMessages, config);
     console.log('');
 
     const interestingMessages = await filterByInterests(eventMessages, config);

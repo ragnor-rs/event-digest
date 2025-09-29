@@ -32,8 +32,9 @@ npm run dev -- \
   --channels "channel1,channel2" \
   --interests "VC,английский,походы" \
   --timeslots "6 14:00,0 14:00" \
-  --max-group-messages 150 \
-  --max-channel-messages 100
+  --max-group-messages 200 \
+  --max-channel-messages 100 \
+  --offline-events-only true
 ```
 
 ## Architecture
@@ -43,7 +44,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 ### Core Pipeline Flow
 1. **Message Fetching** (`src/telegram.ts`) - Fetches messages from Telegram groups/channels using GramJS
 2. **Event Cue Filtering** (`src/filters.ts:filterEventMessages`) - Text-based filtering using configurable cues
-3. **GPT Event Detection** (`src/filters.ts:filterWithGPT`) - AI-powered filtering to identify single event announcements
+3. **GPT Event Detection** (`src/filters.ts:filterWithGPT`) - AI-powered filtering to identify single event announcements and classify event type (offline/online/hybrid)
 4. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria
 5. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots
 6. **Event Conversion** (`src/events.ts:convertToEvents`) - Converts to structured Event objects with GPT
@@ -52,7 +53,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 ### Key Components
 
 **Data Flow Types** (`src/types.ts`):
-- `TelegramMessage` → `InterestingMessage` → `ScheduledMessage` → `Event`
+- `TelegramMessage` → `EventAnnouncement` → `InterestingAnnouncement` → `ScheduledEvent` → `Event`
 
 **Authentication** (`src/telegram.ts`):
 - Uses persistent session storage in `.telegram-session` file
@@ -68,6 +69,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - Supports YAML configuration files (config.yaml/config.yml) or command-line arguments
 - YAML config provides better organization and version control
 - Detailed validation for groups, channels, interests, timeslots, and message limits
+- `offlineEventsOnly` parameter (default: true) filters for in-person events only
 
 ### Important Implementation Details
 
@@ -79,6 +81,10 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 **Rate Limiting:** 1-second delays between GPT calls with batch processing (5-16 messages per batch).
 
+**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in EventAnnouncement interface.
+
+**Offline Events Filter:** When `offlineEventsOnly` is enabled (default), only in-person events are included, excluding virtual events and webinars.
+
 ## Environment Setup
 
 Required environment variables (see `.env.example`):
@@ -89,4 +95,4 @@ The `.telegram-session` file is automatically created and managed for persistent
 
 ## Cache Management
 
-Cache is stored in `.cache/gpt-results.json` with step-specific stores. Cache keys include user preferences to ensure correct invalidation when interests or schedule preferences change.
+Cache is stored in `.cache/gpt-results.json` with step-specific stores. Cache keys include user preferences (interests, schedule, offline events setting) to ensure correct invalidation when preferences change.

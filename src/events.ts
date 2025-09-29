@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { ScheduledMessage, Event, Config } from './types';
+import { ScheduledEvent, Event, Config } from './types';
 import { Cache } from './cache';
 import { parse } from 'date-fns';
 
@@ -7,58 +7,58 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-export async function convertToEvents(messages: ScheduledMessage[], config: Config): Promise<Event[]> {
+export async function convertToEvents(scheduledEvents: ScheduledEvent[], config: Config): Promise<Event[]> {
   const cache = new Cache();
-  console.log(`Step 6: Converting ${messages.length} scheduled messages to events...`);
+  console.log(`Step 6: Converting ${scheduledEvents.length} scheduled events to events...`);
   
   // Check cache first
-  const uncachedMessages: ScheduledMessage[] = [];
+  const uncachedEvents: ScheduledEvent[] = [];
   const events: Event[] = [];
   let cacheHits = 0;
 
-  for (const message of messages) {
-    const cachedEvent = cache.getEventConversion(message.interesting_message.message.link, config.userInterests);
+  for (const scheduledEvent of scheduledEvents) {
+    const cachedEvent = cache.getEventConversion(scheduledEvent.interesting_announcement.announcement.message.link, config.userInterests);
     if (cachedEvent !== null) {
       cacheHits++;
       // Update cached event with current data (interests might have changed)
       const updatedEvent = {
         ...cachedEvent,
-        date_time: message.start_datetime,
-        met_interests: message.interesting_message.interests_matched,
-        link: message.interesting_message.message.link
+        date_time: scheduledEvent.start_datetime,
+        met_interests: scheduledEvent.interesting_announcement.interests_matched,
+        link: scheduledEvent.interesting_announcement.announcement.message.link
       };
       events.push(updatedEvent);
     } else {
-      uncachedMessages.push(message);
+      uncachedEvents.push(scheduledEvent);
     }
   }
 
   if (cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+    console.log(`  Cache hits: ${cacheHits}/${scheduledEvents.length} events`);
   }
 
-  if (uncachedMessages.length === 0) {
-    console.log(`  All messages cached, skipping GPT calls`);
+  if (uncachedEvents.length === 0) {
+    console.log(`  All events cached, skipping GPT calls`);
     console.log(`  Created ${events.length} events`);
     return events;
   }
   
   const chunks = [];
-  for (let i = 0; i < uncachedMessages.length; i += 5) {
-    chunks.push(uncachedMessages.slice(i, i + 5));
+  for (let i = 0; i < uncachedEvents.length; i += 5) {
+    chunks.push(uncachedEvents.slice(i, i + 5));
   }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
     const prompt = `Convert these event messages into structured event information. Respond in English.
 
 Messages:
-${chunk.map((msg, idx) => `${idx + 1}. 
-Start time: ${msg.start_datetime}
-Interests: ${msg.interesting_message.interests_matched.join(', ')}
-Content: ${msg.interesting_message.message.content.replace(/\n/g, ' ')}
-Link: ${msg.interesting_message.message.link}`).join('\n\n')}
+${chunk.map((scheduledEvent, idx) => `${idx + 1}. 
+Start time: ${scheduledEvent.start_datetime}
+Interests: ${scheduledEvent.interesting_announcement.interests_matched.join(', ')}
+Content: ${scheduledEvent.interesting_announcement.announcement.message.content.replace(/\n/g, ' ')}
+Link: ${scheduledEvent.interesting_announcement.announcement.message.link}`).join('\n\n')}
 
 CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):
 MESSAGE_NUMBER:
@@ -102,26 +102,29 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
 
           const finalEvent = {
             date_time: chunk[i].start_datetime,
-            met_interests: chunk[i].interesting_message.interests_matched,
+            met_interests: chunk[i].interesting_announcement.interests_matched,
             ...eventData,
-            link: chunk[i].interesting_message.message.link
+            link: chunk[i].interesting_announcement.announcement.message.link
           };
 
           events.push(finalEvent);
           
           // Cache the extracted event data (without dynamic fields like date_time and interests)
-          cache.setEventConversion(chunk[i].interesting_message.message.link, eventData, config.userInterests);
+          cache.setEventConversion(chunk[i].interesting_announcement.announcement.message.link, eventData, config.userInterests, false);
           
           if (title && summary && description) {
             console.log(`    ✓ Created event: ${title}`);
           } else {
-            console.log(`    ✗ Failed to extract complete event info for ${chunk[i].interesting_message.message.link}`);
+            console.log(`    ✗ Failed to extract complete event info for ${chunk[i].interesting_announcement.announcement.message.link}`);
           }
         }
       }
     } catch (error) {
       console.error('Error with OpenAI:', error);
     }
+    
+    // Save cache after processing batch
+    cache.save();
     
     // Add delay to avoid rate limits
     await new Promise(resolve => setTimeout(resolve, 1000));

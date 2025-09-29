@@ -4,13 +4,18 @@ export interface TelegramMessage {
   link: string;
 }
 
-export interface InterestingMessage {
+export interface EventAnnouncement {
   message: TelegramMessage;
+  event_type: 'offline' | 'online' | 'hybrid';
+}
+
+export interface InterestingAnnouncement {
+  announcement: EventAnnouncement;
   interests_matched: string[];
 }
 
-export interface ScheduledMessage {
-  interesting_message: InterestingMessage;
+export interface ScheduledEvent {
+  interesting_announcement: InterestingAnnouncement;
   start_datetime: string;
 }
 
@@ -32,4 +37,5 @@ export interface Config {
   userInterests: string[];
   weeklyTimeslots: string[];
   eventMessageCues: Record<string, string[]>;
+  offlineEventsOnly: boolean;
 }

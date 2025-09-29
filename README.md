@@ -74,8 +74,8 @@ weeklyTimeslots:
   - "6 14:00"  # Saturday after 14:00
   - "0 14:00"  # Sunday after 14:00
 
-# Maximum number of messages to fetch from groups (default: 150)
-maxGroupMessages: 150
+# Maximum number of messages to fetch from groups (default: 200)
+maxGroupMessages: 200
 
 # Maximum number of messages to fetch from channels (default: 100)
 maxChannelMessages: 100
@@ -100,7 +100,7 @@ npm run dev -- \
   --channels "auditoria_tbilisi,georgiaafisha" \
   --interests "VC,английский,походы" \
   --timeslots "2 12:00,6 13:00,0 13:00" \
-  --max-group-messages 150 \
+  --max-group-messages 200 \
   --max-channel-messages 100
 ```
 
@@ -110,7 +110,7 @@ npm run dev -- \
 - `channelsToParse`/`--channels`: Telegram channel usernames (without @)
 - `userInterests`/`--interests`: Your interests (events must be directly about these topics)
 - `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
-- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 150)
+- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200)
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `maxInputMessages`/`--max-messages`: Legacy parameter for backward compatibility
 
