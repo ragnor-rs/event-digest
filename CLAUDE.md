@@ -44,24 +44,30 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 ### Core Pipeline Flow
 1. **Message Fetching** (`src/telegram.ts`) - Fetches messages from Telegram groups/channels using GramJS
 2. **Event Cue Filtering** (`src/filters.ts:filterEventMessages`) - Text-based filtering using configurable cues
-3. **GPT Event Detection** (`src/filters.ts:filterWithGPT`) - AI-powered filtering to identify single event announcements and classify event type (offline/online/hybrid)
-4. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria
-5. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots
-6. **Event Conversion** (`src/events.ts:convertToEvents`) - Converts to structured Event objects with GPT
-7. **Output** (`src/events.ts:printEvents`) - Console output of formatted events
+3. **GPT Event Detection** (`src/filters.ts:filterByEventMessages`) - AI-powered filtering to identify single event announcements
+4. **Event Type Classification** (`src/filters.ts:convertToEventAnnouncements`) - GPT classifies event type (offline/online/hybrid) and applies offline filtering
+5. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria
+6. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots
+7. **Event Conversion** (`src/events.ts:convertToEvents`) - Converts to structured Event objects with GPT
+8. **Output** (`src/events.ts:printEvents`) - Console output of formatted events
 
 ### Key Components
 
 **Data Flow Types** (`src/types.ts`):
-- `TelegramMessage` → `EventAnnouncement` → `InterestingAnnouncement` → `ScheduledEvent` → `Event`
+- `TelegramMessage` → `TelegramMessage` → `EventAnnouncement` → `InterestingAnnouncement` → `ScheduledEvent` → `Event`
 
 **Authentication** (`src/telegram.ts`):
 - Uses persistent session storage in `.telegram-session` file
 - First run requires phone verification, subsequent runs are automatic
 
 **Caching System** (`src/cache.ts`):
-- Comprehensive GPT result caching with optimized hash-based cache keys
-- Separate cache stores for each pipeline step (steps 3-6) 
+- Comprehensive GPT result caching with descriptive cache store names
+- Five separate cache stores:
+  - `event_messages`: Basic event detection results
+  - `announcements`: Event type classification (offline/online/hybrid)
+  - `interesting_announcements`: Interest matching results
+  - `scheduled_events`: Schedule filtering and datetime extraction
+  - `events`: Final event object conversion
 - Cache keys use message links + hashed preferences for efficient storage
 - Hash-based keys prevent cache bloat while maintaining preference isolation
 
@@ -81,9 +87,13 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 **Rate Limiting:** 1-second delays between GPT calls with batch processing (5-16 messages per batch).
 
+**Two-Stage GPT Processing:** 
+1. Basic event detection (`filterByEventMessages`) - Identifies genuine event announcements
+2. Event type classification (`convertToEventAnnouncements`) - Classifies as offline/online/hybrid and applies filtering
+
 **Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in EventAnnouncement interface.
 
-**Offline Events Filter:** When `offlineEventsOnly` is enabled (default), only in-person events are included, excluding virtual events and webinars.
+**Offline Events Filter:** When `offlineEventsOnly` is enabled (default), only in-person events are included, excluding virtual events and webinars. This filtering happens during the type classification stage.
 
 ## Environment Setup
 
@@ -95,4 +105,11 @@ The `.telegram-session` file is automatically created and managed for persistent
 
 ## Cache Management
 
-Cache is stored in `.cache/gpt-results.json` with step-specific stores. Cache keys include user preferences (interests, schedule, offline events setting) to ensure correct invalidation when preferences change.
+Cache is stored in `.cache/gpt-results.json` with descriptive cache stores:
+- `event_messages`: Stores basic event detection results (no preferences needed)
+- `announcements`: Stores event type classification (includes offline events preference)
+- `interesting_announcements`: Stores interest matching results (includes interests hash)
+- `scheduled_events`: Stores schedule filtering results (includes timeslots hash)
+- `events`: Stores final event objects (includes interests hash)
+
+Cache keys include relevant user preferences to ensure correct invalidation when settings change.
