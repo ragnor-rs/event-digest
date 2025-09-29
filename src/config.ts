@@ -124,9 +124,9 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
     };
   }
 
-  // Set default for offline events only
-  if (config.offlineEventsOnly === undefined) {
-    config.offlineEventsOnly = true;
+  // Set default for skip online events
+  if (config.skipOnlineEvents === undefined) {
+    config.skipOnlineEvents = true;
   }
 
   // Validate required fields
@@ -145,7 +145,7 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(`  weeklyTimeslots: ${finalConfig.weeklyTimeslots.length} (${finalConfig.weeklyTimeslots.join(', ')})`);
   console.log(`  maxGroupMessages: ${finalConfig.maxGroupMessages}`);
   console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}`);
-  console.log(`  offlineEventsOnly: ${finalConfig.offlineEventsOnly}`);
+  console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}`);
   if (finalConfig.lastGenerationTimestamp) {
     console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp}`);
   }

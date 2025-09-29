@@ -34,7 +34,7 @@ npm run dev -- \
   --timeslots "6 14:00,0 14:00" \
   --max-group-messages 200 \
   --max-channel-messages 100 \
-  --offline-events-only true
+  --skip-online-events true
 ```
 
 ## Architecture
@@ -75,7 +75,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - Supports YAML configuration files (config.yaml/config.yml) or command-line arguments
 - YAML config provides better organization and version control
 - Detailed validation for groups, channels, interests, timeslots, and message limits
-- `offlineEventsOnly` parameter (default: true) filters for in-person events only
+- `skipOnlineEvents` parameter (default: true) excludes online-only events
 
 ### Important Implementation Details
 
@@ -96,7 +96,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - **Online**: Zoom/Google Meet links, explicit "online" mentions, webinar URLs
 - **Hybrid**: Events offering both physical and online participation options
 
-**Offline Events Filter:** When `offlineEventsOnly` is enabled (default), only events with physical attendance options are included:
+**Online Events Filter:** When `skipOnlineEvents` is enabled (default), only events with physical attendance options are included:
 - ✅ **offline events** (in-person only) - always included  
 - ✅ **hybrid events** (both in-person and online options) - included because they offer physical attendance
 - ❌ **online events** (virtual only) - excluded

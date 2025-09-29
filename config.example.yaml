@@ -42,8 +42,9 @@ maxChannelMessages: 100
 
 # Filter for offline events only (default: true)
 # When enabled, excludes virtual events, webinars, and online-only events
-# Set to false to include online and hybrid events
-offlineEventsOnly: true
+# Hybrid events (both online and offline options) are always included
+# Set to false to include online events
+skipOnlineEvents: true
 
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used

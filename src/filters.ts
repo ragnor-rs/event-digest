@@ -178,12 +178,12 @@ export async function convertToEventAnnouncements(messages: TelegramMessage[], c
 
   console.log('  Processing cache...');
   for (const message of messages) {
-    const cachedResult = cache.getAnnouncementResult(message.link, config.offlineEventsOnly);
+    const cachedResult = cache.getAnnouncementResult(message.link, config.skipOnlineEvents);
     if (cachedResult !== null) {
       cacheHits++;
       // Check if cached event should be included based on offline filter
-      if (config.offlineEventsOnly && cachedResult.event_type === 'online') {
-        console.log(`    DISCARDED: ${message.link} [${cachedResult.event_type}] - offline events only (cached)`);
+      if (config.skipOnlineEvents && cachedResult.event_type === 'online') {
+        console.log(`    DISCARDED: ${message.link} [${cachedResult.event_type}] - skipping online events (cached)`);
       } else {
         eventAnnouncements.push({
           message,
@@ -269,15 +269,15 @@ CRITICAL: You MUST classify ALL ${chunk.length} messages. Respond with each mess
             
             if (idx >= 0 && idx < chunk.length) {
               // Check if event should be included based on offline filter
-              if (config.offlineEventsOnly && eventType === 'online') {
-                console.log(`    DISCARDED: ${chunk[idx].link} [${eventType}] - offline events only`);
+              if (config.skipOnlineEvents && eventType === 'online') {
+                console.log(`    DISCARDED: ${chunk[idx].link} [${eventType}] - skipping online events`);
               } else {
                 eventAnnouncements.push({
                   message: chunk[idx],
                   event_type: eventType
                 });
               }
-              cache.setAnnouncementResult(chunk[idx].link, eventType, config.offlineEventsOnly, false);
+              cache.setAnnouncementResult(chunk[idx].link, eventType, config.skipOnlineEvents, false);
               processedIndices.add(idx);
             }
           }

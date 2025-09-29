@@ -75,19 +75,19 @@ export class Cache {
   }
 
   // Convert events to announcements with type classification
-  getAnnouncementResult(messageLink: string, offlineEventsOnly: boolean): {event_type: 'offline' | 'online' | 'hybrid'} | null {
-    const cacheKey = this.createAnnouncementCacheKey(messageLink, offlineEventsOnly);
+  getAnnouncementResult(messageLink: string, skipOnlineEvents: boolean): {event_type: 'offline' | 'online' | 'hybrid'} | null {
+    const cacheKey = this.createAnnouncementCacheKey(messageLink, skipOnlineEvents);
     return this.cache.announcements[cacheKey] ?? null;
   }
-  setAnnouncementResult(messageLink: string, eventType: 'offline' | 'online' | 'hybrid', offlineEventsOnly: boolean, autoSave: boolean = true): void {
-    const cacheKey = this.createAnnouncementCacheKey(messageLink, offlineEventsOnly);
+  setAnnouncementResult(messageLink: string, eventType: 'offline' | 'online' | 'hybrid', skipOnlineEvents: boolean, autoSave: boolean = true): void {
+    const cacheKey = this.createAnnouncementCacheKey(messageLink, skipOnlineEvents);
     this.cache.announcements[cacheKey] = { event_type: eventType };
     if (autoSave) {
       this.saveCache();
     }
   }
-  private createAnnouncementCacheKey(messageLink: string, offlineEventsOnly: boolean): string {
-    return `${messageLink}|offline_only:${offlineEventsOnly}`;
+  private createAnnouncementCacheKey(messageLink: string, skipOnlineEvents: boolean): string {
+    return `${messageLink}|skip_online:${skipOnlineEvents}`;
   }
 
   // Interest matching

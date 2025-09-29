@@ -37,5 +37,5 @@ export interface Config {
   userInterests: string[];
   weeklyTimeslots: string[];
   eventMessageCues: Record<string, string[]>;
-  offlineEventsOnly: boolean;
+  skipOnlineEvents: boolean;
 }
