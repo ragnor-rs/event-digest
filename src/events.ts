@@ -9,7 +9,7 @@ const openai = new OpenAI({
 
 export async function convertToEvents(scheduledEvents: ScheduledEvent[], config: Config): Promise<Event[]> {
   const cache = new Cache();
-  console.log(`Step 6: Converting ${scheduledEvents.length} scheduled events to events...`);
+  console.log(`Step 7: Converting ${scheduledEvents.length} scheduled events to events...`);
   
   // Check cache first
   const uncachedEvents: ScheduledEvent[] = [];

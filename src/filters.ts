@@ -33,33 +33,25 @@ export async function filterEventMessages(messages: TelegramMessage[], config: C
   return eventMessages;
 }
 
-export async function filterWithGPT(messages: TelegramMessage[], config: Config): Promise<EventAnnouncement[]> {
+export async function filterByEventMessages(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
   console.log(`Step 3: Using GPT to filter ${messages.length} messages for event announcements...`);
   
   const cache = new Cache();
 
   // Check cache first
-  const uncachedAnnouncements: TelegramMessage[] = [];
-  const eventAnnouncements: EventAnnouncement[] = [];
+  const uncachedMessages: TelegramMessage[] = [];
+  const eventMessages: TelegramMessage[] = [];
   let cacheHits = 0;
 
   for (const message of messages) {
-    const cachedResult = cache.getEventResult(message.link, config.offlineEventsOnly);
+    const cachedResult = cache.getEventResult(message.link);
     if (cachedResult !== null) {
       cacheHits++;
-      if (cachedResult.isEvent && cachedResult.event_type) {
-        // Check if cached event should be included based on offline filter
-        if (config.offlineEventsOnly && cachedResult.event_type !== 'offline') {
-          console.log(`    DISCARDED: ${message.link} [${cachedResult.event_type}] - offline events only (cached)`);
-        } else {
-          eventAnnouncements.push({
-            message,
-            event_type: cachedResult.event_type
-          });
-        }
+      if (cachedResult.isEvent) {
+        eventMessages.push(message);
       }
     } else {
-      uncachedAnnouncements.push(message);
+      uncachedMessages.push(message);
     }
   }
 
@@ -67,47 +59,45 @@ export async function filterWithGPT(messages: TelegramMessage[], config: Config)
     console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
   }
 
-  if (uncachedAnnouncements.length === 0) {
+  if (uncachedMessages.length === 0) {
     console.log(`  All messages cached, skipping GPT calls`);
-    console.log(`  GPT identified ${eventAnnouncements.length} event announcements`);
-    return eventAnnouncements;
+    console.log(`  GPT identified ${eventMessages.length} event messages`);
+    return eventMessages;
   }
   
   const chunks = [];
-  for (let i = 0; i < uncachedAnnouncements.length; i += 16) {
-    chunks.push(uncachedAnnouncements.slice(i, i + 16));
+  for (let i = 0; i < uncachedMessages.length; i += 16) {
+    chunks.push(uncachedMessages.slice(i, i + 16));
   }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
     
-    const offlineFilter = config.offlineEventsOnly ? 
-      '\n\nADDITIONAL FILTER: Only include OFFLINE events. Exclude any events that are:\n- Virtual, online, or digital-only\n- Webinars, video calls, or livestreams\n- Explicitly mentioned as "online" or "virtual"' : '';
+    // No offline filtering at this step
 
     const prompt = `Analyze these messages and identify which ones are announcements for a SINGLE SPECIFIC EVENT.
 
-CRITICAL: You must EXCLUDE any message that:
-- Lists multiple events or contains phrases like "events this week", "upcoming events", "event digest"
-- Contains multiple dates or mentions several different activities
-- Is a schedule or calendar listing
-- Mentions "events" in plural form
-- Is a roundup or compilation of events${offlineFilter}
+An event announcement should include:
+- A specific date/time (can be relative like "today", "tomorrow", or absolute dates)
+- A specific activity, meetup, workshop, presentation, or gathering
+- Details about what will happen (even if brief)
 
-ONLY INCLUDE messages that announce ONE specific event with:
-- One specific date/time
-- One specific activity/event
-- Clear event details (title, location, etc.)
+INCLUDE messages that:
+- Announce workshops, meetups, presentations, talks, networking events
+- Have clear timing information (specific time, date, or "today"/"tomorrow")
+- Describe a specific gathering or activity
+- Invite people to participate in something specific
 
-For each qualifying event, classify it as:
-- offline: In-person/physical location events
-- online: Virtual/digital-only events (webinars, video calls, etc.)
-- hybrid: Both in-person and online participation options
+EXCLUDE only messages that:
+- Are clearly event digests/roundups listing multiple different events
+- Are general announcements without specific timing
+- Are purely informational without inviting participation
 
 Messages:
 ${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
-Respond with each qualifying message number followed by its type, one per line (e.g., "1:offline", "3:hybrid", "7:online"). If none qualify, respond with "none".`;
+Respond with each qualifying message number, one per line (e.g., "1", "3", "7"). If none qualify, respond with "none".`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -120,6 +110,116 @@ Respond with each qualifying message number followed by its type, one per line (
       if (result && result !== 'none') {
         const lines = result.split('\n').filter(line => line.trim());
         const processedIndices = new Set<number>();
+        
+        for (const line of lines) {
+          const match = line.match(/^(\d+)$/);
+          if (match) {
+            const idx = parseInt(match[1]) - 1;
+            
+            if (idx >= 0 && idx < chunk.length) {
+              eventMessages.push(chunk[idx]);
+              cache.setEventResult(chunk[idx].link, true, undefined, false);
+              processedIndices.add(idx);
+            }
+          }
+        }
+        
+        // Cache negative results for unprocessed messages
+        for (let idx = 0; idx < chunk.length; idx++) {
+          if (!processedIndices.has(idx)) {
+            cache.setEventResult(chunk[idx].link, false, undefined, false);
+          }
+        }
+      } else {
+        // All messages in chunk are not events
+        for (const message of chunk) {
+          cache.setEventResult(message.link, false, undefined, false);
+        }
+      }
+    } catch (error) {
+      console.error('Error with OpenAI:', error);
+    }
+    
+    // Save cache after processing batch
+    cache.save();
+    
+    // Add delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  console.log(`  GPT identified ${eventMessages.length} event messages`);
+  return eventMessages;
+}
+
+export async function convertToEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<EventAnnouncement[]> {
+  console.log(`Step 4: Converting ${messages.length} messages to event announcements...`);
+  
+  const cache = new Cache();
+
+  // Check cache first
+  const uncachedMessages: TelegramMessage[] = [];
+  const eventAnnouncements: EventAnnouncement[] = [];
+  let cacheHits = 0;
+
+  for (const message of messages) {
+    const cachedResult = cache.getAnnouncementResult(message.link, config.offlineEventsOnly);
+    if (cachedResult !== null) {
+      cacheHits++;
+      // Check if cached event should be included based on offline filter
+      if (config.offlineEventsOnly && cachedResult.event_type !== 'offline') {
+        console.log(`    DISCARDED: ${message.link} [${cachedResult.event_type}] - offline events only (cached)`);
+      } else {
+        eventAnnouncements.push({
+          message,
+          event_type: cachedResult.event_type
+        });
+      }
+    } else {
+      uncachedMessages.push(message);
+    }
+  }
+
+  if (cacheHits > 0) {
+    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+  }
+
+  if (uncachedMessages.length === 0) {
+    console.log(`  All messages cached, skipping GPT calls`);
+    console.log(`  Created ${eventAnnouncements.length} event announcements`);
+    return eventAnnouncements;
+  }
+  
+  const chunks = [];
+  for (let i = 0; i < uncachedMessages.length; i += 16) {
+    chunks.push(uncachedMessages.slice(i, i + 16));
+  }
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    
+    const prompt = `Analyze these event messages and classify each one by its type.
+
+For each message, classify it as:
+- offline: In-person events at physical locations (bars, offices, venues, addresses)
+- online: Virtual events (Zoom links, webinars, online streams, virtual meetings)  
+- hybrid: Events offering both in-person and online participation
+
+Messages:
+${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
+
+Respond with each message number followed by its type, one per line (e.g., "1:offline", "3:hybrid", "7:online").`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+      });
+
+      const result = response.choices[0].message.content?.trim();
+      if (result) {
+        const lines = result.split('\n').filter(line => line.trim());
         
         for (const line of lines) {
           const match = line.match(/^(\d+):(offline|online|hybrid)$/);
@@ -137,22 +237,9 @@ Respond with each qualifying message number followed by its type, one per line (
                   event_type: eventType
                 });
               }
-              cache.setEventResult(chunk[idx].link, true, eventType, config.offlineEventsOnly, false);
-              processedIndices.add(idx);
+              cache.setAnnouncementResult(chunk[idx].link, eventType, config.offlineEventsOnly, false);
             }
           }
-        }
-        
-        // Cache negative results for unprocessed messages
-        for (let idx = 0; idx < chunk.length; idx++) {
-          if (!processedIndices.has(idx)) {
-            cache.setEventResult(chunk[idx].link, false, undefined, config.offlineEventsOnly, false);
-          }
-        }
-      } else {
-        // All messages in chunk are not events
-        for (const message of chunk) {
-          cache.setEventResult(message.link, false, undefined, config.offlineEventsOnly, false);
         }
       }
     } catch (error) {
@@ -166,13 +253,13 @@ Respond with each qualifying message number followed by its type, one per line (
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`  GPT identified ${eventAnnouncements.length} event announcements`);
+  console.log(`  Created ${eventAnnouncements.length} event announcements`);
   return eventAnnouncements;
 }
 
 export async function filterByInterests(announcements: EventAnnouncement[], config: Config): Promise<InterestingAnnouncement[]> {
   const cache = new Cache();
-  console.log(`Step 4: Filtering ${announcements.length} event announcements by user interests...`);
+  console.log(`Step 5: Filtering ${announcements.length} event announcements by user interests...`);
   
   // Check cache first
   const uncachedAnnouncements: EventAnnouncement[] = [];
@@ -307,7 +394,7 @@ If a message doesn't match any interests, don't include it in your response.`;
 
 export async function filterBySchedule(announcements: InterestingAnnouncement[], config: Config): Promise<ScheduledEvent[]> {
   const cache = new Cache();
-  console.log(`Step 5: Filtering ${announcements.length} event announcements by schedule and future dates...`);
+  console.log(`Step 6: Filtering ${announcements.length} event announcements by schedule and future dates...`);
   
   // Check cache first
   const uncachedAnnouncements: InterestingAnnouncement[] = [];

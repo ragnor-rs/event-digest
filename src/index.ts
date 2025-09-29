@@ -3,7 +3,7 @@ dotenv.config();
 
 import { parseArgs } from './config';
 import { TelegramClient } from './telegram';
-import { filterEventMessages, filterWithGPT, filterByInterests, filterBySchedule } from './filters';
+import { filterEventMessages, filterByEventMessages, convertToEventAnnouncements, filterByInterests, filterBySchedule } from './filters';
 import { convertToEvents, printEvents } from './events';
 import { Cache } from './cache';
 
@@ -24,10 +24,13 @@ async function main() {
     const eventCueMessages = await filterEventMessages(allMessages, config);
     console.log('');
 
-    const eventMessages = await filterWithGPT(eventCueMessages, config);
+    const eventMessages = await filterByEventMessages(eventCueMessages, config);
     console.log('');
 
-    const interestingMessages = await filterByInterests(eventMessages, config);
+    const eventAnnouncements = await convertToEventAnnouncements(eventMessages, config);
+    console.log('');
+
+    const interestingMessages = await filterByInterests(eventAnnouncements, config);
     console.log('');
 
     const scheduledMessages = await filterBySchedule(interestingMessages, config);
