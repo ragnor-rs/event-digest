@@ -10,8 +10,10 @@ This tool fetches messages from specified Telegram groups and channels, then use
 
 - **YAML Configuration**: Easy-to-manage configuration files with organized settings
 - **Smart Event Detection**: Uses GPT to identify genuine event announcements vs general messages
+- **Event Type Classification**: Classifies events as offline, online, or hybrid with intelligent location detection
 - **Interest-Based Filtering**: Matches events to your specific interests with strict relevance criteria
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
+- **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
 - **Intelligent Caching**: Reduces API costs by caching GPT results with preference-aware cache keys
 - **Multi-Language Support**: Handles events in different languages with configurable cues
@@ -79,6 +81,10 @@ maxGroupMessages: 200
 
 # Maximum number of messages to fetch from channels (default: 100)
 maxChannelMessages: 100
+
+# Skip online-only events (default: true)
+# Hybrid events (both online and offline options) are always included
+skipOnlineEvents: true
 ```
 
 Then run:
@@ -101,7 +107,8 @@ npm run dev -- \
   --interests "VC,английский,походы" \
   --timeslots "2 12:00,6 13:00,0 13:00" \
   --max-group-messages 200 \
-  --max-channel-messages 100
+  --max-channel-messages 100 \
+  --skip-online-events true
 ```
 
 ### Configuration Parameters
@@ -112,6 +119,7 @@ npm run dev -- \
 - `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
 - `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200)
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
+- `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `maxInputMessages`/`--max-messages`: Legacy parameter for backward compatibility
 
 ## Authentication & Session Management
@@ -135,15 +143,16 @@ The tool will save your Telegram session to `.telegram-session` file for future 
 
 ## How It Works
 
-The tool processes messages through a 7-step pipeline:
+The tool processes messages through an 8-step pipeline:
 
 1. **Fetch Messages** - Retrieves recent messages from specified Telegram sources
 2. **Event Cue Filter** - Filters messages containing date/event keywords
 3. **AI Event Detection** - Uses GPT to identify genuine event announcements
-4. **Interest Matching** - Matches events to your specified interests using strict criteria
-5. **Schedule Filtering** - Filters by your available time slots and future dates
-6. **Event Conversion** - Converts to structured events with titles, summaries, descriptions
-7. **Output** - Displays formatted event digest
+4. **Event Type Classification** - Classifies events as offline, online, or hybrid and applies filtering
+5. **Interest Matching** - Matches events to your specified interests using strict criteria
+6. **Schedule Filtering** - Filters by your available time slots and future dates
+7. **Event Conversion** - Converts to structured events with titles, summaries, descriptions
+8. **Output** - Displays formatted event digest
 
 ## Output Format
 
