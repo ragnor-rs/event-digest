@@ -545,25 +545,78 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
     
-    const prompt = `Analyze these event messages and identify which user interests they match. Be VERY STRICT - only match if the event is DIRECTLY about the interest topic as the main subject.
+    const prompt = `Analyze these event messages and identify which user interests they match. Match events that are DIRECTLY about the interest topic or provide significant learning/practice in that area.
 
 User interests: ${config.userInterests.join(', ')}
 
-CRITICAL MATCHING RULES:
-- Only match if the event's PRIMARY topic/focus is about the interest
-- Do NOT match events that merely mention the interest in passing
-- Do NOT match events conducted in a language but not ABOUT that language
-- Do NOT match events by speakers who happen to have expertise in an interest area
-- The event content must be specifically designed for people interested in that topic
-- ONLY use interests from the exact list provided above - do NOT invent new interests
-- If no interests from the list match, do NOT include the message in your response
+CRITICAL: Be more inclusive when matching interests. Social gatherings, professional meetups, and technical discussions should match multiple relevant categories.
+
+MATCHING GUIDELINES:
+
+TECHNOLOGY INTERESTS:
+- "AI": Events about artificial intelligence, machine learning models, LLMs, neural networks, AI tools, prompt engineering, reasoning models like DeepSeek
+- "ML": Machine learning courses, model training, data science workshops, Linear Algebra lectures (fundamental to ML)
+- "Backend": Server-side programming, APIs, databases, system architecture, JavaScript/JS meetups, tech community events
+- "Computer hardware": Hardware components, electronics, IoT, technical equipment
+- "Android/Flutter": Mobile development, app building
+
+MUSIC INTERESTS:
+- "Electronic music": DJ sets, electronic dance music, EDM events, electronic music production, dance parties, club events
+- "Rock": Rock band concerts, rock music performances, rock festivals, live rock bands with "драйвовые рифы" (driving riffs)
+- "Jazz": Jazz concerts, jazz clubs, jazz music events
+- "Metal": Metal band concerts, metal music events
+- Music theory workshops and composition classes match ALL music interests
+
+BUSINESS INTERESTS:
+- "VC": Venture capital discussions, investor meetings, startup pitching, funding
+- "Investments": Investment strategies, financial markets, portfolio discussions
+- "Networking": Business networking events, professional meetups, industry connections, IT social events
+- "Productivity": Time management, efficiency workshops, productivity tools, personal development, NLP workshops
+- "Business events": Corporate events, business meetups, professional gatherings
+- "Social events": Social gatherings, parties, networking events, community events, cultural celebrations
+
+PHYSICAL ACTIVITIES:
+- "Travel": Tourism, city tours, guided trips
+- "Industrial tourism": Tours of abandoned places, factory visits, urban exploration, Soviet sanatorium tours
+- "Hiking": Mountain trips, nature walks, outdoor adventures
+
+CULTURAL INTERESTS:
+- "English": Language learning events, English conversation clubs
+- "Fantasy": Fantasy films (Miyazaki, fantasy cinema), fantasy literature events
+- "Sci-fi": Science fiction events, sci-fi screenings
+
+GAMES & ACTIVITIES:
+- "Board games": Chess tournaments (шахматы, рапид, турнир), board game nights, strategy games, card games
+- "Quiz": Quiz nights, trivia competitions, knowledge contests
+
+SPECIFIC KEYWORDS TO RECOGNIZE (ALWAYS MATCH THESE):
+- Chess events (рапид, турнир, шахматы, chess) → "Board games"
+- JavaScript/JS meetups, Apple Events viewing → "Backend" 
+- AI model names (GPT, DeepSeek, LangChain, reasoning models, prompt engineering) → "AI"
+- DJ events, dance parties, club events → "Electronic music"
+- Live band concerts, rock performances → "Rock"
+- Music theory, composition workshops → match all music interests
+- Karaoke events, singing events → "Social events"
+- IT networking, tech community events, "айти нытьё" → "Backend", "Networking", "Social events"
+- TouchDesigner, 3D composition, technical workshops → "Computer hardware"
+- Personal branding, blogging growth → "Business events", "Networking"
+- Personal development, NLP workshops → "Productivity"
+- Abandoned places tours, Soviet heritage → "Industrial tourism"
+- Social gatherings, parties, bar events → "Social events"
+- Fantasy films (Miyazaki) → "Fantasy"
+
+MANDATORY MATCHES - THESE MUST ALWAYS BE MATCHED:
+- Any event mentioning "DeepSeek" → "AI"
+- Any karaoke or singing event → "Social events" 
+- Any IT/tech networking event → "Backend" + "Networking" + "Social events"
+- Any personal branding/blogging event → "Business events" + "Networking"
 
 Messages:
 ${chunk.map((announcement, idx) => `${idx + 1}. ${announcement.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
 For each message that matches at least one interest, respond in this format:
 MESSAGE_NUMBER: interest1, interest2
-Example: 1: физика, ИИ
+Example: 1: AI, Backend
 
 If a message doesn't match any interests, don't include it in your response.`;
 
