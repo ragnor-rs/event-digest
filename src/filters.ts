@@ -79,25 +79,40 @@ export async function filterByEventMessages(messages: TelegramMessage[], config:
     const prompt = `Analyze these messages and identify which ones are announcements for a SINGLE SPECIFIC EVENT.
 
 An event announcement should include:
-- A specific date/time (can be relative like "today", "tomorrow", or absolute dates)
-- A specific activity, meetup, workshop, presentation, or gathering
+- A specific date/time (can be relative like "сегодня/today", "завтра/tomorrow", specific times like "19:30", or absolute dates)
+- A specific activity, meetup, workshop, presentation, talk, or gathering
 - Details about what will happen (even if brief)
 
 INCLUDE messages that:
-- Announce workshops, meetups, presentations, talks, networking events
-- Have clear timing information (specific time, date, or "today"/"tomorrow")
-- Describe a specific gathering or activity
-- Invite people to participate in something specific
+- Announce workshops, meetups, presentations, talks, networking events, webinars, broadcasts
+- Have clear timing information (specific time, date, or relative dates)  
+- Describe a specific gathering or activity (online or offline)
+- Invite people to participate, attend, or join something specific
+- Contain meeting links (Zoom, Google Meet, etc.) with scheduled times
+- Use words like "приходите/come", "присоединяйтесь/join", "встреча/meeting", "событие/event", "вещать/broadcast"
+- Ask people to set calendar reminders or save dates
+- Provide specific times with timezone information (МСК, GMT, etc.)
 
 EXCLUDE only messages that:
 - Are clearly event digests/roundups listing multiple different events
-- Are general announcements without specific timing
-- Are purely informational without inviting participation
+- Are general announcements without specific timing or scheduling
+- Are purely informational posts without inviting participation
+- Are job postings, news articles, or promotional content without events
+
+IMPORTANT: Look for timing indicators in ANY language:
+- Russian: сегодня, завтра, время, встреча, МСК, вещать
+- English: today, tomorrow, time, meeting, at X:XX, broadcast
+- Numbers indicating time: 19:30, 14:00, etc.
+- Calendar references: "ставьте в календарь", "set reminder", "save the date"
+
+EXAMPLE of what should be INCLUDED:
+- A message saying "Today at 19:30 MSK I will broadcast about LinkedIn" with a Zoom link → This IS an event
+- A message with "сегодня вещать" + time + meeting link → This IS an event
 
 Messages:
 ${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
-Respond with each qualifying message number, one per line (e.g., "1", "3", "7"). If none qualify, respond with "none".`;
+CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", "3", "7"). If none qualify, respond with "none".`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -161,6 +176,7 @@ export async function convertToEventAnnouncements(messages: TelegramMessage[], c
   const eventAnnouncements: EventAnnouncement[] = [];
   let cacheHits = 0;
 
+  console.log('  Processing cache...');
   for (const message of messages) {
     const cachedResult = cache.getAnnouncementResult(message.link, config.offlineEventsOnly);
     if (cachedResult !== null) {
@@ -200,15 +216,25 @@ export async function convertToEventAnnouncements(messages: TelegramMessage[], c
     
     const prompt = `Analyze these event messages and classify each one by its type.
 
+IMPORTANT CLASSIFICATION RULES:
+- If a message contains a physical address, street name, building name, or venue location → ALWAYS classify as "offline"
+- If a message mentions Zoom links, webinar URLs, online streaming, virtual meeting → classify as "online"  
+- If a message offers both physical location AND online participation → classify as "hybrid"
+
 For each message, classify it as:
-- offline: In-person events at physical locations (bars, offices, venues, addresses)
-- online: Virtual events (Zoom links, webinars, online streams, virtual meetings)  
-- hybrid: Events offering both in-person and online participation
+- offline: In-person events at physical locations (bars, offices, venues, addresses, street names)
+- online: Virtual events (Zoom links, webinars, online streams, virtual meetings, no physical location)
+- hybrid: Events offering both in-person and online participation options
+
+Look for location indicators like:
+- Street addresses (e.g., "123 Main St", "Rustaveli Avenue 45")
+- Venue names (e.g., "at Starbucks", "in Conference Room A", "Impact Hub")
+- Geographic references (e.g., "downtown", "city center", specific districts)
 
 Messages:
 ${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
-Respond with each message number followed by its type, one per line (e.g., "1:offline", "3:hybrid", "7:online").`;
+CRITICAL: You MUST classify ALL ${chunk.length} messages. Respond with each message number followed by its type, one per line (e.g., "1:offline", "3:hybrid", "7:online"). Do not skip any messages.`;
 
     try {
       const response = await openai.chat.completions.create({
@@ -218,6 +244,8 @@ Respond with each message number followed by its type, one per line (e.g., "1:of
       });
 
       const result = response.choices[0].message.content?.trim();
+      const processedIndices = new Set<number>();
+      
       if (result) {
         const lines = result.split('\n').filter(line => line.trim());
         
@@ -238,8 +266,16 @@ Respond with each message number followed by its type, one per line (e.g., "1:of
                 });
               }
               cache.setAnnouncementResult(chunk[idx].link, eventType, config.offlineEventsOnly, false);
+              processedIndices.add(idx);
             }
           }
+        }
+      }
+      
+      // Log any messages that GPT failed to classify (but don't assume their type)
+      for (let idx = 0; idx < chunk.length; idx++) {
+        if (!processedIndices.has(idx)) {
+          console.log(`    WARNING: ${chunk[idx].link} - GPT failed to classify, skipping`);
         }
       }
     } catch (error) {
@@ -266,6 +302,7 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
   const interestingAnnouncements: InterestingAnnouncement[] = [];
   let cacheHits = 0;
 
+  console.log('  Processing cache...');
   for (const announcement of announcements) {
     const cachedInterests = cache.getInterestResult(announcement.message.link, config.userInterests);
     if (cachedInterests !== null) {
@@ -401,6 +438,7 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
   const scheduledEvents: ScheduledEvent[] = [];
   let cacheHits = 0;
 
+  console.log('  Processing cache...');
   for (const announcement of announcements) {
     const cachedDateTime = cache.getScheduleResult(announcement.announcement.message.link, config.weeklyTimeslots);
     if (cachedDateTime !== null) {
