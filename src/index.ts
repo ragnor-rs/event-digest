@@ -6,6 +6,7 @@ import { TelegramClient } from './telegram';
 import { filterEventMessages, filterByEventMessages, convertToEventAnnouncements, filterByInterests, filterBySchedule } from './filters';
 import { convertToEvents, printEvents } from './events';
 import { Cache } from './cache';
+import { debugWriter } from './debug';
 
 async function main() {
   try {
@@ -41,6 +42,12 @@ async function main() {
 
     printEvents(events);
     console.log('');
+
+    // Write debug files if enabled
+    if (config.writeDebugFiles) {
+      debugWriter.writeAll();
+      console.log('');
+    }
 
     await telegramClient.disconnect();
   } catch (error) {

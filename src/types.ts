@@ -38,4 +38,5 @@ export interface Config {
   weeklyTimeslots: string[];
   eventMessageCues: Record<string, string[]>;
   skipOnlineEvents: boolean;
+  writeDebugFiles: boolean;
 }

@@ -11,12 +11,13 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **YAML Configuration**: Easy-to-manage configuration files with organized settings
 - **Smart Event Detection**: Uses GPT to identify genuine event announcements vs general messages
 - **Event Type Classification**: Classifies events as offline, online, or hybrid with intelligent location detection
-- **High-Accuracy Interest Matching**: 99% accuracy with comprehensive GPT guidelines and mandatory matching rules for specific patterns
+- **High-Accuracy Interest Matching**: 99% accuracy with comprehensive GPT guidelines, mandatory matching rules, and validation to prevent hallucinated interests
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
 - **Intelligent Caching**: Reduces API costs by caching GPT results with preference-aware cache keys
 - **Multi-Language Support**: Handles events in different languages with configurable cues
+- **Debug Mode**: Optional detailed debug files for troubleshooting and analysis
 
 ## Prerequisites
 
@@ -85,6 +86,10 @@ maxChannelMessages: 100
 # Skip online-only events (default: true)
 # Hybrid events (both online and offline options) are always included
 skipOnlineEvents: true
+
+# Write debug files (default: false)
+# When enabled, writes detailed debug files to debug/ directory
+writeDebugFiles: false
 ```
 
 Then run:
@@ -108,7 +113,8 @@ npm run dev -- \
   --timeslots "2 12:00,6 13:00,0 13:00" \
   --max-group-messages 200 \
   --max-channel-messages 100 \
-  --skip-online-events true
+  --skip-online-events true \
+  --write-debug-files false
 ```
 
 ### Configuration Parameters
@@ -120,6 +126,7 @@ npm run dev -- \
 - `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200)
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
+- `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `maxInputMessages`/`--max-messages`: Legacy parameter for backward compatibility
 
 ## Authentication & Session Management
@@ -196,6 +203,30 @@ npm run dev
 - Batch processing reduces API requests
 - Preference-aware cache invalidation
 
+## Debug Mode
+
+Enable debug file output to troubleshoot interest matching or analyze GPT decisions:
+
+```yaml
+writeDebugFiles: true
+```
+
+Or via command line:
+```bash
+npm run dev -- --write-debug-files true
+```
+
+This creates three detailed JSON files in the `debug/` directory:
+- `event_classification.json`: Event type detection (offline/online/hybrid)
+- `interest_matching.json`: Interest matching decisions with GPT prompts/responses
+- `schedule_filtering.json`: Schedule filtering and datetime extraction
+
+Each file includes:
+- GPT prompts and responses
+- Match/discard decisions
+- Cache hit statistics
+- Invalid interest warnings
+
 ## Contributing
 
 This tool processes messages through multiple AI filtering steps. When modifying:
@@ -204,6 +235,7 @@ This tool processes messages through multiple AI filtering steps. When modifying
 - Ensure cache keys include relevant user preferences
 - Validate date parsing with various GPT response formats
 - Test authentication flow and session persistence
+- Verify GPT response validation prevents hallucinated interests
 
 ## License
 

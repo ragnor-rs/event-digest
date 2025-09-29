@@ -46,6 +46,11 @@ maxChannelMessages: 100
 # Set to false to include online events
 skipOnlineEvents: true
 
+# Write debug files (default: false)
+# When enabled, writes detailed debug files to debug/ directory
+# Files include: event_classification.json, interest_matching.json, schedule_filtering.json
+writeDebugFiles: false
+
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used
 eventMessageCues:

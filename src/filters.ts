@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { TelegramMessage, EventAnnouncement, InterestingAnnouncement, ScheduledEvent, Config } from './types';
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 import { Cache } from './cache';
+import { debugWriter } from './debug';
 
 // Single source of truth for date normalization
 function normalizeDateTime(dateTime: string): string {
@@ -198,11 +199,27 @@ export async function convertToEventAnnouncements(messages: TelegramMessage[], c
         message,
         event_type: 'online'
       });
+      debugWriter.addStep4Entry({
+        message,
+        gpt_prompt: '[INFERRED]',
+        gpt_response: '[INFERRED: online event - remaining after hybrid/offline filtering]',
+        result: 'online',
+        substep: '4.3_online',
+        cached: false
+      });
     }
   } else {
     console.log(`  Step 4.3: Discarding ${remainingAfterOffline.length} online events...`);
     for (const message of remainingAfterOffline) {
       console.log(`    DISCARDED: ${message.link} [online] - skipping online events`);
+      debugWriter.addStep4Entry({
+        message,
+        gpt_prompt: '[INFERRED]',
+        gpt_response: '[INFERRED: online event - discarded due to skipOnlineEvents]',
+        result: 'discarded',
+        substep: '4.3_online',
+        cached: false
+      });
     }
   }
 
@@ -228,9 +245,25 @@ async function detectHybridEvents(messages: TelegramMessage[], cache: Cache): Pr
           message,
           event_type: 'hybrid'
         });
+        debugWriter.addStep4Entry({
+          message,
+          gpt_prompt: '[CACHED]',
+          gpt_response: '[CACHED: hybrid]',
+          result: 'hybrid',
+          substep: '4.1_hybrid',
+          cached: true
+        });
       } else {
         // Cached as non-hybrid, add to remaining immediately
         remainingAfterHybrid.push(message);
+        debugWriter.addStep4Entry({
+          message,
+          gpt_prompt: '[CACHED]',
+          gpt_response: '[CACHED: not hybrid]',
+          result: 'discarded',
+          substep: '4.1_hybrid',
+          cached: true
+        });
       }
     } else {
       uncachedMessages.push(message);
@@ -310,10 +343,19 @@ Respond with only the message numbers that are HYBRID events, one per line (e.g.
           }
         }
 
-        // Cache results and separate hybrid from remaining
+        // Cache results and separate hybrid from remaining, add debug entries
         for (let idx = 0; idx < chunk.length; idx++) {
           const isHybrid = hybridIndices.has(idx);
           cache.cacheHybridEvent(chunk[idx].link, isHybrid, false);
+          
+          debugWriter.addStep4Entry({
+            message: chunk[idx],
+            gpt_prompt: prompt,
+            gpt_response: result || '',
+            result: isHybrid ? 'hybrid' : 'discarded',
+            substep: '4.1_hybrid',
+            cached: false
+          });
           
           if (!isHybrid) {
             remainingAfterHybrid.push(chunk[idx]);
@@ -354,9 +396,25 @@ async function detectOfflineEvents(messages: TelegramMessage[], cache: Cache): P
           message,
           event_type: 'offline'
         });
+        debugWriter.addStep4Entry({
+          message,
+          gpt_prompt: '[CACHED]',
+          gpt_response: '[CACHED: offline]',
+          result: 'offline',
+          substep: '4.2_offline',
+          cached: true
+        });
       } else {
         // Cached as non-offline, add to remaining immediately
         remainingAfterOffline.push(message);
+        debugWriter.addStep4Entry({
+          message,
+          gpt_prompt: '[CACHED]',
+          gpt_response: '[CACHED: not offline]',
+          result: 'discarded',
+          substep: '4.2_offline',
+          cached: true
+        });
       }
     } else {
       uncachedMessages.push(message);
@@ -431,10 +489,19 @@ Respond with only the message numbers that are OFFLINE events, one per line (e.g
           }
         }
 
-        // Cache results and separate offline from remaining
+        // Cache results and separate offline from remaining, add debug entries
         for (let idx = 0; idx < chunk.length; idx++) {
           const isOffline = offlineIndices.has(idx);
           cache.cacheOfflineEvent(chunk[idx].link, isOffline, false);
+          
+          debugWriter.addStep4Entry({
+            message: chunk[idx],
+            gpt_prompt: prompt,
+            gpt_response: result || '',
+            result: isOffline ? 'offline' : 'discarded',
+            substep: '4.2_offline',
+            cached: false
+          });
           
           if (!isOffline) {
             remainingAfterOffline.push(chunk[idx]);
@@ -482,8 +549,24 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
           announcement,
           interests_matched: cachedInterests
         });
+        debugWriter.addStep5Entry({
+          announcement,
+          gpt_prompt: '[CACHED]',
+          gpt_response: `[CACHED: matched interests: ${cachedInterests.join(', ')}]`,
+          interests_matched: cachedInterests,
+          result: 'matched',
+          cached: true
+        });
       } else {
         console.log(`    DISCARDED: ${announcement.message.link} - no interests matched (cached)`);
+        debugWriter.addStep5Entry({
+          announcement,
+          gpt_prompt: '[CACHED]',
+          gpt_response: '[CACHED: no interests matched]',
+          interests_matched: [],
+          result: 'discarded',
+          cached: true
+        });
       }
     } else {
       uncachedAnnouncements.push(announcement);
@@ -500,16 +583,16 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
     return interestingAnnouncements;
   }
   
-  const chunks = [];
+  const chunks: EventAnnouncement[][] = [];
   for (let i = 0; i < uncachedAnnouncements.length; i += 16) {
     chunks.push(uncachedAnnouncements.slice(i, i + 16));
   }
 
   for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
+    const chunk: EventAnnouncement[] = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-    
-    const prompt = `Analyze these event messages and identify which user interests they match. Match events that are DIRECTLY about the interest topic or provide significant learning/practice in that area.
+
+    const prompt: string = `Analyze these event messages and identify which user interests they match. Match events that are DIRECTLY about the interest topic or provide significant learning/practice in that area.
 
 User interests: ${config.userInterests.join(', ')}
 
@@ -589,7 +672,7 @@ CRITICAL INSTRUCTIONS - FOLLOW THESE EXACTLY:
 BE MORE INCLUSIVE, NOT RESTRICTIVE. When in doubt, match multiple relevant interests.
 
 Messages:
-${chunk.map((announcement, idx) => `${idx + 1}. ${announcement.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
+${chunk.map((announcement: EventAnnouncement, idx: number) => `${idx + 1}. ${announcement.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
 For each message that matches at least one interest, respond in this format:
 MESSAGE_NUMBER: interest1, interest2
@@ -598,40 +681,87 @@ Example: 1: AI, Backend
 If a message doesn't match any interests, don't include it in your response.`;
 
     try {
-      const response = await openai.chat.completions.create({
+      const response: any = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
       });
 
-      const result = response.choices[0].message.content?.trim();
+      const result: string | undefined = response.choices[0].message.content?.trim();
       if (result) {
         // Check for explicit "no matches" responses
-        if (result.toLowerCase().includes('no messages match') || 
+        if (result.toLowerCase().includes('no messages match') ||
             result.toLowerCase().includes('none qualify') ||
             result.toLowerCase().trim() === 'none') {
           // All announcements have no matches - cache them as empty
           for (const announcement of chunk) {
             console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
             cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
+            debugWriter.addStep5Entry({
+              announcement,
+              gpt_prompt: prompt,
+              gpt_response: result,
+              interests_matched: [],
+              result: 'discarded',
+              cached: false
+            });
           }
         } else {
           // Parse normal MESSAGE_NUMBER: interests format
-          const lines = result.split('\n').filter(line => /^\s*\d+\s*:/.test(line));
+          const lines: string[] = result.split('\n').filter((line: string) => /^\s*\d+\s*:/.test(line));
           const processedMessages = new Set<number>();
-          
+
           for (const line of lines) {
-            const [numPart, interestsPart] = line.split(':');
-            const messageIdx = parseInt(numPart.trim()) - 1;
-            const interests = interestsPart.split(',').map(s => s.trim()).filter(s => s);
-            
-            if (messageIdx >= 0 && messageIdx < chunk.length && interests.length > 0) {
+            const [numPart, interestsPart]: string[] = line.split(':');
+            const messageIdx: number = parseInt(numPart.trim()) - 1;
+            const rawInterests: string[] = interestsPart.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+
+            // Validate that GPT's returned interests actually exist in the user's interest list
+            const validInterests: string[] = rawInterests.filter((interest: string) =>
+              config.userInterests.some((userInterest: string) =>
+                userInterest.toLowerCase() === interest.toLowerCase()
+              )
+            );
+
+            // Log any invalid interests that GPT hallucinated
+            const invalidInterests: string[] = rawInterests.filter((interest: string) =>
+              !config.userInterests.some((userInterest: string) =>
+                userInterest.toLowerCase() === interest.toLowerCase()
+              )
+            );
+            if (invalidInterests.length > 0) {
+              console.log(`    WARNING: GPT returned invalid interests for ${chunk[messageIdx]?.message.link}: ${invalidInterests.join(', ')}`);
+            }
+
+            if (messageIdx >= 0 && messageIdx < chunk.length && validInterests.length > 0) {
               interestingAnnouncements.push({
                 announcement: chunk[messageIdx],
-                interests_matched: interests
+                interests_matched: validInterests
               });
-              cache.cacheMatchingInterests(chunk[messageIdx].message.link, interests, config.userInterests, false);
+              cache.cacheMatchingInterests(chunk[messageIdx].message.link, validInterests, config.userInterests, false);
               processedMessages.add(messageIdx);
+
+              debugWriter.addStep5Entry({
+                announcement: chunk[messageIdx],
+                gpt_prompt: prompt,
+                gpt_response: result,
+                interests_matched: validInterests,
+                result: 'matched',
+                cached: false
+              });
+            } else if (messageIdx >= 0 && messageIdx < chunk.length && rawInterests.length > 0 && validInterests.length === 0) {
+              // All interests were invalid, treat as no match
+              processedMessages.add(messageIdx);
+              console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - all returned interests were invalid`);
+              cache.cacheMatchingInterests(chunk[messageIdx].message.link, [], config.userInterests, false);
+              debugWriter.addStep5Entry({
+                announcement: chunk[messageIdx],
+                gpt_prompt: prompt,
+                gpt_response: result,
+                interests_matched: [],
+                result: 'discarded',
+                cached: false
+              });
             }
           }
           
@@ -640,6 +770,14 @@ If a message doesn't match any interests, don't include it in your response.`;
             if (!processedMessages.has(idx)) {
               console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
               cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
+              debugWriter.addStep5Entry({
+                announcement: chunk[idx],
+                gpt_prompt: prompt,
+                gpt_response: result,
+                interests_matched: [],
+                result: 'discarded',
+                cached: false
+              });
             }
           }
         }
@@ -648,6 +786,14 @@ If a message doesn't match any interests, don't include it in your response.`;
         for (const announcement of chunk) {
           console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
           cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
+          debugWriter.addStep5Entry({
+            announcement,
+            gpt_prompt: prompt,
+            gpt_response: result || '[NO RESPONSE]',
+            interests_matched: [],
+            result: 'discarded',
+            cached: false
+          });
         }
       }
     } catch (error) {
@@ -710,16 +856,52 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
                 interesting_announcement: announcement,
                 start_datetime: normalizedCachedDateTime
               });
+              debugWriter.addStep6Entry({
+                announcement,
+                gpt_prompt: '[CACHED]',
+                gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+                extracted_datetime: normalizedCachedDateTime,
+                result: 'scheduled',
+                cached: true
+              });
             } else {
               console.log(`    DISCARDED: ${announcement.announcement.message.link} - outside desired timeslots (cached)`);
+              debugWriter.addStep6Entry({
+                announcement,
+                gpt_prompt: '[CACHED]',
+                gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+                extracted_datetime: normalizedCachedDateTime,
+                result: 'discarded',
+                discard_reason: 'outside desired timeslots',
+                cached: true
+              });
             }
           } else {
             console.log(`    DISCARDED: ${announcement.announcement.message.link} - event in the past (cached)`);
+            debugWriter.addStep6Entry({
+              announcement,
+              gpt_prompt: '[CACHED]',
+              gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+              extracted_datetime: normalizedCachedDateTime,
+              result: 'discarded',
+              discard_reason: 'event in the past',
+              cached: true
+            });
           }
         } catch (error) {
           // If cached data is invalid, re-process
           uncachedAnnouncements.push(announcement);
         }
+      } else {
+        debugWriter.addStep6Entry({
+          announcement,
+          gpt_prompt: '[CACHED]',
+          gpt_response: '[CACHED: unknown datetime]',
+          extracted_datetime: 'unknown',
+          result: 'discarded',
+          discard_reason: 'no date/time found',
+          cached: true
+        });
       }
     } else {
       uncachedAnnouncements.push(announcement);
@@ -807,6 +989,15 @@ YEAR INFERENCE RULES:
               // Check if the date is valid
               if (!isValid(eventDate)) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - could not parse date`);
+                debugWriter.addStep6Entry({
+                  announcement: chunk[messageIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result || '',
+                  extracted_datetime: dateTime,
+                  result: 'discarded',
+                  discard_reason: 'could not parse date',
+                  cached: false
+                });
                 continue;
               }
               
@@ -817,6 +1008,15 @@ YEAR INFERENCE RULES:
               // Check if the event is in the future relative to current time
               if (eventDate <= now) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - event in the past`);
+                debugWriter.addStep6Entry({
+                  announcement: chunk[messageIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result || '',
+                  extracted_datetime: normalizedDateTime,
+                  result: 'discarded',
+                  discard_reason: 'event in the past',
+                  cached: false
+                });
                 continue;
               }
               
@@ -824,6 +1024,15 @@ YEAR INFERENCE RULES:
               const maxFutureDate = new Date(messageDate.getTime() + (2 * 365 * 24 * 60 * 60 * 1000)); // 2 years from message
               if (eventDate > maxFutureDate) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - event too far in future`);
+                debugWriter.addStep6Entry({
+                  announcement: chunk[messageIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result || '',
+                  extracted_datetime: normalizedDateTime,
+                  result: 'discarded',
+                  discard_reason: 'event too far in future',
+                  cached: false
+                });
                 continue;
               }
               
@@ -845,11 +1054,37 @@ YEAR INFERENCE RULES:
                   interesting_announcement: chunk[messageIdx],
                   start_datetime: normalizedDateTime
                 });
+                debugWriter.addStep6Entry({
+                  announcement: chunk[messageIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result || '',
+                  extracted_datetime: normalizedDateTime,
+                  result: 'scheduled',
+                  cached: false
+                });
               } else {
                 console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - outside desired timeslots`);
+                debugWriter.addStep6Entry({
+                  announcement: chunk[messageIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result || '',
+                  extracted_datetime: normalizedDateTime,
+                  result: 'discarded',
+                  discard_reason: 'outside desired timeslots',
+                  cached: false
+                });
               }
             } catch (error) {
               console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - date parsing error`);
+              debugWriter.addStep6Entry({
+                announcement: chunk[messageIdx],
+                gpt_prompt: prompt,
+                gpt_response: result || '',
+                extracted_datetime: dateTime,
+                result: 'discarded',
+                discard_reason: 'date parsing error',
+                cached: false
+              });
             }
           }
         }
@@ -859,6 +1094,15 @@ YEAR INFERENCE RULES:
           if (!processedMessages.has(idx)) {
             console.log(`    DISCARDED: ${chunk[idx].announcement.message.link} - no date/time found`);
             cache.cacheScheduledEvent(chunk[idx].announcement.message.link, 'unknown', config.weeklyTimeslots, false);
+            debugWriter.addStep6Entry({
+              announcement: chunk[idx],
+              gpt_prompt: prompt,
+              gpt_response: result || '',
+              extracted_datetime: 'unknown',
+              result: 'discarded',
+              discard_reason: 'no date/time found',
+              cached: false
+            });
           }
         }
       } else {
@@ -866,6 +1110,15 @@ YEAR INFERENCE RULES:
         for (const announcement of chunk) {
           console.log(`    DISCARDED: ${announcement.announcement.message.link} - no date/time found`);
           cache.cacheScheduledEvent(announcement.announcement.message.link, 'unknown', config.weeklyTimeslots, false);
+          debugWriter.addStep6Entry({
+            announcement,
+            gpt_prompt: prompt,
+            gpt_response: result || '[NO RESPONSE]',
+            extracted_datetime: 'unknown',
+            result: 'discarded',
+            discard_reason: 'no date/time found',
+            cached: false
+          });
         }
       }
     } catch (error) {

@@ -8,3 +8,6 @@ session/
 .cache/
 .telegram-session
 /config.yaml
+debug/
+gpt_judgment_analysis.md
+app_output.log

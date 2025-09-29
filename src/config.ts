@@ -93,6 +93,9 @@ export function parseArgs(): Config {
       case '--max-channel-messages':
         config.maxChannelMessages = parseInt(value);
         break;
+      case '--write-debug-files':
+        config.writeDebugFiles = value.toLowerCase() === 'true';
+        break;
     }
   }
 
@@ -129,6 +132,11 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
     config.skipOnlineEvents = true;
   }
 
+  // Set default for write debug files
+  if (config.writeDebugFiles === undefined) {
+    config.writeDebugFiles = false;
+  }
+
   // Validate required fields
   if (!config.groupsToParse || !config.channelsToParse || !config.userInterests || !config.weeklyTimeslots) {
     console.error('Missing required configuration fields:');
@@ -146,6 +154,7 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(`  maxGroupMessages: ${finalConfig.maxGroupMessages}`);
   console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}`);
   console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}`);
+  console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}`);
   if (finalConfig.lastGenerationTimestamp) {
     console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp}`);
   }

@@ -34,7 +34,8 @@ npm run dev -- \
   --timeslots "6 14:00,0 14:00" \
   --max-group-messages 200 \
   --max-channel-messages 100 \
-  --skip-online-events true
+  --skip-online-events true \
+  --write-debug-files true
 ```
 
 ## Architecture
@@ -76,10 +77,11 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - YAML config provides better organization and version control
 - Detailed validation for groups, channels, interests, timeslots, and message limits
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
+- `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
 
 ### Important Implementation Details
 
-**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). Achieved ~99% accuracy through detailed keyword recognition and inclusive matching criteria.
+**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). Achieved ~99% accuracy through detailed keyword recognition and inclusive matching criteria. **Validation layer** (added in `src/filters.ts:719-765`) ensures GPT-returned interests are validated against the actual user interest list, preventing hallucinated categories like "Cultural interests" or "EdTech" from polluting results.
 
 **Date Handling:** Single source of truth in `normalizeDateTime()` function handles GPT's inconsistent date format responses.
 
@@ -121,3 +123,12 @@ Cache is stored in `.cache/gpt-results.json` with descriptive cache stores:
 - `events`: Stores final event objects (includes interests hash)
 
 Cache keys include relevant user preferences to ensure correct invalidation when settings change.
+
+## Debug Files
+
+When `writeDebugFiles` is enabled (default: false), the tool writes detailed debug information to the `debug/` directory:
+- `event_classification.json`: GPT classification of events as hybrid/offline/online with prompts and responses
+- `interest_matching.json`: Interest matching results showing which events matched which interests
+- `schedule_filtering.json`: Schedule filtering and datetime extraction results
+
+Debug files include GPT prompts, responses, cache status, and detailed statistics. Use for troubleshooting interest matching accuracy or understanding GPT's decision-making process.
