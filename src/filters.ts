@@ -36,6 +36,11 @@ export async function filterEventMessages(messages: TelegramMessage[], config: C
 export async function filterByEventMessages(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
   console.log(`Step 3: Using GPT to filter ${messages.length} messages for event announcements...`);
   
+  if (messages.length === 0) {
+    console.log(`  No input on this step`);
+    return [];
+  }
+  
   const cache = new Cache();
 
   // Check cache first
@@ -44,10 +49,10 @@ export async function filterByEventMessages(messages: TelegramMessage[], config:
   let cacheHits = 0;
 
   for (const message of messages) {
-    const cachedResult = cache.getEventResult(message.link);
+    const cachedResult = cache.isEventMessageCached(message.link);
     if (cachedResult !== null) {
       cacheHits++;
-      if (cachedResult.isEvent) {
+      if (cachedResult) {
         eventMessages.push(message);
       }
     } else {
@@ -133,7 +138,7 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
             
             if (idx >= 0 && idx < chunk.length) {
               eventMessages.push(chunk[idx]);
-              cache.setEventResult(chunk[idx].link, true, undefined, false);
+              cache.cacheEventMessage(chunk[idx].link, true, false);
               processedIndices.add(idx);
             }
           }
@@ -142,13 +147,13 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
         // Cache negative results for unprocessed messages
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedIndices.has(idx)) {
-            cache.setEventResult(chunk[idx].link, false, undefined, false);
+            cache.cacheEventMessage(chunk[idx].link, false, false);
           }
         }
       } else {
         // All messages in chunk are not events
         for (const message of chunk) {
-          cache.setEventResult(message.link, false, undefined, false);
+          cache.cacheEventMessage(message.link, false, false);
         }
       }
     } catch (error) {
@@ -169,26 +174,63 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
 export async function convertToEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<EventAnnouncement[]> {
   console.log(`Step 4: Converting ${messages.length} messages to event announcements...`);
   
+  if (messages.length === 0) {
+    console.log(`  No input on this step`);
+    return [];
+  }
+  
   const cache = new Cache();
-
-  // Check cache first
-  const uncachedMessages: TelegramMessage[] = [];
   const eventAnnouncements: EventAnnouncement[] = [];
+
+  // Step 4.1: Detect hybrid events
+  const { hybridEvents, remainingAfterHybrid } = await detectHybridEvents(messages, cache);
+  eventAnnouncements.push(...hybridEvents);
+
+  // Step 4.2: Detect offline events from remaining messages  
+  const { offlineEvents, remainingAfterOffline } = await detectOfflineEvents(remainingAfterHybrid, cache);
+  eventAnnouncements.push(...offlineEvents);
+
+  // Step 4.3: Remaining messages are online - add only if skipOnlineEvents is false
+  if (!config.skipOnlineEvents) {
+    console.log(`  Step 4.3: Adding ${remainingAfterOffline.length} online events...`);
+    for (const message of remainingAfterOffline) {
+      eventAnnouncements.push({
+        message,
+        event_type: 'online'
+      });
+    }
+  } else {
+    console.log(`  Step 4.3: Discarding ${remainingAfterOffline.length} online events...`);
+    for (const message of remainingAfterOffline) {
+      console.log(`    DISCARDED: ${message.link} [online] - skipping online events`);
+    }
+  }
+
+  console.log(`  Created ${eventAnnouncements.length} event announcements`);
+  return eventAnnouncements;
+}
+
+async function detectHybridEvents(messages: TelegramMessage[], cache: Cache): Promise<{ hybridEvents: EventAnnouncement[], remainingAfterHybrid: TelegramMessage[] }> {
+  console.log(`  Step 4.1: Detecting hybrid events from ${messages.length} messages...`);
+  
+  const hybridEvents: EventAnnouncement[] = [];
+  const uncachedMessages: TelegramMessage[] = [];
+  const remainingAfterHybrid: TelegramMessage[] = [];
   let cacheHits = 0;
 
-  console.log('  Processing cache...');
+  console.log('    Processing cache...');
   for (const message of messages) {
-    const cachedResult = cache.getAnnouncementResult(message.link, config.skipOnlineEvents);
+    const cachedResult = cache.isHybridEventCached(message.link);
     if (cachedResult !== null) {
       cacheHits++;
-      // Check if cached event should be included based on offline filter
-      if (config.skipOnlineEvents && cachedResult.event_type === 'online') {
-        console.log(`    DISCARDED: ${message.link} [${cachedResult.event_type}] - skipping online events (cached)`);
-      } else {
-        eventAnnouncements.push({
+      if (cachedResult) {
+        hybridEvents.push({
           message,
-          event_type: cachedResult.event_type
+          event_type: 'hybrid'
         });
+      } else {
+        // Cached as non-hybrid, add to remaining immediately
+        remainingAfterHybrid.push(message);
       }
     } else {
       uncachedMessages.push(message);
@@ -196,118 +238,221 @@ export async function convertToEventAnnouncements(messages: TelegramMessage[], c
   }
 
   if (cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+    console.log(`    Cache hits: ${cacheHits}/${messages.length} messages`);
   }
 
-  if (uncachedMessages.length === 0) {
-    console.log(`  All messages cached, skipping GPT calls`);
-    console.log(`  Created ${eventAnnouncements.length} event announcements`);
-    return eventAnnouncements;
-  }
-  
-  const chunks = [];
-  for (let i = 0; i < uncachedMessages.length; i += 16) {
-    chunks.push(uncachedMessages.slice(i, i + 16));
-  }
+  if (uncachedMessages.length > 0) {
+    const chunks = [];
+    for (let i = 0; i < uncachedMessages.length; i += 16) {
+      chunks.push(uncachedMessages.slice(i, i + 16));
+    }
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-    
-    const prompt = `Analyze these event messages and classify each one by its type.
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      console.log(`    Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+      
+      const prompt = `Identify which of these event messages are HYBRID events (both online AND offline options available).
 
-CRITICAL CLASSIFICATION RULES:
+HYBRID EVENT CRITERIA:
+- Event explicitly offers BOTH online streaming/participation AND physical attendance
+- Messages that mention both a physical location AND online access (Zoom, streaming, etc.)
+- Events where people can choose to attend either in-person OR online
 
-🏢 OFFLINE INDICATORS (classify as "offline"):
-- ANY physical address or street (e.g. "Khorava 18", "Terminal Abashidze")
-- City names (e.g. "Тбилиси", "Tbilisi")
-- Venue names (e.g. "F0RTHSP4CE", "Fragment", "Solution Heritage Lounge Bar", "Garage IT")
-- Bar/restaurant names with @ symbol (e.g. "@the.hidden.bar")
-- Office locations (e.g. "офис Garage IT")
-- Google Maps links (maps.app.goo.gl, goo.gl/maps)
-- Yandex Maps links (yandex.ru/maps, ya.ru/m)
-- Russian: "офис", "место", "ресторан", "бар", "приходи", "встреча"
-- English: "office", "venue", "restaurant", "bar", "come to", "meeting at"
+Examples of HYBRID:
+- "Join us in person at Office Space or online via Zoom"  
+- "Event at Terminal Abashidze, will be streamed online"
+- "Physical meetup with online streaming available"
 
-💻 ONLINE INDICATORS (classify as "online"):
-- Zoom links (zoom.us, us06web.zoom.us) or "в Зуме"/"in Zoom"
-- Google Meet links (meet.google.com)
-- "онлайн"/"online" explicitly stated
-- Webinar URLs, streaming links
-- No physical location mentioned
-
-🔄 HYBRID INDICATORS (classify as "hybrid"):
-- Both physical location AND online options mentioned
-
-CLASSIFICATION RULE: If you see ANY offline indicator above → classify as "offline"
-If ONLY online indicators → classify as "online"
-If BOTH → classify as "hybrid"
+NOT HYBRID (pure offline or pure online):
+- Only physical location mentioned → offline
+- Only online access mentioned → online
+- Online mentioned just for registration/information → offline
 
 Messages:
 ${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
 
-CRITICAL: You MUST classify ALL ${chunk.length} messages. Respond with each message number followed by its type, one per line (e.g., "1:offline", "3:hybrid", "7:online"). Do not skip any messages.`;
+Respond with only the message numbers that are HYBRID events, one per line (e.g., "3", "7", "12"). If no messages are hybrid, respond with "NONE".`;
 
-    try {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-      });
+      try {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+        });
 
-      const result = response.choices[0].message.content?.trim();
-      const processedIndices = new Set<number>();
-      
-      if (result) {
-        const lines = result.split('\n').filter(line => line.trim());
+        const result = response.choices[0].message.content?.trim();
+        const hybridIndices = new Set<number>();
         
-        for (const line of lines) {
-          const match = line.match(/^(\d+):(offline|online|hybrid)$/);
-          if (match) {
-            const idx = parseInt(match[1]) - 1;
-            const eventType = match[2] as 'offline' | 'online' | 'hybrid';
-            
+        if (result && result !== 'NONE') {
+          const lines = result.split('\n').filter(line => line.trim());
+          for (const line of lines) {
+            const idx = parseInt(line.trim()) - 1;
             if (idx >= 0 && idx < chunk.length) {
-              // Check if event should be included based on offline filter
-              if (config.skipOnlineEvents && eventType === 'online') {
-                console.log(`    DISCARDED: ${chunk[idx].link} [${eventType}] - skipping online events`);
-              } else {
-                eventAnnouncements.push({
-                  message: chunk[idx],
-                  event_type: eventType
-                });
-              }
-              cache.setAnnouncementResult(chunk[idx].link, eventType, config.skipOnlineEvents, false);
-              processedIndices.add(idx);
+              hybridIndices.add(idx);
+              hybridEvents.push({
+                message: chunk[idx],
+                event_type: 'hybrid'
+              });
             }
           }
         }
+
+        // Cache results and separate hybrid from remaining
+        for (let idx = 0; idx < chunk.length; idx++) {
+          const isHybrid = hybridIndices.has(idx);
+          cache.cacheHybridEvent(chunk[idx].link, isHybrid, false);
+          
+          if (!isHybrid) {
+            remainingAfterHybrid.push(chunk[idx]);
+          }
+        }
+      } catch (error) {
+        console.error('Error with OpenAI hybrid detection:', error);
+        // Add all to remaining on error
+        remainingAfterHybrid.push(...chunk);
       }
       
-      // Log any messages that GPT failed to classify (but don't assume their type)
-      for (let idx = 0; idx < chunk.length; idx++) {
-        if (!processedIndices.has(idx)) {
-          console.log(`    WARNING: ${chunk[idx].link} - GPT failed to classify, skipping`);
-        }
-      }
-    } catch (error) {
-      console.error('Error with OpenAI:', error);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
-    // Save cache after processing batch
-    cache.save();
-    
-    // Add delay to avoid rate limits
-    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`  Created ${eventAnnouncements.length} event announcements`);
-  return eventAnnouncements;
+
+  cache.save();
+  console.log(`    Found ${hybridEvents.length} hybrid events, ${remainingAfterHybrid.length} remaining`);
+  
+  return { hybridEvents, remainingAfterHybrid };
+}
+
+async function detectOfflineEvents(messages: TelegramMessage[], cache: Cache): Promise<{ offlineEvents: EventAnnouncement[], remainingAfterOffline: TelegramMessage[] }> {
+  console.log(`  Step 4.2: Detecting offline events from ${messages.length} messages...`);
+  
+  const offlineEvents: EventAnnouncement[] = [];
+  const uncachedMessages: TelegramMessage[] = [];
+  const remainingAfterOffline: TelegramMessage[] = [];
+  let cacheHits = 0;
+
+  console.log('    Processing cache...');
+  for (const message of messages) {
+    const cachedResult = cache.isOfflineEventCached(message.link);
+    if (cachedResult !== null) {
+      cacheHits++;
+      if (cachedResult) {
+        offlineEvents.push({
+          message,
+          event_type: 'offline'
+        });
+      } else {
+        // Cached as non-offline, add to remaining immediately
+        remainingAfterOffline.push(message);
+      }
+    } else {
+      uncachedMessages.push(message);
+    }
+  }
+
+  if (cacheHits > 0) {
+    console.log(`    Cache hits: ${cacheHits}/${messages.length} messages`);
+  }
+
+  if (uncachedMessages.length > 0) {
+    const chunks = [];
+    for (let i = 0; i < uncachedMessages.length; i += 16) {
+      chunks.push(uncachedMessages.slice(i, i + 16));
+    }
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      console.log(`    Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+      
+      const prompt = `Identify which of these event messages are OFFLINE events (in-person, physical location).
+
+OFFLINE EVENT INDICATORS:
+- Physical addresses or streets (e.g. "Khorava 18", "Terminal Abashidze")  
+- City names (e.g. "Тбилиси", "Tbilisi")
+- Venue names (e.g. "F0RTHSP4CE", "Fragment", "Solution Heritage Lounge Bar", "Garage IT")
+- Business names with @ symbol (e.g. "@the.hidden.bar")
+- Office locations (e.g. "офис Garage IT")
+- Map links (Google Maps, Yandex Maps)
+
+RUSSIAN LOCATION KEYWORDS:
+- "офис" (office), "ресторан" (restaurant), "бар" (bar), "место" (place)
+- "приходи" (come), "встреча в" (meeting at), "соберёмся в" (gather at)
+
+ENGLISH LOCATION KEYWORDS:
+- "office", "venue", "restaurant", "bar", "location", "address"
+- "come to", "meeting at", "held at"
+
+EXAMPLES:
+- "F0RTHSP4CE, Khorava 18" → OFFLINE (venue + address)
+- "@the.hidden.bar" → OFFLINE (venue)
+- "офис Garage IT" → OFFLINE (office)
+- "ресторан Fragment" → OFFLINE (restaurant)
+- Speed dating events → typically OFFLINE
+
+Messages:
+${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
+
+Respond with only the message numbers that are OFFLINE events, one per line (e.g., "1", "5", "8"). If no messages are offline, respond with "NONE".`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+        });
+
+        const result = response.choices[0].message.content?.trim();
+        const offlineIndices = new Set<number>();
+        
+        if (result && result !== 'NONE') {
+          const lines = result.split('\n').filter(line => line.trim());
+          for (const line of lines) {
+            const idx = parseInt(line.trim()) - 1;
+            if (idx >= 0 && idx < chunk.length) {
+              offlineIndices.add(idx);
+              offlineEvents.push({
+                message: chunk[idx],
+                event_type: 'offline'
+              });
+            }
+          }
+        }
+
+        // Cache results and separate offline from remaining
+        for (let idx = 0; idx < chunk.length; idx++) {
+          const isOffline = offlineIndices.has(idx);
+          cache.cacheOfflineEvent(chunk[idx].link, isOffline, false);
+          
+          if (!isOffline) {
+            remainingAfterOffline.push(chunk[idx]);
+          }
+        }
+      } catch (error) {
+        console.error('Error with OpenAI offline detection:', error);
+        // Add all to remaining on error
+        remainingAfterOffline.push(...chunk);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+
+  cache.save();
+  console.log(`    Found ${offlineEvents.length} offline events, ${remainingAfterOffline.length} remaining (online)`);
+  
+  return { offlineEvents, remainingAfterOffline };
 }
 
 export async function filterByInterests(announcements: EventAnnouncement[], config: Config): Promise<InterestingAnnouncement[]> {
-  const cache = new Cache();
   console.log(`Step 5: Filtering ${announcements.length} event announcements by user interests...`);
+  
+  if (announcements.length === 0) {
+    console.log(`  No input on this step`);
+    return [];
+  }
+  
+  const cache = new Cache();
   
   // Check cache first
   const uncachedAnnouncements: EventAnnouncement[] = [];
@@ -316,7 +461,7 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
 
   console.log('  Processing cache...');
   for (const announcement of announcements) {
-    const cachedInterests = cache.getInterestResult(announcement.message.link, config.userInterests);
+    const cachedInterests = cache.getMatchingInterestsCache(announcement.message.link, config.userInterests);
     if (cachedInterests !== null) {
       cacheHits++;
       if (cachedInterests.length > 0) {
@@ -389,7 +534,7 @@ If a message doesn't match any interests, don't include it in your response.`;
           // All announcements have no matches - cache them as empty
           for (const announcement of chunk) {
             console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
-            cache.setInterestResult(announcement.message.link, [], config.userInterests, false);
+            cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
           }
         } else {
           // Parse normal MESSAGE_NUMBER: interests format
@@ -406,7 +551,7 @@ If a message doesn't match any interests, don't include it in your response.`;
                 announcement: chunk[messageIdx],
                 interests_matched: interests
               });
-              cache.setInterestResult(chunk[messageIdx].message.link, interests, config.userInterests, false);
+              cache.cacheMatchingInterests(chunk[messageIdx].message.link, interests, config.userInterests, false);
               processedMessages.add(messageIdx);
             }
           }
@@ -415,7 +560,7 @@ If a message doesn't match any interests, don't include it in your response.`;
           for (let idx = 0; idx < chunk.length; idx++) {
             if (!processedMessages.has(idx)) {
               console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
-              cache.setInterestResult(chunk[idx].message.link, [], config.userInterests, false);
+              cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
             }
           }
         }
@@ -423,7 +568,7 @@ If a message doesn't match any interests, don't include it in your response.`;
         // No matches in this chunk
         for (const announcement of chunk) {
           console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
-          cache.setInterestResult(announcement.message.link, [], config.userInterests, false);
+          cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
         }
       }
     } catch (error) {
@@ -442,8 +587,14 @@ If a message doesn't match any interests, don't include it in your response.`;
 }
 
 export async function filterBySchedule(announcements: InterestingAnnouncement[], config: Config): Promise<ScheduledEvent[]> {
-  const cache = new Cache();
   console.log(`Step 6: Filtering ${announcements.length} event announcements by schedule and future dates...`);
+  
+  if (announcements.length === 0) {
+    console.log(`  No input on this step`);
+    return [];
+  }
+  
+  const cache = new Cache();
   
   // Check cache first
   const uncachedAnnouncements: InterestingAnnouncement[] = [];
@@ -452,7 +603,7 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
 
   console.log('  Processing cache...');
   for (const announcement of announcements) {
-    const cachedDateTime = cache.getScheduleResult(announcement.announcement.message.link, config.weeklyTimeslots);
+    const cachedDateTime = cache.getScheduledEventCache(announcement.announcement.message.link, config.weeklyTimeslots);
     if (cachedDateTime !== null) {
       cacheHits++;
       if (cachedDateTime !== 'unknown') {
@@ -563,7 +714,7 @@ YEAR INFERENCE RULES:
           // Cache the extracted datetime with proper formatting
           if (messageIdx >= 0 && messageIdx < chunk.length) {
             const normalizedDateTime = normalizeDateTime(dateTime);
-            cache.setScheduleResult(chunk[messageIdx].announcement.message.link, normalizedDateTime, config.weeklyTimeslots, false);
+            cache.cacheScheduledEvent(chunk[messageIdx].announcement.message.link, normalizedDateTime, config.weeklyTimeslots, false);
             processedMessages.add(messageIdx);
           }
           
@@ -627,14 +778,14 @@ YEAR INFERENCE RULES:
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedMessages.has(idx)) {
             console.log(`    DISCARDED: ${chunk[idx].announcement.message.link} - no date/time found`);
-            cache.setScheduleResult(chunk[idx].announcement.message.link, 'unknown', config.weeklyTimeslots, false);
+            cache.cacheScheduledEvent(chunk[idx].announcement.message.link, 'unknown', config.weeklyTimeslots, false);
           }
         }
       } else {
         // No results from GPT, cache as unknown
         for (const announcement of chunk) {
           console.log(`    DISCARDED: ${announcement.announcement.message.link} - no date/time found`);
-          cache.setScheduleResult(announcement.announcement.message.link, 'unknown', config.weeklyTimeslots, false);
+          cache.cacheScheduledEvent(announcement.announcement.message.link, 'unknown', config.weeklyTimeslots, false);
         }
       }
     } catch (error) {

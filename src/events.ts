@@ -8,8 +8,14 @@ const openai = new OpenAI({
 });
 
 export async function convertToEvents(scheduledEvents: ScheduledEvent[], config: Config): Promise<Event[]> {
-  const cache = new Cache();
   console.log(`Step 7: Converting ${scheduledEvents.length} scheduled events to events...`);
+  
+  if (scheduledEvents.length === 0) {
+    console.log(`  No input on this step`);
+    return [];
+  }
+  
+  const cache = new Cache();
   
   // Check cache first
   const uncachedEvents: ScheduledEvent[] = [];
@@ -17,7 +23,7 @@ export async function convertToEvents(scheduledEvents: ScheduledEvent[], config:
   let cacheHits = 0;
 
   for (const scheduledEvent of scheduledEvents) {
-    const cachedEvent = cache.getEventConversion(scheduledEvent.interesting_announcement.announcement.message.link, config.userInterests);
+    const cachedEvent = cache.getConvertedEventCache(scheduledEvent.interesting_announcement.announcement.message.link, config.userInterests);
     if (cachedEvent !== null) {
       cacheHits++;
       // Update cached event with current data (interests might have changed)
@@ -110,7 +116,7 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
           events.push(finalEvent);
           
           // Cache the extracted event data (without dynamic fields like date_time and interests)
-          cache.setEventConversion(chunk[i].interesting_announcement.announcement.message.link, eventData, config.userInterests, false);
+          cache.cacheConvertedEvent(chunk[i].interesting_announcement.announcement.message.link, eventData, config.userInterests, false);
           
           if (title && summary && description) {
             console.log(`    ✓ Created event: ${title}`);

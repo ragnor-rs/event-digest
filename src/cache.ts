@@ -8,11 +8,12 @@ interface CacheEntry {
 }
 
 interface CacheStore {
-  event_messages: Record<string, {isEvent: boolean, event_type?: 'offline' | 'online' | 'hybrid'}>; // message link -> event result
-  announcements: Record<string, {event_type: 'offline' | 'online' | 'hybrid'}>; // message link -> event type
-  interesting_announcements: Record<string, string[]>; // message link -> matched interests
-  scheduled_events: Record<string, string>; // message link -> extracted datetime
-  events: Record<string, any>; // message link -> event object
+  messages: Record<string, boolean>; // message link -> is event (step 3)
+  detected_hybrid_event_announcements: Record<string, boolean>; // message link -> is hybrid event (step 4.1)
+  detected_offline_event_announcements: Record<string, boolean>; // message link -> is offline event (step 4.2)
+  matching_interests: Record<string, string[]>; // message link -> matched interests (step 5)
+  scheduled_events: Record<string, string>; // message link -> extracted datetime (step 6)
+  events: Record<string, any>; // message link -> event object (step 7)
 }
 
 export class Cache {
@@ -41,9 +42,10 @@ export class Cache {
     }
 
     return {
-      event_messages: {},
-      announcements: {},
-      interesting_announcements: {},
+      messages: {},
+      detected_hybrid_event_announcements: {},
+      detected_offline_event_announcements: {},
+      matching_interests: {},
       scheduled_events: {},
       events: {}
     };
@@ -62,43 +64,28 @@ export class Cache {
     this.saveCache();
   }
 
-  // Event announcement filtering
-  getEventResult(messageLink: string): {isEvent: boolean, event_type?: 'offline' | 'online' | 'hybrid'} | null {
-    return this.cache.event_messages[messageLink] ?? null;
+  // Event message detection (step 3)
+  isEventMessageCached(messageLink: string): boolean | null {
+    return this.cache.messages[messageLink] ?? null;
   }
 
-  setEventResult(messageLink: string, isEvent: boolean, eventType: 'offline' | 'online' | 'hybrid' | undefined, autoSave: boolean = true): void {
-    this.cache.event_messages[messageLink] = { isEvent, event_type: eventType };
+  cacheEventMessage(messageLink: string, isEvent: boolean, autoSave: boolean = true): void {
+    this.cache.messages[messageLink] = isEvent;
     if (autoSave) {
       this.saveCache();
     }
   }
 
-  // Convert events to announcements with type classification
-  getAnnouncementResult(messageLink: string, skipOnlineEvents: boolean): {event_type: 'offline' | 'online' | 'hybrid'} | null {
-    const cacheKey = this.createAnnouncementCacheKey(messageLink, skipOnlineEvents);
-    return this.cache.announcements[cacheKey] ?? null;
-  }
-  setAnnouncementResult(messageLink: string, eventType: 'offline' | 'online' | 'hybrid', skipOnlineEvents: boolean, autoSave: boolean = true): void {
-    const cacheKey = this.createAnnouncementCacheKey(messageLink, skipOnlineEvents);
-    this.cache.announcements[cacheKey] = { event_type: eventType };
-    if (autoSave) {
-      this.saveCache();
-    }
-  }
-  private createAnnouncementCacheKey(messageLink: string, skipOnlineEvents: boolean): string {
-    return `${messageLink}|skip_online:${skipOnlineEvents}`;
+
+  // Interest matching (step 5)
+  getMatchingInterestsCache(messageLink: string, userInterests: string[]): string[] | null {
+    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    return this.cache.matching_interests[cacheKey] ?? null;
   }
 
-  // Interest matching
-  getInterestResult(messageLink: string, userInterests: string[]): string[] | null {
+  cacheMatchingInterests(messageLink: string, interests: string[], userInterests: string[], autoSave: boolean = true): void {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
-    return this.cache.interesting_announcements[cacheKey] ?? null;
-  }
-
-  setInterestResult(messageLink: string, interests: string[], userInterests: string[], autoSave: boolean = true): void {
-    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
-    this.cache.interesting_announcements[cacheKey] = interests;
+    this.cache.matching_interests[cacheKey] = interests;
     if (autoSave) {
       this.saveCache();
     }
@@ -116,13 +103,13 @@ export class Cache {
     return `${messageLink}|interests:${preferencesHash}`;
   }
 
-  // Schedule filtering (datetime extraction)
-  getScheduleResult(messageLink: string, weeklyTimeslots: string[]): string | null {
+  // Schedule filtering (datetime extraction) (step 6)
+  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): string | null {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     return this.cache.scheduled_events[cacheKey] ?? null;
   }
 
-  setScheduleResult(messageLink: string, datetime: string, weeklyTimeslots: string[], autoSave: boolean = true): void {
+  cacheScheduledEvent(messageLink: string, datetime: string, weeklyTimeslots: string[], autoSave: boolean = true): void {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     this.cache.scheduled_events[cacheKey] = datetime;
     if (autoSave) {
@@ -142,13 +129,13 @@ export class Cache {
     return `${messageLink}|schedule:${preferencesHash}`;
   }
 
-  // Event conversion
-  getEventConversion(messageLink: string, userInterests: string[]): any | null {
+  // Event conversion (step 7)
+  getConvertedEventCache(messageLink: string, userInterests: string[]): any | null {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     return this.cache.events[cacheKey] ?? null;
   }
 
-  setEventConversion(messageLink: string, event: any, userInterests: string[], autoSave: boolean = true): void {
+  cacheConvertedEvent(messageLink: string, event: any, userInterests: string[], autoSave: boolean = true): void {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.events[cacheKey] = event;
     if (autoSave) {
@@ -158,22 +145,25 @@ export class Cache {
 
   // Cache statistics
   getStats(): {
-    event_messages_cached: number;
-    announcements_cached: number;
-    interesting_announcements_cached: number;
+    messages_cached: number;
+    detected_hybrid_event_announcements_cached: number;
+    detected_offline_event_announcements_cached: number;
+    matching_interests_cached: number;
     scheduled_events_cached: number;
     events_cached: number;
     total_cached: number;
   } {
     return {
-      event_messages_cached: Object.keys(this.cache.event_messages).length,
-      announcements_cached: Object.keys(this.cache.announcements).length,
-      interesting_announcements_cached: Object.keys(this.cache.interesting_announcements).length,
+      messages_cached: Object.keys(this.cache.messages).length,
+      detected_hybrid_event_announcements_cached: Object.keys(this.cache.detected_hybrid_event_announcements).length,
+      detected_offline_event_announcements_cached: Object.keys(this.cache.detected_offline_event_announcements).length,
+      matching_interests_cached: Object.keys(this.cache.matching_interests).length,
       scheduled_events_cached: Object.keys(this.cache.scheduled_events).length,
       events_cached: Object.keys(this.cache.events).length,
-      total_cached: Object.keys(this.cache.event_messages).length + 
-                   Object.keys(this.cache.announcements).length +
-                   Object.keys(this.cache.interesting_announcements).length +
+      total_cached: Object.keys(this.cache.messages).length + 
+                   Object.keys(this.cache.detected_hybrid_event_announcements).length +
+                   Object.keys(this.cache.detected_offline_event_announcements).length +
+                   Object.keys(this.cache.matching_interests).length +
                    Object.keys(this.cache.scheduled_events).length +
                    Object.keys(this.cache.events).length
     };
@@ -187,9 +177,10 @@ export class Cache {
     // In a more sophisticated implementation, we'd track timestamps per entry
     if (Date.now() > cutoffTime) {
       this.cache = {
-        event_messages: {},
-        announcements: {},
-        interesting_announcements: {},
+        messages: {},
+        detected_hybrid_event_announcements: {},
+        detected_offline_event_announcements: {},
+        matching_interests: {},
         scheduled_events: {},
         events: {}
       };
@@ -198,11 +189,43 @@ export class Cache {
     }
   }
 
-  // Clear step 4 cache specifically
-  clearInterestingAnnouncementsCache(): void {
-    this.cache.interesting_announcements = {};
+  // Hybrid event announcement detection (step 4.1)
+  isHybridEventCached(messageLink: string): boolean | null {
+    return this.cache.detected_hybrid_event_announcements[messageLink] ?? null;
+  }
+
+  cacheHybridEvent(messageLink: string, isHybrid: boolean, autoSave: boolean = true): void {
+    this.cache.detected_hybrid_event_announcements[messageLink] = isHybrid;
+    if (autoSave) {
+      this.saveCache();
+    }
+  }
+
+  // Offline event announcement detection (step 4.2)
+  isOfflineEventCached(messageLink: string): boolean | null {
+    return this.cache.detected_offline_event_announcements[messageLink] ?? null;
+  }
+
+  cacheOfflineEvent(messageLink: string, isOffline: boolean, autoSave: boolean = true): void {
+    this.cache.detected_offline_event_announcements[messageLink] = isOffline;
+    if (autoSave) {
+      this.saveCache();
+    }
+  }
+
+  // Clear event announcements cache specifically  
+  clearAnnouncementsCache(): void {
+    this.cache.detected_hybrid_event_announcements = {};
+    this.cache.detected_offline_event_announcements = {};
     this.saveCache();
-    console.log('  Interesting announcements cache cleared');
+    console.log('  Event announcements cache cleared');
+  }
+
+  // Clear matching interests cache specifically
+  clearInterestingAnnouncementsCache(): void {
+    this.cache.matching_interests = {};
+    this.saveCache();
+    console.log('  Matching interests cache cleared');
   }
 
   // Create hash for preferences (interests/timeslots) for shorter cache keys
