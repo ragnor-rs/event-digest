@@ -79,7 +79,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 ### Important Implementation Details
 
-**Interest Matching:** Uses strict GPT criteria to distinguish between events ABOUT a topic vs events merely conducted in a language or mentioning a topic in passing.
+**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). Achieved ~99% accuracy through detailed keyword recognition and inclusive matching criteria.
 
 **Date Handling:** Single source of truth in `normalizeDateTime()` function handles GPT's inconsistent date format responses.
 

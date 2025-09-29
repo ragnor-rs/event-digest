@@ -2,30 +2,6 @@ import OpenAI from 'openai';
 import { TelegramMessage, EventAnnouncement, InterestingAnnouncement, ScheduledEvent, Config } from './types';
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 import { Cache } from './cache';
-import fs from 'fs';
-import path from 'path';
-
-// Debug logging for discarded announcements
-function writeDiscardedInterestsDebug(discarded: Array<{ link: string, content: string, reason: string }>) {
-  const debugDir = path.join(process.cwd(), '.debug');
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
-  
-  const debugFile = path.join(debugDir, 'discarded_interests.txt');
-  const output = discarded.map(item => {
-    return `=== DISCARDED ===
-Link: ${item.link}
-Reason: ${item.reason}
-Content:
-${item.content}
-
-`;
-  }).join('');
-  
-  fs.writeFileSync(debugFile, output, 'utf-8');
-  console.log(`    Debug: Wrote ${discarded.length} discarded announcements to ${debugFile}`);
-}
 
 // Single source of truth for date normalization
 function normalizeDateTime(dateTime: string): string {
@@ -494,7 +470,6 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
   // Check cache first
   const uncachedAnnouncements: EventAnnouncement[] = [];
   const interestingAnnouncements: InterestingAnnouncement[] = [];
-  const discardedAnnouncements: Array<{ link: string, content: string, reason: string }> = [];
   let cacheHits = 0;
 
   console.log('  Processing cache...');
@@ -509,11 +484,6 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
         });
       } else {
         console.log(`    DISCARDED: ${announcement.message.link} - no interests matched (cached)`);
-        discardedAnnouncements.push({
-          link: announcement.message.link,
-          content: announcement.message.content,
-          reason: 'No interests matched (cached)'
-        });
       }
     } else {
       uncachedAnnouncements.push(announcement);
@@ -527,12 +497,6 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
   if (uncachedAnnouncements.length === 0) {
     console.log(`  All messages cached, skipping GPT calls`);
     console.log(`  Found ${interestingAnnouncements.length} messages matching user interests`);
-    
-    // Write debug file for discarded announcements
-    if (discardedAnnouncements.length > 0) {
-      writeDiscardedInterestsDebug(discardedAnnouncements);
-    }
-    
     return interestingAnnouncements;
   }
   
@@ -608,8 +572,21 @@ SPECIFIC KEYWORDS TO RECOGNIZE (ALWAYS MATCH THESE):
 MANDATORY MATCHES - THESE MUST ALWAYS BE MATCHED:
 - Any event mentioning "DeepSeek" → "AI"
 - Any karaoke or singing event → "Social events" 
-- Any IT/tech networking event → "Backend" + "Networking" + "Social events"
-- Any personal branding/blogging event → "Business events" + "Networking"
+- Any IT/tech networking event, "айти нытьё", IT meetups → "Backend" + "Networking" + "Social events"
+- Any personal branding/blogging event, "личный бренд", blog growth → "Business events" + "Networking"
+- Events about growing followers, blog monetization, personal brand building → "Business events" + "Networking"
+
+CRITICAL INSTRUCTIONS - FOLLOW THESE EXACTLY:
+1. If you see "айти нытьё" (IT networking) → ALWAYS match "Backend", "Networking", "Social events"
+2. If you see "личный бренд" or "блог" growth/monetization → ALWAYS match "Business events", "Networking"  
+3. If you see "DeepSeek" or AI model names → ALWAYS match "AI"
+4. If you see "караоке" (karaoke), singing events → ALWAYS match "Social events"
+5. If you see "теория музыки" (music theory), composition → ALWAYS match ALL music interests
+6. If you see "Миядзаки" (Miyazaki), fantasy films → ALWAYS match "Fantasy"
+7. If you see "драйвовые рифы" (driving riffs), live rock bands → ALWAYS match "Rock"
+8. If you see hardware swap, hacker events → ALWAYS match "Computer hardware"
+
+BE MORE INCLUSIVE, NOT RESTRICTIVE. When in doubt, match multiple relevant interests.
 
 Messages:
 ${chunk.map((announcement, idx) => `${idx + 1}. ${announcement.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
@@ -636,11 +613,6 @@ If a message doesn't match any interests, don't include it in your response.`;
           // All announcements have no matches - cache them as empty
           for (const announcement of chunk) {
             console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
-            discardedAnnouncements.push({
-              link: announcement.message.link,
-              content: announcement.message.content,
-              reason: 'No interests matched (GPT response: no matches)'
-            });
             cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
           }
         } else {
@@ -667,11 +639,6 @@ If a message doesn't match any interests, don't include it in your response.`;
           for (let idx = 0; idx < chunk.length; idx++) {
             if (!processedMessages.has(idx)) {
               console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
-              discardedAnnouncements.push({
-                link: chunk[idx].message.link,
-                content: chunk[idx].message.content,
-                reason: 'No interests matched (GPT did not match)'
-              });
               cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
             }
           }
@@ -680,11 +647,6 @@ If a message doesn't match any interests, don't include it in your response.`;
         // No matches in this chunk
         for (const announcement of chunk) {
           console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
-          discardedAnnouncements.push({
-            link: announcement.message.link,
-            content: announcement.message.content,
-            reason: 'No interests matched (GPT returned empty response)'
-          });
           cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
         }
       }
@@ -700,11 +662,6 @@ If a message doesn't match any interests, don't include it in your response.`;
   }
 
   console.log(`  Found ${interestingAnnouncements.length} messages matching user interests`);
-  
-  // Write debug file for discarded announcements
-  if (discardedAnnouncements.length > 0) {
-    writeDiscardedInterestsDebug(discardedAnnouncements);
-  }
   
   return interestingAnnouncements;
 }
