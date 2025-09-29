@@ -182,7 +182,7 @@ export async function convertToEventAnnouncements(messages: TelegramMessage[], c
     if (cachedResult !== null) {
       cacheHits++;
       // Check if cached event should be included based on offline filter
-      if (config.offlineEventsOnly && cachedResult.event_type !== 'offline') {
+      if (config.offlineEventsOnly && cachedResult.event_type === 'online') {
         console.log(`    DISCARDED: ${message.link} [${cachedResult.event_type}] - offline events only (cached)`);
       } else {
         eventAnnouncements.push({
@@ -216,20 +216,32 @@ export async function convertToEventAnnouncements(messages: TelegramMessage[], c
     
     const prompt = `Analyze these event messages and classify each one by its type.
 
-IMPORTANT CLASSIFICATION RULES:
-- If a message contains a physical address, street name, building name, or venue location → ALWAYS classify as "offline"
-- If a message mentions Zoom links, webinar URLs, online streaming, virtual meeting → classify as "online"  
-- If a message offers both physical location AND online participation → classify as "hybrid"
+CRITICAL CLASSIFICATION RULES:
 
-For each message, classify it as:
-- offline: In-person events at physical locations (bars, offices, venues, addresses, street names)
-- online: Virtual events (Zoom links, webinars, online streams, virtual meetings, no physical location)
-- hybrid: Events offering both in-person and online participation options
+🏢 OFFLINE INDICATORS (classify as "offline"):
+- ANY physical address or street (e.g. "Khorava 18", "Terminal Abashidze")
+- City names (e.g. "Тбилиси", "Tbilisi")
+- Venue names (e.g. "F0RTHSP4CE", "Fragment", "Solution Heritage Lounge Bar", "Garage IT")
+- Bar/restaurant names with @ symbol (e.g. "@the.hidden.bar")
+- Office locations (e.g. "офис Garage IT")
+- Google Maps links (maps.app.goo.gl, goo.gl/maps)
+- Yandex Maps links (yandex.ru/maps, ya.ru/m)
+- Russian: "офис", "место", "ресторан", "бар", "приходи", "встреча"
+- English: "office", "venue", "restaurant", "bar", "come to", "meeting at"
 
-Look for location indicators like:
-- Street addresses (e.g., "123 Main St", "Rustaveli Avenue 45")
-- Venue names (e.g., "at Starbucks", "in Conference Room A", "Impact Hub")
-- Geographic references (e.g., "downtown", "city center", specific districts)
+💻 ONLINE INDICATORS (classify as "online"):
+- Zoom links (zoom.us, us06web.zoom.us) or "в Зуме"/"in Zoom"
+- Google Meet links (meet.google.com)
+- "онлайн"/"online" explicitly stated
+- Webinar URLs, streaming links
+- No physical location mentioned
+
+🔄 HYBRID INDICATORS (classify as "hybrid"):
+- Both physical location AND online options mentioned
+
+CLASSIFICATION RULE: If you see ANY offline indicator above → classify as "offline"
+If ONLY online indicators → classify as "online"
+If BOTH → classify as "hybrid"
 
 Messages:
 ${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
@@ -257,7 +269,7 @@ CRITICAL: You MUST classify ALL ${chunk.length} messages. Respond with each mess
             
             if (idx >= 0 && idx < chunk.length) {
               // Check if event should be included based on offline filter
-              if (config.offlineEventsOnly && eventType !== 'offline') {
+              if (config.offlineEventsOnly && eventType === 'online') {
                 console.log(`    DISCARDED: ${chunk[idx].link} [${eventType}] - offline events only`);
               } else {
                 eventAnnouncements.push({

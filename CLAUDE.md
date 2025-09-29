@@ -91,9 +91,17 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 1. Basic event detection (`filterByEventMessages`) - Identifies genuine event announcements
 2. Event type classification (`convertToEventAnnouncements`) - Classifies as offline/online/hybrid and applies filtering
 
-**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in EventAnnouncement interface.
+**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in EventAnnouncement interface. Classification uses explicit indicators:
+- **Offline**: Physical addresses, venue names, city names, Google/Yandex Maps links, office locations
+- **Online**: Zoom/Google Meet links, explicit "online" mentions, webinar URLs
+- **Hybrid**: Events offering both physical and online participation options
 
-**Offline Events Filter:** When `offlineEventsOnly` is enabled (default), only in-person events are included, excluding virtual events and webinars. This filtering happens during the type classification stage.
+**Offline Events Filter:** When `offlineEventsOnly` is enabled (default), only events with physical attendance options are included:
+- ✅ **offline events** (in-person only) - always included  
+- ✅ **hybrid events** (both in-person and online options) - included because they offer physical attendance
+- ❌ **online events** (virtual only) - excluded
+
+This filtering happens during the type classification stage.
 
 ## Environment Setup
 
