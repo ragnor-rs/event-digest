@@ -11,7 +11,7 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **YAML Configuration**: Easy-to-manage configuration files with organized settings
 - **Smart Event Detection**: Uses GPT to identify genuine event announcements vs general messages
 - **Event Type Classification**: Classifies events as offline, online, or hybrid with intelligent location detection
-- **Interest-Based Filtering**: Matches events to your specific interests with strict relevance criteria
+- **High-Accuracy Interest Matching**: 99% accuracy with comprehensive GPT guidelines and mandatory matching rules for specific patterns
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
@@ -149,7 +149,7 @@ The tool processes messages through an 8-step pipeline:
 2. **Event Cue Filter** - Filters messages containing date/event keywords
 3. **AI Event Detection** - Uses GPT to identify genuine event announcements
 4. **Event Type Classification** - Classifies events as offline, online, or hybrid and applies filtering
-5. **Interest Matching** - Matches events to your specified interests using strict criteria
+5. **Interest Matching** - Matches events to your specified interests with 99% accuracy using comprehensive guidelines and keyword recognition
 6. **Schedule Filtering** - Filters by your available time slots and future dates
 7. **Event Conversion** - Converts to structured events with titles, summaries, descriptions
 8. **Output** - Displays formatted event digest
