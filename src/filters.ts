@@ -253,20 +253,33 @@ async function detectHybridEvents(messages: TelegramMessage[], cache: Cache): Pr
       
       const prompt = `Identify which of these event messages are HYBRID events (both online AND offline options available).
 
-HYBRID EVENT CRITERIA:
-- Event explicitly offers BOTH online streaming/participation AND physical attendance
-- Messages that mention both a physical location AND online access (Zoom, streaming, etc.)
-- Events where people can choose to attend either in-person OR online
+STRICT HYBRID EVENT CRITERIA - ALL MUST BE PRESENT:
+1. Event has a PHYSICAL location mentioned (address, venue name, etc.)
+2. Event EXPLICITLY mentions online access/streaming/participation
+3. Both options are clearly available to attendees
 
-Examples of HYBRID:
-- "Join us in person at Office Space or online via Zoom"  
-- "Event at Terminal Abashidze, will be streamed online"
-- "Physical meetup with online streaming available"
+EXPLICIT EVIDENCE REQUIRED FOR HYBRID:
+- Direct mentions: "online streaming", "Zoom", "livestream", "online participation"
+- Clear dual format: "in person + online", "hybrid format", "both offline and online"
+- Streaming confirmation: "will be streamed", "online broadcast", "virtual attendance"
 
-NOT HYBRID (pure offline or pure online):
-- Only physical location mentioned → offline
-- Only online access mentioned → online
-- Online mentioned just for registration/information → offline
+DEFINITELY NOT HYBRID (classify as offline):
+- Only physical location mentioned (even for tech events)
+- Tech/programming meetups without explicit online mention
+- Educational events at venues without streaming confirmation  
+- Professional meetups at offices without online access mentioned
+- Conferences/events where online isn't explicitly stated
+- Events mentioning online only for registration/chat/information
+
+Examples of TRUE HYBRID:
+- "Join us in person at Office Space or attend online via Zoom link"
+- "Physical meetup at Terminal, will also be livestreamed on YouTube"
+- "Hybrid event: come to Kera Space or join virtually via Microsoft Teams"
+
+Examples of OFFLINE (not hybrid):
+- "Meetup at F0RTHSP4CE, bring laptops" → No online mention
+- "AI discussion at Garage IT office" → No streaming mentioned
+- "Programming workshop at venue" → Physical only, despite tech topic
 
 Messages:
 ${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}

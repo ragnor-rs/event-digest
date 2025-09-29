@@ -6,5 +6,6 @@ dist/
 session/
 .idea/
 .cache/
+.debug/
 .telegram-session
 /config.yaml
