@@ -96,6 +96,9 @@ export function parseArgs(): Config {
       case '--write-debug-files':
         config.writeDebugFiles = value.toLowerCase() === 'true';
         break;
+      case '--skip-online-events':
+        config.skipOnlineEvents = value.toLowerCase() === 'true';
+        break;
     }
   }
 
