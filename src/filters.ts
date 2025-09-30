@@ -36,13 +36,20 @@ export async function filterEventMessages(messages: TelegramMessage[], config: C
 
 export async function filterByEventMessages(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
   console.log(`Step 3: Using GPT to filter ${messages.length} messages for event announcements...`);
-  
+
   if (messages.length === 0) {
     console.log(`  No input on this step`);
     return [];
   }
-  
+
   const cache = new Cache();
+  const debugResults: Array<{
+    messageLink: string;
+    isEvent: boolean;
+    cached: boolean;
+    prompt?: string;
+    gptResponse?: string;
+  }> = [];
 
   // Check cache first
   const uncachedMessages: TelegramMessage[] = [];
@@ -55,6 +62,18 @@ export async function filterByEventMessages(messages: TelegramMessage[], config:
       cacheHits++;
       if (cachedResult) {
         eventMessages.push(message);
+        debugResults.push({
+          messageLink: message.link,
+          isEvent: true,
+          cached: true,
+        });
+      } else {
+        console.log(`    DISCARDED: ${message.link} - not an event announcement (cached)`);
+        debugResults.push({
+          messageLink: message.link,
+          isEvent: false,
+          cached: true,
+        });
       }
     } else {
       uncachedMessages.push(message);
@@ -68,6 +87,11 @@ export async function filterByEventMessages(messages: TelegramMessage[], config:
   if (uncachedMessages.length === 0) {
     console.log(`  All messages cached, skipping GPT calls`);
     console.log(`  GPT identified ${eventMessages.length} event messages`);
+
+    if (config.writeDebugFiles) {
+      debugWriter.writeEventDetection(debugResults);
+    }
+
     return eventMessages;
   }
   
@@ -131,30 +155,56 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
       if (result && result !== 'none') {
         const lines = result.split('\n').filter(line => line.trim());
         const processedIndices = new Set<number>();
-        
+
         for (const line of lines) {
           const match = line.match(/^(\d+)$/);
           if (match) {
             const idx = parseInt(match[1]) - 1;
-            
+
             if (idx >= 0 && idx < chunk.length) {
               eventMessages.push(chunk[idx]);
               cache.cacheEventMessage(chunk[idx].link, true, false);
               processedIndices.add(idx);
+
+              debugResults.push({
+                messageLink: chunk[idx].link,
+                isEvent: true,
+                cached: false,
+                prompt,
+                gptResponse: result,
+              });
             }
           }
         }
-        
+
         // Cache negative results for unprocessed messages
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedIndices.has(idx)) {
+            console.log(`    DISCARDED: ${chunk[idx].link} - not an event announcement`);
             cache.cacheEventMessage(chunk[idx].link, false, false);
+
+            debugResults.push({
+              messageLink: chunk[idx].link,
+              isEvent: false,
+              cached: false,
+              prompt,
+              gptResponse: result,
+            });
           }
         }
       } else {
         // All messages in chunk are not events
         for (const message of chunk) {
+          console.log(`    DISCARDED: ${message.link} - not an event announcement`);
           cache.cacheEventMessage(message.link, false, false);
+
+          debugResults.push({
+            messageLink: message.link,
+            isEvent: false,
+            cached: false,
+            prompt,
+            gptResponse: result || 'none',
+          });
         }
       }
     } catch (error) {
@@ -169,6 +219,11 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
   }
 
   console.log(`  GPT identified ${eventMessages.length} event messages`);
+
+  if (config.writeDebugFiles) {
+    debugWriter.writeEventDetection(debugResults);
+  }
+
   return eventMessages;
 }
 

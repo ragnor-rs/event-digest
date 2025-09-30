@@ -128,8 +128,9 @@ Cache keys include relevant user preferences to ensure correct invalidation when
 ## Debug Files
 
 When `writeDebugFiles` is enabled (default: false), the tool writes detailed debug information to the `debug/` directory:
-- `event_classification.json`: GPT classification of events as hybrid/offline/online with prompts and responses
-- `interest_matching.json`: Interest matching results showing which events matched which interests
-- `schedule_filtering.json`: Schedule filtering and datetime extraction results
+- `event_detection.json`: GPT filtering to identify single event announcements (step 3)
+- `event_classification.json`: GPT classification of events as hybrid/offline/online with prompts and responses (step 4)
+- `interest_matching.json`: Interest matching results showing which events matched which interests (step 5)
+- `schedule_filtering.json`: Schedule filtering and datetime extraction results (step 6)
 
-Debug files include GPT prompts, responses, cache status, and detailed statistics. Use for troubleshooting interest matching accuracy or understanding GPT's decision-making process.
+Debug files include GPT prompts, responses, cache status, and detailed statistics. Use for troubleshooting event detection, interest matching accuracy, or understanding GPT's decision-making process.

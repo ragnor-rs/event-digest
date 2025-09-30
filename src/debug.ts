@@ -2,6 +2,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TelegramMessage, EventAnnouncement, InterestingAnnouncement } from './types';
 
+export interface DebugStep3Entry {
+  messageLink: string;
+  isEvent: boolean;
+  cached: boolean;
+  prompt?: string;
+  gptResponse?: string;
+}
+
 export interface DebugStep4Entry {
   message: TelegramMessage;
   gpt_prompt: string;
@@ -32,6 +40,7 @@ export interface DebugStep6Entry {
 
 class DebugWriter {
   private debugDir = 'debug';
+  private step3Entries: DebugStep3Entry[] = [];
   private step4Entries: DebugStep4Entry[] = [];
   private step5Entries: DebugStep5Entry[] = [];
   private step6Entries: DebugStep6Entry[] = [];
@@ -41,6 +50,11 @@ class DebugWriter {
     if (!fs.existsSync(this.debugDir)) {
       fs.mkdirSync(this.debugDir, { recursive: true });
     }
+  }
+
+  writeEventDetection(entries: DebugStep3Entry[]): void {
+    this.step3Entries = entries;
+    this.writeStep3();
   }
 
   addStep4Entry(entry: DebugStep4Entry): void {
@@ -60,6 +74,25 @@ class DebugWriter {
     this.writeStep5();
     this.writeStep6();
     console.log(`Debug files written to ${this.debugDir}/ directory`);
+  }
+
+  private writeStep3(): void {
+    const filename = path.join(this.debugDir, 'event_detection.json');
+    const data = {
+      step: 'GPT Event Detection',
+      description: 'GPT filtering to identify single event announcements',
+      total_entries: this.step3Entries.length,
+      result_counts: {
+        is_event: this.step3Entries.filter(e => e.isEvent).length,
+        not_event: this.step3Entries.filter(e => !e.isEvent).length
+      },
+      cache_stats: {
+        cached: this.step3Entries.filter(e => e.cached).length,
+        uncached: this.step3Entries.filter(e => !e.cached).length
+      },
+      results: this.step3Entries
+    };
+    fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
   private writeStep4(): void {

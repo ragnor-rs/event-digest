@@ -215,10 +215,11 @@ Or via command line:
 npm run dev -- --write-debug-files true
 ```
 
-This creates three detailed JSON files in the `debug/` directory:
-- `event_classification.json`: Event type detection (offline/online/hybrid)
-- `interest_matching.json`: Interest matching decisions with GPT prompts/responses
-- `schedule_filtering.json`: Schedule filtering and datetime extraction
+This creates four detailed JSON files in the `debug/` directory:
+- `event_detection.json`: GPT filtering to identify single event announcements (step 3)
+- `event_classification.json`: Event type detection (offline/online/hybrid) (step 4)
+- `interest_matching.json`: Interest matching decisions with GPT prompts/responses (step 5)
+- `schedule_filtering.json`: Schedule filtering and datetime extraction (step 6)
 
 Each file includes:
 - GPT prompts and responses
