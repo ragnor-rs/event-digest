@@ -42,6 +42,7 @@ export async function filterByEventMessages(messages: TelegramMessage[], config:
     return [];
   }
 
+  console.log(`  Processing cache...`);
   const cache = new Cache();
   const debugResults: Array<{
     messageLink: string;
