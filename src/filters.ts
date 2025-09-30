@@ -596,80 +596,44 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
 
 User interests: ${config.userInterests.join(', ')}
 
-CRITICAL: Be more inclusive when matching interests. Social gatherings, professional meetups, and technical discussions should match multiple relevant categories.
+MATCHING PRINCIPLES:
 
-MATCHING GUIDELINES:
+1. **Direct Topic Match**: Match when the event is explicitly about the interest topic
+   - Technology interests: Match tech conferences, workshops, coding meetups, technical talks
+   - Music interests: Match concerts, music performances, music theory, composition classes
+   - Business interests: Match business meetups, professional gatherings, career development
+   - Physical activities: Match sports events, outdoor activities, travel experiences
+   - Cultural interests: Match language learning, film screenings, cultural events
+   - Games & activities: Match gaming events, competitions, tournaments
 
-TECHNOLOGY INTERESTS:
-- "AI": Events about artificial intelligence, machine learning models, LLMs, neural networks, AI tools, prompt engineering, reasoning models like DeepSeek
-- "ML": Machine learning courses, model training, data science workshops, Linear Algebra lectures (fundamental to ML)
-- "Backend": Server-side programming, APIs, databases, system architecture, JavaScript/JS meetups, tech community events
-- "Computer hardware": Hardware components, electronics, IoT, technical equipment
-- "Android/Flutter": Mobile development, app building
+2. **Learning & Practice**: Match when the event provides significant learning or practice opportunities
+   - Workshops and courses directly teaching the interest area
+   - Hands-on sessions in the topic
+   - Educational talks and lectures
 
-MUSIC INTERESTS:
-- "Electronic music": DJ sets, electronic dance music, EDM events, electronic music production, dance parties, club events
-- "Rock": Rock band concerts, rock music performances, rock festivals, live rock bands with "драйвовые рифы" (driving riffs)
-- "Jazz": Jazz concerts, jazz clubs, jazz music events
-- "Metal": Metal band concerts, metal music events
-- Music theory workshops and composition classes match ALL music interests
+3. **Cross-Category Matching**: Events often match multiple interests
+   - Tech networking events can match: technical topics + networking + social
+   - Music workshops can match: all music genres + performance + learning
+   - Professional development can match: career topics + business + networking
+   - Social gatherings at venues can match: social + specific venue type interests
 
-BUSINESS INTERESTS:
-- "VC": Venture capital discussions, investor meetings, startup pitching, funding
-- "Investments": Investment strategies, financial markets, portfolio discussions
-- "Networking": Business networking events, professional meetups, industry connections, IT social events
-- "Productivity": Time management, efficiency workshops, productivity tools, personal development, NLP workshops
-- "Business events": Corporate events, business meetups, professional gatherings
-- "Social events": Social gatherings, parties, networking events, community events, cultural celebrations
+4. **Keyword Recognition**: Look for domain-specific terminology
+   - Technology: APIs, frameworks, programming languages, tools, platforms
+   - Music: Genres, instruments, performance types, music theory terms
+   - Business: Professional terms, career concepts, industry jargon
+   - Activities: Specific activity names, locations, equipment
 
-PHYSICAL ACTIVITIES:
-- "Travel": Tourism, city tours, guided trips
-- "Industrial tourism": Tours of abandoned places, factory visits, urban exploration, Soviet sanatorium tours
-- "Hiking": Mountain trips, nature walks, outdoor adventures
+5. **Multilingual Support**: Recognize keywords in ANY language
+   - Match Russian and English equivalents equally
+   - Look for transliterated terms and local expressions
 
-CULTURAL INTERESTS:
-- "English": Language learning events, English conversation clubs
-- "Fantasy": Fantasy films (Miyazaki, fantasy cinema), fantasy literature events
-- "Sci-fi": Science fiction events, sci-fi screenings
+MATCHING STRATEGY:
 
-GAMES & ACTIVITIES:
-- "Board games": Chess tournaments (шахматы, рапид, турнир), board game nights, strategy games, card games
-- "Quiz": Quiz nights, trivia competitions, knowledge contests
-
-SPECIFIC KEYWORDS TO RECOGNIZE (ALWAYS MATCH THESE):
-- Chess events (рапид, турнир, шахматы, chess) → "Board games"
-- JavaScript/JS meetups, Apple Events viewing → "Backend" 
-- AI model names (GPT, DeepSeek, LangChain, reasoning models, prompt engineering) → "AI"
-- DJ events, dance parties, club events → "Electronic music"
-- Live band concerts, rock performances → "Rock"
-- Music theory, composition workshops → match all music interests
-- Karaoke events, singing events → "Social events"
-- IT networking, tech community events, "айти нытьё" → "Backend", "Networking", "Social events"
-- TouchDesigner, 3D composition, technical workshops → "Computer hardware"
-- Personal branding, blogging growth → "Business events", "Networking"
-- Personal development, NLP workshops → "Productivity"
-- Abandoned places tours, Soviet heritage → "Industrial tourism"
-- Social gatherings, parties, bar events → "Social events"
-- Fantasy films (Miyazaki) → "Fantasy"
-
-MANDATORY MATCHES - THESE MUST ALWAYS BE MATCHED:
-- Any event mentioning "DeepSeek" → "AI"
-- Any karaoke or singing event → "Social events" 
-- Any IT/tech networking event, "айти нытьё", IT meetups → "Backend" + "Networking" + "Social events"
-- Any personal branding/blogging event, "личный бренд", blog growth → "Business events" + "Networking"
-- Events about growing followers, blog monetization, personal brand building → "Business events" + "Networking"
-
-CRITICAL INSTRUCTIONS - FOLLOW THESE EXACTLY:
-1. If you see "айти нытьё" (IT networking) → ALWAYS match "Backend", "Networking", "Social events"
-2. If you see "личный бренд" or "блог" growth/monetization → ALWAYS match "Business events", "Networking"  
-3. If you see "DeepSeek" or AI model names → ALWAYS match "AI"
-4. If you see "караоке" (karaoke), singing events → ALWAYS match "Social events"
-5. If you see "теория музыки" (music theory), composition → ALWAYS match ALL music interests
-6. If you see "Миядзаки" (Miyazaki), fantasy films → ALWAYS match "Fantasy"
-7. If you see "драйвовые рифы" (driving riffs), live rock bands → ALWAYS match "Rock"
-8. If you see hardware swap, hacker events → ALWAYS match "Computer hardware"
-
-BE MORE INCLUSIVE, NOT RESTRICTIVE. When in doubt, match multiple relevant interests.
+- **Be INCLUSIVE**: When in doubt, match multiple relevant interests
+- **Look for CONTEXT**: Consider the event's purpose and audience
+- **Match BROADLY**: Social/networking events at tech venues → tech + networking + social
+- **Consider CROSSOVER**: Events that blend multiple interest areas should match all relevant categories
+- **Recognize SPECIFICITY**: Specific tools, models, or techniques within an interest area should match the broader category
 
 Messages:
 ${chunk.map((announcement: EventAnnouncement, idx: number) => `${idx + 1}. ${announcement.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
