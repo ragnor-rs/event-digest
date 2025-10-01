@@ -158,7 +158,7 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
         const processedIndices = new Set<number>();
 
         for (const line of lines) {
-          const match = line.match(/^(\d+)$/);
+          const match = line.trim().match(/^(\d+)$/);
           if (match) {
             const idx = parseInt(match[1]) - 1;
 
@@ -683,6 +683,12 @@ PHYSICAL ACTIVITIES:
 - "Industrial tourism": Tours of abandoned places, factory visits, urban exploration, Soviet sanatorium tours
 - "Hiking": Mountain trips, nature walks, outdoor adventures
 
+SCIENCE INTERESTS:
+- "Astronomy": Space events, космонавтика (cosmonautics), космические аппараты (spacecraft), CubeSat satellites, space exploration, planets, stars, космическая эра (space era), астрономия
+- "Physics": Physics lectures, physical phenomena, quantum mechanics, космические масштабы (cosmic scales), physics workshops
+- "Neuroscience": Brain science, neurobiology, cognitive science, neurological topics
+- "Radio": Radio communication, радио, рации (radios), SSTV reception, radio equipment, amateur radio, radio waves, МКС/ISS communication, радиодень (radio day)
+
 CULTURAL INTERESTS:
 - "English": Language learning events, English conversation clubs
 - "Fantasy": Fantasy films (Miyazaki, fantasy cinema), fantasy literature events
@@ -694,7 +700,7 @@ GAMES & ACTIVITIES:
 
 SPECIFIC KEYWORDS TO RECOGNIZE (ALWAYS MATCH THESE):
 - Chess events (рапид, турнир, шахматы, chess) → "Board games"
-- JavaScript/JS meetups, Apple Events viewing → "Backend" 
+- JavaScript/JS meetups, Apple Events viewing → "Backend"
 - AI model names (GPT, DeepSeek, LangChain, reasoning models, prompt engineering) → "AI"
 - DJ events, dance parties, club events → "Electronic music"
 - Live band concerts, rock performances → "Rock"
@@ -707,23 +713,35 @@ SPECIFIC KEYWORDS TO RECOGNIZE (ALWAYS MATCH THESE):
 - Abandoned places tours, Soviet heritage → "Industrial tourism"
 - Social gatherings, parties, bar events → "Social events"
 - Fantasy films (Miyazaki) → "Fantasy"
+- Space/космос events (космонавтика, CubeSat, спутники, космическая эра, МКС, ISS) → "Astronomy", "Physics"
+- Radio events (радиодень, рации, SSTV, радио, radio equipment, amateur radio) → "Radio"
+- Biology lectures (биология, прорывы биологии, neurobiology) → match relevant science interests
+- Physics/Astronomy lectures (физика, астрономия, космические масштабы) → "Physics", "Astronomy"
 
 MANDATORY MATCHES - THESE MUST ALWAYS BE MATCHED:
 - Any event mentioning "DeepSeek" → "AI"
-- Any karaoke or singing event → "Social events" 
+- Any karaoke or singing event → "Social events"
 - Any IT/tech networking event, "айти нытьё", IT meetups → "Backend" + "Networking" + "Social events"
 - Any personal branding/blogging event, "личный бренд", blog growth → "Business events" + "Networking"
 - Events about growing followers, blog monetization, personal brand building → "Business events" + "Networking"
+- Any space/космос event (космонавтика, CubeSat, спутники, космическая эра, МКС, ISS) → "Astronomy" (+ "Physics" if applicable)
+- Any radio event (радиодень, рации, SSTV, amateur radio, radio communication) → "Radio"
+- Any astronomy lecture (астрономия, planets, космические масштабы) → "Astronomy"
+- Any physics lecture (физика, physical phenomena, quantum) → "Physics"
 
 CRITICAL INSTRUCTIONS - FOLLOW THESE EXACTLY:
 1. If you see "айти нытьё" (IT networking) → ALWAYS match "Backend", "Networking", "Social events"
-2. If you see "личный бренд" or "блог" growth/monetization → ALWAYS match "Business events", "Networking"  
+2. If you see "личный бренд" or "блог" growth/monetization → ALWAYS match "Business events", "Networking"
 3. If you see "DeepSeek" or AI model names → ALWAYS match "AI"
 4. If you see "караоке" (karaoke), singing events → ALWAYS match "Social events"
 5. If you see "теория музыки" (music theory), composition → ALWAYS match ALL music interests
 6. If you see "Миядзаки" (Miyazaki), fantasy films → ALWAYS match "Fantasy"
 7. If you see "драйвовые рифы" (driving riffs), live rock bands → ALWAYS match "Rock"
 8. If you see hardware swap, hacker events → ALWAYS match "Computer hardware"
+9. If you see "космонавтика", "CubeSat", "спутники", "космическая эра", "МКС", "ISS" → ALWAYS match "Astronomy" (and "Physics" if relevant)
+10. If you see "радиодень", "рации", "SSTV", "радио", "radio equipment" → ALWAYS match "Radio"
+11. If you see "биология", neuroscience topics → ALWAYS match relevant science interests ("Neuroscience" if brain-related)
+12. If you see space + radio (космос + радио) → ALWAYS match BOTH "Astronomy" AND "Radio"
 
 BE MORE INCLUSIVE, NOT RESTRICTIVE. When in doubt, match multiple relevant interests.
 
