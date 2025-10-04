@@ -671,7 +671,7 @@ MUSIC INTERESTS:
 - Music theory workshops and composition classes match ALL music interests
 
 BUSINESS INTERESTS:
-- "VC": Venture capital discussions, investor meetings, startup pitching, funding
+- "VC": Venture capital discussions, investor meetings, startup pitching, funding, FOUNDER events, ENTREPRENEUR meetups, STARTUP conferences, tech entrepreneurship, IT entrepreneur gatherings, founders' events, venture ecosystem, angel investor networks, pitch sessions, startup ecosystem events
 - "Investments": Investment strategies, financial markets, portfolio discussions
 - "Networking": Business networking events, professional meetups, industry connections, IT social events
 - "Productivity": Time management, efficiency workshops, productivity tools, personal development, NLP workshops
@@ -717,6 +717,7 @@ SPECIFIC KEYWORDS TO RECOGNIZE (ALWAYS MATCH THESE):
 - Radio events (радиодень, рации, SSTV, радио, radio equipment, amateur radio) → "Radio"
 - Biology lectures (биология, прорывы биологии, neurobiology) → match relevant science interests
 - Physics/Astronomy lectures (физика, астрономия, космические масштабы) → "Physics", "Astronomy"
+- VC/Startup/Founder events (founders, IT-предприниматели, tech entrepreneurs, startup ecosystem, венчур, pitch sessions, angel investors, Unicorn Embassy) → "VC", "Networking", "Business events"
 
 MANDATORY MATCHES - THESE MUST ALWAYS BE MATCHED:
 - Any event mentioning "DeepSeek" → "AI"
@@ -724,6 +725,7 @@ MANDATORY MATCHES - THESE MUST ALWAYS BE MATCHED:
 - Any IT/tech networking event, "айти нытьё", IT meetups → "Backend" + "Networking" + "Social events"
 - Any personal branding/blogging event, "личный бренд", blog growth → "Business events" + "Networking"
 - Events about growing followers, blog monetization, personal brand building → "Business events" + "Networking"
+- Any VC/startup/founder event (founders, IT-предприниматели, tech entrepreneurs, startup, венчур, Founders Mondays, pitch session, angel investors, Unicorn Embassy, startup ecosystem) → "VC" + "Networking" + "Business events"
 - Any space/космос event (космонавтика, CubeSat, спутники, космическая эра, МКС, ISS) → "Astronomy" (+ "Physics" if applicable)
 - Any radio event (радиодень, рации, SSTV, amateur radio, radio communication) → "Radio"
 - Any astronomy lecture (астрономия, planets, космические масштабы) → "Astronomy"
@@ -742,6 +744,7 @@ CRITICAL INSTRUCTIONS - FOLLOW THESE EXACTLY:
 10. If you see "радиодень", "рации", "SSTV", "радио", "radio equipment" → ALWAYS match "Radio"
 11. If you see "биология", neuroscience topics → ALWAYS match relevant science interests ("Neuroscience" if brain-related)
 12. If you see space + radio (космос + радио) → ALWAYS match BOTH "Astronomy" AND "Radio"
+13. If you see "founders", "IT-предприниматели", "tech entrepreneurs", "startup", "венчур", "Founders Mondays", "pitch", "angel investors", "Unicorn Embassy", "VC" (in event name) → ALWAYS match "VC", "Networking", "Business events"
 
 BE MORE INCLUSIVE, NOT RESTRICTIVE. When in doubt, match multiple relevant interests.
 
