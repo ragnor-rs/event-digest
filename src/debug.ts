@@ -15,7 +15,7 @@ export interface DebugStep4Entry {
   gpt_prompt: string;
   gpt_response: string;
   result: 'hybrid' | 'offline' | 'online' | 'discarded';
-  substep: '4.1_hybrid' | '4.2_offline' | '4.3_online';
+  substep: '4_classification';
   cached: boolean;
 }
 
@@ -99,13 +99,8 @@ class DebugWriter {
     const filename = path.join(this.debugDir, 'event_classification.json');
     const data = {
       step: 'Event Type Classification',
-      description: 'GPT classification of events as hybrid/offline/online',
+      description: 'Index-based GPT classification of events as offline (0), online (1), or hybrid (2)',
       total_entries: this.step4Entries.length,
-      substep_counts: {
-        hybrid: this.step4Entries.filter(e => e.substep === '4.1_hybrid').length,
-        offline: this.step4Entries.filter(e => e.substep === '4.2_offline').length,
-        online: this.step4Entries.filter(e => e.substep === '4.3_online').length
-      },
       result_counts: {
         hybrid: this.step4Entries.filter(e => e.result === 'hybrid').length,
         offline: this.step4Entries.filter(e => e.result === 'offline').length,

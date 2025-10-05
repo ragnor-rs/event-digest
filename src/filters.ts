@@ -230,354 +230,202 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
 
 export async function convertToEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<EventAnnouncement[]> {
   console.log(`Step 4: Converting ${messages.length} messages to event announcements...`);
-  
+
   if (messages.length === 0) {
     console.log(`  No input on this step`);
     return [];
   }
-  
+
   const cache = new Cache();
   const eventAnnouncements: EventAnnouncement[] = [];
+  const uncachedMessages: TelegramMessage[] = [];
+  let cacheHits = 0;
 
-  // Step 4.1: Detect hybrid events
-  const { hybridEvents, remainingAfterHybrid } = await detectHybridEvents(messages, cache);
-  eventAnnouncements.push(...hybridEvents);
+  console.log('  Processing cache...');
+  for (const message of messages) {
+    const cachedType = cache.getEventTypeCache(message.link);
+    if (cachedType !== null) {
+      cacheHits++;
 
-  // Step 4.2: Detect offline events from remaining messages  
-  const { offlineEvents, remainingAfterOffline } = await detectOfflineEvents(remainingAfterHybrid, cache);
-  eventAnnouncements.push(...offlineEvents);
-
-  // Step 4.3: Remaining messages are online - add only if skipOnlineEvents is false
-  if (!config.skipOnlineEvents) {
-    console.log(`  Step 4.3: Adding ${remainingAfterOffline.length} online events...`);
-    for (const message of remainingAfterOffline) {
-      eventAnnouncements.push({
-        message,
-        event_type: 'online'
-      });
-      debugWriter.addStep4Entry({
-        message,
-        gpt_prompt: '[INFERRED]',
-        gpt_response: '[INFERRED: online event - remaining after hybrid/offline filtering]',
-        result: 'online',
-        substep: '4.3_online',
-        cached: false
-      });
+      // Check if we should include this event based on skipOnlineEvents
+      if (cachedType === 'online' && config.skipOnlineEvents) {
+        console.log(`    DISCARDED: ${message.link} [${cachedType}] - skipping online events (cached)`);
+        debugWriter.addStep4Entry({
+          message,
+          gpt_prompt: '[CACHED]',
+          gpt_response: `[CACHED: ${cachedType}]`,
+          result: 'discarded',
+          substep: '4_classification',
+          cached: true
+        });
+      } else {
+        eventAnnouncements.push({
+          message,
+          event_type: cachedType
+        });
+        debugWriter.addStep4Entry({
+          message,
+          gpt_prompt: '[CACHED]',
+          gpt_response: `[CACHED: ${cachedType}]`,
+          result: cachedType,
+          substep: '4_classification',
+          cached: true
+        });
+      }
+    } else {
+      uncachedMessages.push(message);
     }
-  } else {
-    console.log(`  Step 4.3: Discarding ${remainingAfterOffline.length} online events...`);
-    for (const message of remainingAfterOffline) {
-      console.log(`    DISCARDED: ${message.link} [online] - skipping online events`);
-      debugWriter.addStep4Entry({
-        message,
-        gpt_prompt: '[INFERRED]',
-        gpt_response: '[INFERRED: online event - discarded due to skipOnlineEvents]',
-        result: 'discarded',
-        substep: '4.3_online',
-        cached: false
+  }
+
+  if (cacheHits > 0) {
+    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+  }
+
+  if (uncachedMessages.length === 0) {
+    console.log(`  All messages cached, skipping GPT calls`);
+    console.log(`  Created ${eventAnnouncements.length} event announcements`);
+    return eventAnnouncements;
+  }
+
+  const chunks = [];
+  for (let i = 0; i < uncachedMessages.length; i += 16) {
+    chunks.push(uncachedMessages.slice(i, i + 16));
+  }
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+
+    const prompt = `Classify each event message as offline, online, or hybrid.
+
+CLASSIFICATION OPTIONS:
+0: offline - in-person event at a physical location
+1: online - virtual event only (Zoom, webinar, etc.)
+2: hybrid - both in-person and online options available
+
+OFFLINE EVENTS (0):
+- Physical addresses or streets (e.g. "Khorava 18", "Terminal Abashidze")
+- City names (e.g. "Тбилиси", "Tbilisi")
+- Venue names (e.g. "F0RTHSP4CE", "Fragment", "Garage IT")
+- Business names with @ symbol (e.g. "@the.hidden.bar")
+- Office locations (e.g. "офис Garage IT")
+- Map links (Google Maps, Yandex Maps)
+- Keywords: "офис", "ресторан", "бар", "venue", "office", "приходи", "come to"
+
+ONLINE EVENTS (1):
+- Only Zoom/Google Meet/virtual links, no physical location
+- Explicit "online only", "webinar", "virtual event"
+- No mention of physical venue or address
+
+HYBRID EVENTS (2):
+- MUST have BOTH physical location AND online access explicitly mentioned
+- Examples: "in person + online", "Zoom + venue", "livestream from office"
+- Both options clearly available to attendees
+
+Messages:
+${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
+
+For each message, respond with ONLY the message number and classification index:
+FORMAT: MESSAGE_NUMBER: INDEX
+Example: 1: 0
+Example: 2: 1
+Example: 3: 2
+
+Respond with one classification per line.`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
       });
+
+      const result = response.choices[0].message.content?.trim();
+      const processedIndices = new Set<number>();
+
+      if (result) {
+        const lines = result.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          const match = line.trim().match(/^(\d+)\s*:\s*(\d+)$/);
+          if (match) {
+            const messageIdx = parseInt(match[1]) - 1;
+            const classificationIdx = parseInt(match[2]);
+
+            if (messageIdx >= 0 && messageIdx < chunk.length && classificationIdx >= 0 && classificationIdx <= 2) {
+              const eventType = classificationIdx === 0 ? 'offline' : classificationIdx === 1 ? 'online' : 'hybrid';
+
+              // Cache the result
+              cache.cacheEventType(chunk[messageIdx].link, eventType, false);
+              processedIndices.add(messageIdx);
+
+              // Check if we should include this event
+              if (eventType === 'online' && config.skipOnlineEvents) {
+                console.log(`    DISCARDED: ${chunk[messageIdx].link} [${eventType}] - skipping online events`);
+                debugWriter.addStep4Entry({
+                  message: chunk[messageIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result,
+                  result: 'discarded',
+                  substep: '4_classification',
+                  cached: false
+                });
+              } else {
+                eventAnnouncements.push({
+                  message: chunk[messageIdx],
+                  event_type: eventType
+                });
+                debugWriter.addStep4Entry({
+                  message: chunk[messageIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result,
+                  result: eventType,
+                  substep: '4_classification',
+                  cached: false
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Handle unprocessed messages (shouldn't happen, but just in case)
+      for (let idx = 0; idx < chunk.length; idx++) {
+        if (!processedIndices.has(idx)) {
+          console.log(`    WARNING: ${chunk[idx].link} - no classification received, defaulting to offline`);
+          const eventType = 'offline';
+          cache.cacheEventType(chunk[idx].link, eventType, false);
+          eventAnnouncements.push({
+            message: chunk[idx],
+            event_type: eventType
+          });
+          debugWriter.addStep4Entry({
+            message: chunk[idx],
+            gpt_prompt: prompt,
+            gpt_response: result || '[NO RESPONSE]',
+            result: eventType,
+            substep: '4_classification',
+            cached: false
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error with OpenAI event classification:', error);
+      // On error, add all as offline events
+      for (const message of chunk) {
+        eventAnnouncements.push({
+          message,
+          event_type: 'offline'
+        });
+      }
     }
+
+    cache.save();
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   console.log(`  Created ${eventAnnouncements.length} event announcements`);
   return eventAnnouncements;
-}
-
-async function detectHybridEvents(messages: TelegramMessage[], cache: Cache): Promise<{ hybridEvents: EventAnnouncement[], remainingAfterHybrid: TelegramMessage[] }> {
-  console.log(`  Step 4.1: Detecting hybrid events from ${messages.length} messages...`);
-  
-  const hybridEvents: EventAnnouncement[] = [];
-  const uncachedMessages: TelegramMessage[] = [];
-  const remainingAfterHybrid: TelegramMessage[] = [];
-  let cacheHits = 0;
-
-  console.log('    Processing cache...');
-  for (const message of messages) {
-    const cachedResult = cache.isHybridEventCached(message.link);
-    if (cachedResult !== null) {
-      cacheHits++;
-      if (cachedResult) {
-        hybridEvents.push({
-          message,
-          event_type: 'hybrid'
-        });
-        debugWriter.addStep4Entry({
-          message,
-          gpt_prompt: '[CACHED]',
-          gpt_response: '[CACHED: hybrid]',
-          result: 'hybrid',
-          substep: '4.1_hybrid',
-          cached: true
-        });
-      } else {
-        // Cached as non-hybrid, add to remaining immediately
-        remainingAfterHybrid.push(message);
-        debugWriter.addStep4Entry({
-          message,
-          gpt_prompt: '[CACHED]',
-          gpt_response: '[CACHED: not hybrid]',
-          result: 'discarded',
-          substep: '4.1_hybrid',
-          cached: true
-        });
-      }
-    } else {
-      uncachedMessages.push(message);
-    }
-  }
-
-  if (cacheHits > 0) {
-    console.log(`    Cache hits: ${cacheHits}/${messages.length} messages`);
-  }
-
-  if (uncachedMessages.length > 0) {
-    const chunks = [];
-    for (let i = 0; i < uncachedMessages.length; i += 16) {
-      chunks.push(uncachedMessages.slice(i, i + 16));
-    }
-
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      console.log(`    Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-      
-      const prompt = `Identify which of these event messages are HYBRID events (both online AND offline options available).
-
-STRICT HYBRID EVENT CRITERIA - ALL MUST BE PRESENT:
-1. Event has a PHYSICAL location mentioned (address, venue name, etc.)
-2. Event EXPLICITLY mentions online access/streaming/participation
-3. Both options are clearly available to attendees
-
-EXPLICIT EVIDENCE REQUIRED FOR HYBRID:
-- Direct mentions: "online streaming", "Zoom", "livestream", "online participation"
-- Clear dual format: "in person + online", "hybrid format", "both offline and online"
-- Streaming confirmation: "will be streamed", "online broadcast", "virtual attendance"
-
-DEFINITELY NOT HYBRID (classify as offline):
-- Only physical location mentioned (even for tech events)
-- Tech/programming meetups without explicit online mention
-- Educational events at venues without streaming confirmation  
-- Professional meetups at offices without online access mentioned
-- Conferences/events where online isn't explicitly stated
-- Events mentioning online only for registration/chat/information
-
-Examples of TRUE HYBRID:
-- "Join us in person at Office Space or attend online via Zoom link"
-- "Physical meetup at Terminal, will also be livestreamed on YouTube"
-- "Hybrid event: come to Kera Space or join virtually via Microsoft Teams"
-
-Examples of OFFLINE (not hybrid):
-- "Meetup at F0RTHSP4CE, bring laptops" → No online mention
-- "AI discussion at Garage IT office" → No streaming mentioned
-- "Programming workshop at venue" → Physical only, despite tech topic
-
-Messages:
-${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
-
-Respond with only the message numbers that are HYBRID events, one per line (e.g., "3", "7", "12"). If no messages are hybrid, respond with "NONE".`;
-
-      try {
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1,
-        });
-
-        const result = response.choices[0].message.content?.trim();
-        const hybridIndices = new Set<number>();
-        
-        if (result && result !== 'NONE') {
-          const lines = result.split('\n').filter(line => line.trim());
-          for (const line of lines) {
-            const idx = parseInt(line.trim()) - 1;
-            if (idx >= 0 && idx < chunk.length) {
-              hybridIndices.add(idx);
-              hybridEvents.push({
-                message: chunk[idx],
-                event_type: 'hybrid'
-              });
-            }
-          }
-        }
-
-        // Cache results and separate hybrid from remaining, add debug entries
-        for (let idx = 0; idx < chunk.length; idx++) {
-          const isHybrid = hybridIndices.has(idx);
-          cache.cacheHybridEvent(chunk[idx].link, isHybrid, false);
-          
-          debugWriter.addStep4Entry({
-            message: chunk[idx],
-            gpt_prompt: prompt,
-            gpt_response: result || '',
-            result: isHybrid ? 'hybrid' : 'discarded',
-            substep: '4.1_hybrid',
-            cached: false
-          });
-          
-          if (!isHybrid) {
-            remainingAfterHybrid.push(chunk[idx]);
-          }
-        }
-      } catch (error) {
-        console.error('Error with OpenAI hybrid detection:', error);
-        // Add all to remaining on error
-        remainingAfterHybrid.push(...chunk);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-
-
-  cache.save();
-  console.log(`    Found ${hybridEvents.length} hybrid events, ${remainingAfterHybrid.length} remaining`);
-  
-  return { hybridEvents, remainingAfterHybrid };
-}
-
-async function detectOfflineEvents(messages: TelegramMessage[], cache: Cache): Promise<{ offlineEvents: EventAnnouncement[], remainingAfterOffline: TelegramMessage[] }> {
-  console.log(`  Step 4.2: Detecting offline events from ${messages.length} messages...`);
-  
-  const offlineEvents: EventAnnouncement[] = [];
-  const uncachedMessages: TelegramMessage[] = [];
-  const remainingAfterOffline: TelegramMessage[] = [];
-  let cacheHits = 0;
-
-  console.log('    Processing cache...');
-  for (const message of messages) {
-    const cachedResult = cache.isOfflineEventCached(message.link);
-    if (cachedResult !== null) {
-      cacheHits++;
-      if (cachedResult) {
-        offlineEvents.push({
-          message,
-          event_type: 'offline'
-        });
-        debugWriter.addStep4Entry({
-          message,
-          gpt_prompt: '[CACHED]',
-          gpt_response: '[CACHED: offline]',
-          result: 'offline',
-          substep: '4.2_offline',
-          cached: true
-        });
-      } else {
-        // Cached as non-offline, add to remaining immediately
-        remainingAfterOffline.push(message);
-        debugWriter.addStep4Entry({
-          message,
-          gpt_prompt: '[CACHED]',
-          gpt_response: '[CACHED: not offline]',
-          result: 'discarded',
-          substep: '4.2_offline',
-          cached: true
-        });
-      }
-    } else {
-      uncachedMessages.push(message);
-    }
-  }
-
-  if (cacheHits > 0) {
-    console.log(`    Cache hits: ${cacheHits}/${messages.length} messages`);
-  }
-
-  if (uncachedMessages.length > 0) {
-    const chunks = [];
-    for (let i = 0; i < uncachedMessages.length; i += 16) {
-      chunks.push(uncachedMessages.slice(i, i + 16));
-    }
-
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      console.log(`    Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-      
-      const prompt = `Identify which of these event messages are OFFLINE events (in-person, physical location).
-
-OFFLINE EVENT INDICATORS:
-- Physical addresses or streets (e.g. "Khorava 18", "Terminal Abashidze")  
-- City names (e.g. "Тбилиси", "Tbilisi")
-- Venue names (e.g. "F0RTHSP4CE", "Fragment", "Solution Heritage Lounge Bar", "Garage IT")
-- Business names with @ symbol (e.g. "@the.hidden.bar")
-- Office locations (e.g. "офис Garage IT")
-- Map links (Google Maps, Yandex Maps)
-
-RUSSIAN LOCATION KEYWORDS:
-- "офис" (office), "ресторан" (restaurant), "бар" (bar), "место" (place)
-- "приходи" (come), "встреча в" (meeting at), "соберёмся в" (gather at)
-
-ENGLISH LOCATION KEYWORDS:
-- "office", "venue", "restaurant", "bar", "location", "address"
-- "come to", "meeting at", "held at"
-
-EXAMPLES:
-- "F0RTHSP4CE, Khorava 18" → OFFLINE (venue + address)
-- "@the.hidden.bar" → OFFLINE (venue)
-- "офис Garage IT" → OFFLINE (office)
-- "ресторан Fragment" → OFFLINE (restaurant)
-- Speed dating events → typically OFFLINE
-
-Messages:
-${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
-
-Respond with only the message numbers that are OFFLINE events, one per line (e.g., "1", "5", "8"). If no messages are offline, respond with "NONE".`;
-
-      try {
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1,
-        });
-
-        const result = response.choices[0].message.content?.trim();
-        const offlineIndices = new Set<number>();
-        
-        if (result && result !== 'NONE') {
-          const lines = result.split('\n').filter(line => line.trim());
-          for (const line of lines) {
-            const idx = parseInt(line.trim()) - 1;
-            if (idx >= 0 && idx < chunk.length) {
-              offlineIndices.add(idx);
-              offlineEvents.push({
-                message: chunk[idx],
-                event_type: 'offline'
-              });
-            }
-          }
-        }
-
-        // Cache results and separate offline from remaining, add debug entries
-        for (let idx = 0; idx < chunk.length; idx++) {
-          const isOffline = offlineIndices.has(idx);
-          cache.cacheOfflineEvent(chunk[idx].link, isOffline, false);
-          
-          debugWriter.addStep4Entry({
-            message: chunk[idx],
-            gpt_prompt: prompt,
-            gpt_response: result || '',
-            result: isOffline ? 'offline' : 'discarded',
-            substep: '4.2_offline',
-            cached: false
-          });
-          
-          if (!isOffline) {
-            remainingAfterOffline.push(chunk[idx]);
-          }
-        }
-      } catch (error) {
-        console.error('Error with OpenAI offline detection:', error);
-        // Add all to remaining on error
-        remainingAfterOffline.push(...chunk);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-
-
-  cache.save();
-  console.log(`    Found ${offlineEvents.length} offline events, ${remainingAfterOffline.length} remaining (online)`);
-  
-  return { offlineEvents, remainingAfterOffline };
 }
 
 export async function filterByInterests(announcements: EventAnnouncement[], config: Config): Promise<InterestingAnnouncement[]> {

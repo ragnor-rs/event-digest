@@ -9,8 +9,9 @@ interface CacheEntry {
 
 interface CacheStore {
   messages: Record<string, boolean>; // message link -> is event (step 3)
-  detected_hybrid_event_announcements: Record<string, boolean>; // message link -> is hybrid event (step 4.1)
-  detected_offline_event_announcements: Record<string, boolean>; // message link -> is offline event (step 4.2)
+  detected_hybrid_event_announcements: Record<string, boolean>; // message link -> is hybrid event (step 4.1) [DEPRECATED]
+  detected_offline_event_announcements: Record<string, boolean>; // message link -> is offline event (step 4.2) [DEPRECATED]
+  event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
   matching_interests: Record<string, string[]>; // message link -> matched interests (step 5)
   scheduled_events: Record<string, string>; // message link -> extracted datetime (step 6)
   events: Record<string, any>; // message link -> event object (step 7)
@@ -45,6 +46,7 @@ export class Cache {
       messages: {},
       detected_hybrid_event_announcements: {},
       detected_offline_event_announcements: {},
+      event_type_classification: {},
       matching_interests: {},
       scheduled_events: {},
       events: {}
@@ -146,8 +148,7 @@ export class Cache {
   // Cache statistics
   getStats(): {
     messages_cached: number;
-    detected_hybrid_event_announcements_cached: number;
-    detected_offline_event_announcements_cached: number;
+    event_type_classification_cached: number;
     matching_interests_cached: number;
     scheduled_events_cached: number;
     events_cached: number;
@@ -155,14 +156,12 @@ export class Cache {
   } {
     return {
       messages_cached: Object.keys(this.cache.messages).length,
-      detected_hybrid_event_announcements_cached: Object.keys(this.cache.detected_hybrid_event_announcements).length,
-      detected_offline_event_announcements_cached: Object.keys(this.cache.detected_offline_event_announcements).length,
+      event_type_classification_cached: Object.keys(this.cache.event_type_classification).length,
       matching_interests_cached: Object.keys(this.cache.matching_interests).length,
       scheduled_events_cached: Object.keys(this.cache.scheduled_events).length,
       events_cached: Object.keys(this.cache.events).length,
-      total_cached: Object.keys(this.cache.messages).length + 
-                   Object.keys(this.cache.detected_hybrid_event_announcements).length +
-                   Object.keys(this.cache.detected_offline_event_announcements).length +
+      total_cached: Object.keys(this.cache.messages).length +
+                   Object.keys(this.cache.event_type_classification).length +
                    Object.keys(this.cache.matching_interests).length +
                    Object.keys(this.cache.scheduled_events).length +
                    Object.keys(this.cache.events).length
@@ -180,6 +179,7 @@ export class Cache {
         messages: {},
         detected_hybrid_event_announcements: {},
         detected_offline_event_announcements: {},
+        event_type_classification: {},
         matching_interests: {},
         scheduled_events: {},
         events: {}
@@ -213,10 +213,23 @@ export class Cache {
     }
   }
 
-  // Clear event announcements cache specifically  
+  // Event type classification (step 4) - new unified approach
+  getEventTypeCache(messageLink: string): 'offline' | 'online' | 'hybrid' | null {
+    return this.cache.event_type_classification[messageLink] ?? null;
+  }
+
+  cacheEventType(messageLink: string, eventType: 'offline' | 'online' | 'hybrid', autoSave: boolean = true): void {
+    this.cache.event_type_classification[messageLink] = eventType;
+    if (autoSave) {
+      this.saveCache();
+    }
+  }
+
+  // Clear event announcements cache specifically
   clearAnnouncementsCache(): void {
     this.cache.detected_hybrid_event_announcements = {};
     this.cache.detected_offline_event_announcements = {};
+    this.cache.event_type_classification = {};
     this.saveCache();
     console.log('  Event announcements cache cleared');
   }
