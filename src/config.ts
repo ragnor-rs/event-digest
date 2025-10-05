@@ -125,8 +125,8 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   
   if (!config.eventMessageCues) {
     config.eventMessageCues = {
-      ru: ["сентября", "сегодня", "часов", "завтра", "послезавтра", "января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "октября", "ноября", "декабря"],
-      en: ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "tonight", "tomorrow", "today"]
+      ru: ["сентябр", "сегодня", "часов", "завтра", "послезавтра", "январ", "феврал", "март", "апрел", "мая", "июн", "июл", "август", "октябр", "ноябр", "декабр", "понедельник", "вторник", "сред", "четверг", "пятниц", "суббот", "воскресень"],
+      en: ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "tonight", "tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     };
   }
 
