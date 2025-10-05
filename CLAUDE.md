@@ -30,7 +30,7 @@ Option 3 - Command line arguments:
 npm run dev -- \
   --groups "group1,group2" \
   --channels "channel1,channel2" \
-  --interests "VC,английский,походы" \
+  --interests "Technology,Music,Photography" \
   --timeslots "6 14:00,0 14:00" \
   --max-group-messages 200 \
   --max-channel-messages 100 \
@@ -62,10 +62,9 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 **Caching System** (`src/cache.ts`):
 - Comprehensive GPT result caching with descriptive cache store names
-- Six separate cache stores:
+- Five separate cache stores:
   - `messages`: Basic event detection results (step 3)
-  - `detected_hybrid_event_announcements`: Hybrid event classification (step 4.1)
-  - `detected_offline_event_announcements`: Offline event classification (step 4.2)
+  - `event_type_classification`: Event type classification results (step 4)
   - `matching_interests`: Interest matching results (step 5)
   - `scheduled_events`: Schedule filtering and datetime extraction (step 6)
   - `events`: Final event object conversion (step 7)
@@ -117,8 +116,7 @@ The `.telegram-session` file is automatically created and managed for persistent
 
 Cache is stored in `.cache/gpt-results.json` with descriptive cache stores:
 - `messages`: Stores basic event detection results (no preferences needed)
-- `detected_hybrid_event_announcements`: Stores hybrid event classification results (no preferences needed)
-- `detected_offline_event_announcements`: Stores offline event classification results (no preferences needed)
+- `event_type_classification`: Stores event type classification results (no preferences needed)
 - `matching_interests`: Stores interest matching results (includes interests hash)
 - `scheduled_events`: Stores schedule filtering results (includes timeslots hash)
 - `events`: Stores final event objects (includes interests hash)

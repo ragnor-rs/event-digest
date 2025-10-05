@@ -56,19 +56,19 @@ Create a `config.yaml` file in the project root:
 ```yaml
 # Telegram channels to monitor (without @ prefix)
 channelsToParse:
-  - "auditoria_tbilisi"
-  - "georgiaafisha"
+  - "city_events"
+  - "local_announcements"
 
 # Telegram groups to monitor (without @ prefix)
 groupsToParse:
-  - "tbilisi_js_chat"
-  - "unicornembassy_georgia"
+  - "tech_meetups"
+  - "community_events"
 
 # Your interests - events will be matched against these topics
 userInterests:
-  - "VC"
-  - "English"
-  - "ML"
+  - "Technology"
+  - "Music"
+  - "Photography"
   - "Board games"
 
 # Weekly availability timeslots
@@ -107,9 +107,9 @@ npm run dev -- --config=my-config.yaml
 
 ```bash
 npm run dev -- \
-  --groups "tbilisi_js_chat,unicornembassy_georgia" \
-  --channels "auditoria_tbilisi,georgiaafisha" \
-  --interests "VC,английский,походы" \
+  --groups "tech_meetups,community_events" \
+  --channels "city_events,local_announcements" \
+  --interests "Technology,Music,Photography" \
   --timeslots "2 12:00,6 13:00,0 13:00" \
   --max-group-messages 200 \
   --max-channel-messages 100 \
@@ -165,11 +165,11 @@ The tool processes messages through a 7-step pipeline:
 ```
 === EVENT DIGEST ===
 
-1. JavaScript Meetup
+1. Tech Meetup
    📅 30 Sep 2025 19:00
-   🏷️ английский
-   📝 Monthly meetup for JS developers to share knowledge and network.
-   🔗 https://t.me/tbilisi_js_chat/12345
+   🏷️ Technology
+   📝 Monthly meetup for tech enthusiasts to share knowledge and network.
+   🔗 https://t.me/tech_meetups/12345
 
 Total events found: 1
 ```

@@ -106,6 +106,15 @@ export function parseArgs(): Config {
 }
 
 function validateAndCompleteConfig(config: Partial<Config>): Config {
+  // Track which values were provided vs defaulted
+  const providedMaxGroupMessages = config.maxGroupMessages !== undefined;
+  const providedMaxChannelMessages = config.maxChannelMessages !== undefined;
+  const providedSkipOnlineEvents = config.skipOnlineEvents !== undefined;
+  const providedWriteDebugFiles = config.writeDebugFiles !== undefined;
+  const providedEventMessageCues = config.eventMessageCues !== undefined;
+  const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
+  const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
+
   // Set defaults for separate limits
   if (config.maxGroupMessages === undefined && config.maxChannelMessages === undefined) {
     // If neither is specified, use legacy maxInputMessages or defaults
@@ -121,8 +130,8 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
       config.maxChannelMessages = 100;
     }
   }
-  
-  
+
+
   if (!config.eventMessageCues) {
     config.eventMessageCues = {
       ru: ["сентябр", "сегодня", "часов", "завтра", "послезавтра", "январ", "феврал", "март", "апрел", "мая", "июн", "июл", "август", "октябр", "ноябр", "декабр", "понедельник", "вторник", "сред", "четверг", "пятниц", "суббот", "воскресень"],
@@ -140,6 +149,57 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
     config.writeDebugFiles = false;
   }
 
+  // Set default interest matching prompt
+  if (!config.interestMatchingPrompt) {
+    config.interestMatchingPrompt = `Match event messages to user interests by selecting interest indices for each event.
+
+EVENTS:
+{{EVENTS}}
+
+INTERESTS:
+{{INTERESTS}}
+
+Match events that are directly related to the interest topics. Be inclusive - events can match multiple interests if relevant.
+
+RESPONSE FORMAT:
+EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ...
+
+If an event has no matching interests, leave the line empty or omit it.
+
+Respond with ONLY the event-to-interest index mappings, one per line.`;
+  }
+
+  // Set default event type classification prompt
+  if (!config.eventTypeClassificationPrompt) {
+    config.eventTypeClassificationPrompt = `Classify each event message as offline, online, or hybrid.
+
+CLASSIFICATION OPTIONS:
+0: offline - in-person event at a physical location
+1: online - virtual event only
+2: hybrid - both in-person and online options available
+
+OFFLINE (0):
+- Physical addresses, streets, or city names
+- Venue names or business locations
+- Map links
+- Keywords: office, venue, restaurant, bar, location, address
+
+ONLINE (1):
+- Only virtual meeting links (Zoom, Google Meet, etc.)
+- Explicit "online only" or "webinar"
+- No physical location mentioned
+
+HYBRID (2):
+- Both physical location AND online access explicitly mentioned
+- Both attendance options clearly available
+
+Messages:
+{{MESSAGES}}
+
+Respond with ONLY the message number and classification index (0, 1, or 2), one per line.
+Format: MESSAGE_NUMBER: INDEX`;
+  }
+
   // Validate required fields
   if (!config.groupsToParse || !config.channelsToParse || !config.userInterests || !config.weeklyTimeslots) {
     console.error('Missing required configuration fields:');
@@ -150,17 +210,18 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Log final configuration
   const finalConfig = config as Config;
   console.log('Configuration loaded successfully:');
-  console.log(`  groupsToParse: ${finalConfig.groupsToParse.length} (${finalConfig.groupsToParse.join(', ')})`);
-  console.log(`  channelsToParse: ${finalConfig.channelsToParse.length} (${finalConfig.channelsToParse.join(', ')})`);
-  console.log(`  userInterests: ${finalConfig.userInterests.length} (${finalConfig.userInterests.join(', ')})`);
-  console.log(`  weeklyTimeslots: ${finalConfig.weeklyTimeslots.length} (${finalConfig.weeklyTimeslots.join(', ')})`);
-  console.log(`  maxGroupMessages: ${finalConfig.maxGroupMessages}`);
-  console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}`);
-  console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}`);
-  console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}`);
-  if (finalConfig.lastGenerationTimestamp) {
-    console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp}`);
-  }
+  console.log(`  groupsToParse: ${finalConfig.groupsToParse.length} specified`);
+  console.log(`  channelsToParse: ${finalConfig.channelsToParse.length} specified`);
+  console.log(`  userInterests: ${finalConfig.userInterests.length} specified`);
+  console.log(`  weeklyTimeslots: ${finalConfig.weeklyTimeslots.length} specified`);
+  console.log(`  maxGroupMessages: ${finalConfig.maxGroupMessages}${!providedMaxGroupMessages && !config.maxInputMessages ? ' (default)' : ''}`);
+  console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}${!providedMaxChannelMessages && !config.maxInputMessages ? ' (default)' : ''}`);
+  console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}${!providedSkipOnlineEvents ? ' (default)' : ''}`);
+  console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
+  console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp || 'not set'}`);
+  console.log(`  eventMessageCues: ${Object.values(finalConfig.eventMessageCues).flat().length} cues${!providedEventMessageCues ? ' (default)' : ''}`);
+  console.log(`  interestMatchingPrompt: ${finalConfig.interestMatchingPrompt!.length} chars${!providedInterestMatchingPrompt ? ' (default)' : ''}`);
+  console.log(`  eventTypeClassificationPrompt: ${finalConfig.eventTypeClassificationPrompt!.length} chars${!providedEventTypeClassificationPrompt ? ' (default)' : ''}`);
   console.log('');
 
   return finalConfig;

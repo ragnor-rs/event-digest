@@ -296,42 +296,8 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
 
-    const prompt = `Classify each event message as offline, online, or hybrid.
-
-CLASSIFICATION OPTIONS:
-0: offline - in-person event at a physical location
-1: online - virtual event only (Zoom, webinar, etc.)
-2: hybrid - both in-person and online options available
-
-OFFLINE EVENTS (0):
-- Physical addresses or streets (e.g. "Khorava 18", "Terminal Abashidze")
-- City names (e.g. "Тбилиси", "Tbilisi")
-- Venue names (e.g. "F0RTHSP4CE", "Fragment", "Garage IT")
-- Business names with @ symbol (e.g. "@the.hidden.bar")
-- Office locations (e.g. "офис Garage IT")
-- Map links (Google Maps, Yandex Maps)
-- Keywords: "офис", "ресторан", "бар", "venue", "office", "приходи", "come to"
-
-ONLINE EVENTS (1):
-- Only Zoom/Google Meet/virtual links, no physical location
-- Explicit "online only", "webinar", "virtual event"
-- No mention of physical venue or address
-
-HYBRID EVENTS (2):
-- MUST have BOTH physical location AND online access explicitly mentioned
-- Examples: "in person + online", "Zoom + venue", "livestream from office"
-- Both options clearly available to attendees
-
-Messages:
-${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
-
-For each message, respond with ONLY the message number and classification index:
-FORMAT: MESSAGE_NUMBER: INDEX
-Example: 1: 0
-Example: 2: 1
-Example: 3: 2
-
-Respond with one classification per line.`;
+    const messagesText = chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n');
+    const prompt = (config.eventTypeClassificationPrompt || '').replace('{{MESSAGES}}', messagesText);
 
     try {
       const response = await openai.chat.completions.create({
@@ -496,125 +462,17 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
     const chunk: EventAnnouncement[] = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
 
-    const prompt: string = `Match event messages to user interests by selecting interest indices for each event.
+    const eventsText = chunk.map((announcement: EventAnnouncement, idx: number) =>
+      `${idx}: ${announcement.message.content.replace(/\n/g, ' ')}`
+    ).join('\n');
 
-EVENTS:
-${chunk.map((announcement: EventAnnouncement, idx: number) =>
-  `${idx}: ${announcement.message.content.replace(/\n/g, ' ')}`
-).join('\n')}
+    const interestsText = config.userInterests.map((interest: string, idx: number) =>
+      `${idx}: ${interest}`
+    ).join('\n');
 
-INTERESTS:
-${config.userInterests.map((interest: string, idx: number) => `${idx}: ${interest}`).join('\n')}
-
-CRITICAL: Be more inclusive when matching interests. Social gatherings, professional meetups, and technical discussions should match multiple relevant categories.
-
-MATCHING GUIDELINES:
-
-TECHNOLOGY INTERESTS:
-- "AI": Events about artificial intelligence, machine learning models, LLMs, neural networks, AI tools, prompt engineering, reasoning models like DeepSeek
-- "ML": Machine learning courses, model training, data science workshops, Linear Algebra lectures (fundamental to ML)
-- "Backend": Server-side programming, APIs, databases, system architecture, JavaScript/JS meetups, tech community events
-- "Computer hardware": Hardware components, electronics, IoT, technical equipment
-- "Android/Flutter": Mobile development, app building
-
-MUSIC INTERESTS:
-- "Electronic music": DJ sets, electronic dance music, EDM events, electronic music production, dance parties, club events
-- "Rock": Rock band concerts, rock music performances, rock festivals, live rock bands with "драйвовые рифы" (driving riffs)
-- "Jazz": Jazz concerts, jazz clubs, jazz music events
-- "Metal": Metal band concerts, metal music events
-- Music theory workshops and composition classes match ALL music interests
-
-BUSINESS INTERESTS:
-- "VC": Venture capital discussions, investor meetings, startup pitching, funding, FOUNDER events, ENTREPRENEUR meetups, STARTUP conferences, tech entrepreneurship, IT entrepreneur gatherings, founders' events, venture ecosystem, angel investor networks, pitch sessions, startup ecosystem events
-- "Investments": Investment strategies, financial markets, portfolio discussions
-- "Networking": Business networking events, professional meetups, industry connections, IT social events
-- "Productivity": Time management, efficiency workshops, productivity tools, personal development, NLP workshops
-- "Business events": Corporate events, business meetups, professional gatherings
-- "Social events": Social gatherings, parties, networking events, community events, cultural celebrations
-
-PHYSICAL ACTIVITIES:
-- "Travel": Tourism, city tours, guided trips
-- "Industrial tourism": Tours of abandoned places, factory visits, urban exploration, Soviet sanatorium tours
-- "Hiking": Mountain trips, nature walks, outdoor adventures
-
-SCIENCE INTERESTS:
-- "Astronomy": Space events, космонавтика (cosmonautics), космические аппараты (spacecraft), CubeSat satellites, space exploration, planets, stars, космическая эра (space era), астрономия
-- "Physics": Physics lectures, physical phenomena, quantum mechanics, космические масштабы (cosmic scales), physics workshops
-- "Neuroscience": Brain science, neurobiology, cognitive science, neurological topics
-- "Radio": Radio communication, радио, рации (radios), SSTV reception, radio equipment, amateur radio, radio waves, МКС/ISS communication, радиодень (radio day)
-
-CULTURAL INTERESTS:
-- "English": Language learning events, English conversation clubs
-- "Fantasy": Fantasy films (Miyazaki, fantasy cinema), fantasy literature events
-- "Sci-fi": Science fiction events, sci-fi screenings
-
-GAMES & ACTIVITIES:
-- "Board games": Chess tournaments (шахматы, рапид, турнир), board game nights, strategy games, card games
-- "Quiz": Quiz nights, trivia competitions, knowledge contests
-
-SPECIFIC KEYWORDS TO RECOGNIZE (ALWAYS MATCH THESE):
-- Chess events (рапид, турнир, шахматы, chess) → "Board games"
-- JavaScript/JS meetups, Apple Events viewing → "Backend"
-- AI model names (GPT, DeepSeek, LangChain, reasoning models, prompt engineering) → "AI"
-- DJ events, dance parties, club events → "Electronic music"
-- Live band concerts, rock performances → "Rock"
-- Music theory, composition workshops → match all music interests
-- Karaoke events, singing events → "Social events"
-- IT networking, tech community events, "айти нытьё" → "Backend", "Networking", "Social events"
-- TouchDesigner, 3D composition, technical workshops → "Computer hardware"
-- Personal branding, blogging growth → "Business events", "Networking"
-- Personal development, NLP workshops → "Productivity"
-- Abandoned places tours, Soviet heritage → "Industrial tourism"
-- Social gatherings, parties, bar events → "Social events"
-- Fantasy films (Miyazaki) → "Fantasy"
-- Space/космос events (космонавтика, CubeSat, спутники, космическая эра, МКС, ISS) → "Astronomy", "Physics"
-- Radio events (радиодень, рации, SSTV, радио, radio equipment, amateur radio) → "Radio"
-- Biology lectures (биология, прорывы биологии, neurobiology) → match relevant science interests
-- Physics/Astronomy lectures (физика, астрономия, космические масштабы) → "Physics", "Astronomy"
-- VC/Startup/Founder events (founders, IT-предприниматели, tech entrepreneurs, startup ecosystem, венчур, pitch sessions, angel investors, Unicorn Embassy) → "VC", "Networking", "Business events"
-
-MANDATORY MATCHES - THESE MUST ALWAYS BE MATCHED:
-- Any event mentioning "DeepSeek" → "AI"
-- Any karaoke or singing event → "Social events"
-- Any IT/tech networking event, "айти нытьё", IT meetups → "Backend" + "Networking" + "Social events"
-- Any personal branding/blogging event, "личный бренд", blog growth → "Business events" + "Networking"
-- Events about growing followers, blog monetization, personal brand building → "Business events" + "Networking"
-- Any VC/startup/founder event (founders, IT-предприниматели, tech entrepreneurs, startup, венчур, Founders Mondays, pitch session, angel investors, Unicorn Embassy, startup ecosystem) → "VC" + "Networking" + "Business events"
-- Any space/космос event (космонавтика, CubeSat, спутники, космическая эра, МКС, ISS) → "Astronomy" (+ "Physics" if applicable)
-- Any radio event (радиодень, рации, SSTV, amateur radio, radio communication) → "Radio"
-- Any astronomy lecture (астрономия, planets, космические масштабы) → "Astronomy"
-- Any physics lecture (физика, physical phenomena, quantum) → "Physics"
-
-CRITICAL INSTRUCTIONS - FOLLOW THESE EXACTLY:
-1. If you see "айти нытьё" (IT networking) → ALWAYS match "Backend", "Networking", "Social events"
-2. If you see "личный бренд" or "блог" growth/monetization → ALWAYS match "Business events", "Networking"
-3. If you see "DeepSeek" or AI model names → ALWAYS match "AI"
-4. If you see "караоке" (karaoke), singing events → ALWAYS match "Social events"
-5. If you see "теория музыки" (music theory), composition → ALWAYS match ALL music interests
-6. If you see "Миядзаки" (Miyazaki), fantasy films → ALWAYS match "Fantasy"
-7. If you see "драйвовые рифы" (driving riffs), live rock bands → ALWAYS match "Rock"
-8. If you see hardware swap, hacker events → ALWAYS match "Computer hardware"
-9. If you see "космонавтика", "CubeSat", "спутники", "космическая эра", "МКС", "ISS" → ALWAYS match "Astronomy" (and "Physics" if relevant)
-10. If you see "радиодень", "рации", "SSTV", "радио", "radio equipment" → ALWAYS match "Radio"
-11. If you see "биология", neuroscience topics → ALWAYS match relevant science interests ("Neuroscience" if brain-related)
-12. If you see space + radio (космос + радио) → ALWAYS match BOTH "Astronomy" AND "Radio"
-13. If you see "founders", "IT-предприниматели", "tech entrepreneurs", "startup", "венчур", "Founders Mondays", "pitch", "angel investors", "Unicorn Embassy", "VC" (in event name) → ALWAYS match "VC", "Networking", "Business events"
-
-BE MORE INCLUSIVE, NOT RESTRICTIVE. When in doubt, match multiple relevant interests.
-
-RESPONSE FORMAT:
-For each event, respond with the event index and matching interest indices:
-EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ...
-
-Examples:
-0: 1, 5
-1: 3
-2:
-3: 0, 2, 7
-
-Note: Event 2 has no matches (empty line). If an event has no matching interests, leave the line empty or omit it.
-
-Respond with ONLY the event-to-interest index mappings, one per line.`;
+    const prompt: string = (config.interestMatchingPrompt || '')
+      .replace('{{EVENTS}}', eventsText)
+      .replace('{{INTERESTS}}', interestsText);
 
     try {
       const response: any = await openai.chat.completions.create({

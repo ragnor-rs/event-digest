@@ -3,21 +3,21 @@
 
 # Telegram groups to monitor (without @ prefix)
 groupsToParse:
-  - "tbilisi_js_chat"
-  - "unicornembassy_georgia" 
+  - "example_tech_chat"
+  - "local_events_group"
 
 # Telegram channels to monitor (without @ prefix)
 channelsToParse:
-  - "georgiaafisha"
-  - "auditoria_tbilisi"
+  - "city_announcements"
+  - "cultural_events_channel"
 
 # Your interests - events will be matched against these topics
 userInterests:
-  - "VC"
-  - "английский" 
-  - "походы"
-  - "JavaScript"
-  - "технологии"
+  - "Technology"
+  - "Cooking"
+  - "Photography"
+  - "Board games"
+  - "Music"
 
 # Weekly availability timeslots
 # Format: "DAY_OF_WEEK TIME" where DAY_OF_WEEK is 0-6 (0=Sunday, 6=Saturday)
@@ -29,75 +29,122 @@ weeklyTimeslots:
 # Optional: Timestamp to fetch messages after (ISO format)
 # lastGenerationTimestamp: "2024-01-15T10:00:00.000Z"
 
-# Maximum number of messages to fetch from groups (default: 200)
+# Optional: Maximum number of messages to fetch from groups (default: 200)
 # Groups typically have more conversational noise, so need more messages
-maxGroupMessages: 200
+# maxGroupMessages: 200
 
-# Maximum number of messages to fetch from channels (default: 100)  
+# Optional: Maximum number of messages to fetch from channels (default: 100)
 # Channels are more focused, so fewer messages needed
-maxChannelMessages: 100
+# maxChannelMessages: 100
 
 # Optional: Legacy parameter for backward compatibility
 # maxInputMessages: 100
 
-# Filter for offline events only (default: true)
+# Optional: Filter for offline events only (default: true)
 # When enabled, excludes virtual events, webinars, and online-only events
 # Hybrid events (both online and offline options) are always included
 # Set to false to include online events
-skipOnlineEvents: true
+# skipOnlineEvents: true
 
-# Write debug files (default: false)
+# Optional: Write debug files (default: false)
 # When enabled, writes detailed debug files to debug/ directory
 # Files include: event_classification.json, interest_matching.json, schedule_filtering.json
-writeDebugFiles: false
+# writeDebugFiles: false
 
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used
-eventMessageCues:
-  ru:
-    - "сентябр"
-    - "сегодня"
-    - "часов"
-    - "завтра"
-    - "послезавтра"
-    - "январ"
-    - "феврал"
-    - "март"
-    - "апрел"
-    - "мая"
-    - "июн"
-    - "июл"
-    - "август"
-    - "октябр"
-    - "ноябр"
-    - "декабр"
-    - "понедельник"
-    - "вторник"
-    - "сред"
-    - "четверг"
-    - "пятниц"
-    - "суббот"
-    - "воскресень"
-  en:
-    - "january"
-    - "february"
-    - "march"
-    - "april"
-    - "may"
-    - "june"
-    - "july"
-    - "august"
-    - "september"
-    - "october"
-    - "november"
-    - "december"
-    - "tonight"
-    - "tomorrow"
-    - "today"
-    - "monday"
-    - "tuesday"
-    - "wednesday"
-    - "thursday"
-    - "friday"
-    - "saturday"
-    - "sunday"
+# eventMessageCues:
+#   ru:
+#     - "сентябр"
+#     - "сегодня"
+#     - "часов"
+#     - "завтра"
+#     - "послезавтра"
+#     - "январ"
+#     - "феврал"
+#     - "март"
+#     - "апрел"
+#     - "мая"
+#     - "июн"
+#     - "июл"
+#     - "август"
+#     - "октябр"
+#     - "ноябр"
+#     - "декабр"
+#     - "понедельник"
+#     - "вторник"
+#     - "сред"
+#     - "четверг"
+#     - "пятниц"
+#     - "суббот"
+#     - "воскресень"
+#   en:
+#     - "january"
+#     - "february"
+#     - "march"
+#     - "april"
+#     - "may"
+#     - "june"
+#     - "july"
+#     - "august"
+#     - "september"
+#     - "october"
+#     - "november"
+#     - "december"
+#     - "tonight"
+#     - "tomorrow"
+#     - "today"
+#     - "monday"
+#     - "tuesday"
+#     - "wednesday"
+#     - "thursday"
+#     - "friday"
+#     - "saturday"
+#     - "sunday"
+
+# Custom GPT prompt for interest matching (optional)
+# If not specified, uses a simple general prompt
+#
+# PLACEHOLDERS (automatically replaced with actual data):
+#   {{EVENTS}} - Replaced with numbered list of event messages: "0: event text", "1: event text", etc.
+#   {{INTERESTS}} - Replaced with numbered list of user interests: "0: interest name", "1: interest name", etc.
+#
+# REQUIRED: GPT MUST respond with interest indices (numbers), not interest names
+# This is not optional - the system expects index-based responses to properly match events to interests
+#
+# REQUIRED RESPONSE FORMAT: EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ...
+# Example (if there are 5 interests numbered 0-4):
+#   0: 1, 3
+#   1: 2
+#   2: 0, 1, 4
+#   3:
+#
+# See config.yaml for an example of a detailed prompt with specific matching guidelines
+# interestMatchingPrompt: |
+#   Your custom prompt here...
+#   {{EVENTS}}
+#   {{INTERESTS}}
+
+# Custom GPT prompt for event type classification (optional)
+# If not specified, uses a simple general prompt
+#
+# PLACEHOLDERS (automatically replaced with actual data):
+#   {{MESSAGES}} - Replaced with numbered list of event messages: "1. message text", "2. message text", etc.
+#
+# REQUIRED: GPT MUST respond with classification indices (0, 1, or 2), not text labels
+# This is not optional - the system expects index-based responses to classify event types
+#   0 = offline (in-person event)
+#   1 = online (virtual event only)
+#   2 = hybrid (both in-person and online options)
+#
+# REQUIRED RESPONSE FORMAT: MESSAGE_NUMBER: INDEX
+# Example:
+#   1: 0
+#   2: 1
+#   3: 2
+#   4: 0
+#
+# See config.yaml for an example of a detailed prompt with specific classification guidelines
+# eventTypeClassificationPrompt: |
+#   Your custom prompt here...
+#   {{MESSAGES}}

@@ -9,8 +9,6 @@ interface CacheEntry {
 
 interface CacheStore {
   messages: Record<string, boolean>; // message link -> is event (step 3)
-  detected_hybrid_event_announcements: Record<string, boolean>; // message link -> is hybrid event (step 4.1) [DEPRECATED]
-  detected_offline_event_announcements: Record<string, boolean>; // message link -> is offline event (step 4.2) [DEPRECATED]
   event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
   matching_interests: Record<string, string[]>; // message link -> matched interests (step 5)
   scheduled_events: Record<string, string>; // message link -> extracted datetime (step 6)
@@ -44,8 +42,6 @@ export class Cache {
 
     return {
       messages: {},
-      detected_hybrid_event_announcements: {},
-      detected_offline_event_announcements: {},
       event_type_classification: {},
       matching_interests: {},
       scheduled_events: {},
@@ -171,14 +167,12 @@ export class Cache {
   // Clear old cache entries (optional cleanup)
   clearOldEntries(daysOld: number = 30): void {
     const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
-    
+
     // For simplicity, we're just clearing all cache for now
     // In a more sophisticated implementation, we'd track timestamps per entry
     if (Date.now() > cutoffTime) {
       this.cache = {
         messages: {},
-        detected_hybrid_event_announcements: {},
-        detected_offline_event_announcements: {},
         event_type_classification: {},
         matching_interests: {},
         scheduled_events: {},
@@ -189,31 +183,7 @@ export class Cache {
     }
   }
 
-  // Hybrid event announcement detection (step 4.1)
-  isHybridEventCached(messageLink: string): boolean | null {
-    return this.cache.detected_hybrid_event_announcements[messageLink] ?? null;
-  }
-
-  cacheHybridEvent(messageLink: string, isHybrid: boolean, autoSave: boolean = true): void {
-    this.cache.detected_hybrid_event_announcements[messageLink] = isHybrid;
-    if (autoSave) {
-      this.saveCache();
-    }
-  }
-
-  // Offline event announcement detection (step 4.2)
-  isOfflineEventCached(messageLink: string): boolean | null {
-    return this.cache.detected_offline_event_announcements[messageLink] ?? null;
-  }
-
-  cacheOfflineEvent(messageLink: string, isOffline: boolean, autoSave: boolean = true): void {
-    this.cache.detected_offline_event_announcements[messageLink] = isOffline;
-    if (autoSave) {
-      this.saveCache();
-    }
-  }
-
-  // Event type classification (step 4) - new unified approach
+  // Event type classification (step 4)
   getEventTypeCache(messageLink: string): 'offline' | 'online' | 'hybrid' | null {
     return this.cache.event_type_classification[messageLink] ?? null;
   }
@@ -227,8 +197,6 @@ export class Cache {
 
   // Clear event announcements cache specifically
   clearAnnouncementsCache(): void {
-    this.cache.detected_hybrid_event_announcements = {};
-    this.cache.detected_offline_event_announcements = {};
     this.cache.event_type_classification = {};
     this.saveCache();
     console.log('  Event announcements cache cleared');
