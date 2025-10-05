@@ -15,9 +15,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-export async function filterEventMessages(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
-  console.log(`Step 2: Filtering ${messages.length} messages for event cues...`);
-  
+export async function filterByEventCues(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
+  console.log(`Step 2: Filtering ${messages.length} messages by event cues...`);
+
   const eventMessages = messages.filter(msg => {
     const content = msg.content.toLowerCase();
     for (const lang in config.eventMessageCues) {
@@ -34,8 +34,8 @@ export async function filterEventMessages(messages: TelegramMessage[], config: C
   return eventMessages;
 }
 
-export async function filterByEventMessages(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
-  console.log(`Step 3: Using GPT to filter ${messages.length} messages for event announcements...`);
+export async function detectEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
+  console.log(`Step 3: Using GPT to detect event announcements from ${messages.length} messages...`);
 
   if (messages.length === 0) {
     console.log(`  No input on this step`);
@@ -228,8 +228,8 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
   return eventMessages;
 }
 
-export async function convertToEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<EventAnnouncement[]> {
-  console.log(`Step 4: Converting ${messages.length} messages to event announcements...`);
+export async function classifyEventTypes(messages: TelegramMessage[], config: Config): Promise<EventAnnouncement[]> {
+  console.log(`Step 4: Classifying event types for ${messages.length} messages...`);
 
   if (messages.length === 0) {
     console.log(`  No input on this step`);

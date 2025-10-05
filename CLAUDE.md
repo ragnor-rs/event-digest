@@ -44,9 +44,9 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 ### Core Pipeline Flow
 1. **Message Fetching** (`src/telegram.ts`) - Fetches messages from Telegram groups/channels using GramJS
-2. **Event Cue Filtering** (`src/filters.ts:filterEventMessages`) - Text-based filtering using configurable cues
-3. **GPT Event Detection** (`src/filters.ts:filterByEventMessages`) - AI-powered filtering to identify single event announcements
-4. **Event Type Classification** (`src/filters.ts:convertToEventAnnouncements`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents
+2. **Event Cue Filtering** (`src/filters.ts:filterByEventCues`) - Text-based filtering using configurable cues
+3. **GPT Event Detection** (`src/filters.ts:detectEventAnnouncements`) - AI-powered filtering to identify single event announcements
+4. **Event Type Classification** (`src/filters.ts:classifyEventTypes`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents
 5. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria
 6. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots
 7. **Event Conversion** (`src/events.ts:convertToEvents`) - Converts to structured Event objects with GPT
@@ -89,9 +89,9 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 **Rate Limiting:** 1-second delays between GPT calls with batch processing (5-16 messages per batch).
 
-**Two-Stage GPT Processing:** 
-1. Basic event detection (`filterByEventMessages`) - Identifies genuine event announcements
-2. Event type classification (`convertToEventAnnouncements`) - Classifies as offline/online/hybrid and applies filtering
+**Two-Stage GPT Processing:**
+1. Basic event detection (`detectEventAnnouncements`) - Identifies genuine event announcements
+2. Event type classification (`classifyEventTypes`) - Classifies as offline/online/hybrid and applies filtering
 
 **Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in EventAnnouncement interface. Classification uses explicit indicators:
 - **Offline**: Physical addresses, venue names, city names, Google/Yandex Maps links, office locations
