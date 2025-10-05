@@ -496,9 +496,15 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
     const chunk: EventAnnouncement[] = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
 
-    const prompt: string = `Analyze these event messages and identify which user interests they match. Match events that are DIRECTLY about the interest topic or provide significant learning/practice in that area.
+    const prompt: string = `Match event messages to user interests by selecting interest indices for each event.
 
-User interests: ${config.userInterests.join(', ')}
+EVENTS:
+${chunk.map((announcement: EventAnnouncement, idx: number) =>
+  `${idx}: ${announcement.message.content.replace(/\n/g, ' ')}`
+).join('\n')}
+
+INTERESTS:
+${config.userInterests.map((interest: string, idx: number) => `${idx}: ${interest}`).join('\n')}
 
 CRITICAL: Be more inclusive when matching interests. Social gatherings, professional meetups, and technical discussions should match multiple relevant categories.
 
@@ -596,14 +602,19 @@ CRITICAL INSTRUCTIONS - FOLLOW THESE EXACTLY:
 
 BE MORE INCLUSIVE, NOT RESTRICTIVE. When in doubt, match multiple relevant interests.
 
-Messages:
-${chunk.map((announcement: EventAnnouncement, idx: number) => `${idx + 1}. ${announcement.message.content.replace(/\n/g, ' ')}`).join('\n\n')}
+RESPONSE FORMAT:
+For each event, respond with the event index and matching interest indices:
+EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ...
 
-For each message that matches at least one interest, respond in this format:
-MESSAGE_NUMBER: interest1, interest2
-Example: 1: AI, Backend
+Examples:
+0: 1, 5
+1: 3
+2:
+3: 0, 2, 7
 
-If a message doesn't match any interests, don't include it in your response.`;
+Note: Event 2 has no matches (empty line). If an event has no matching interests, leave the line empty or omit it.
+
+Respond with ONLY the event-to-interest index mappings, one per line.`;
 
     try {
       const response: any = await openai.chat.completions.create({
@@ -613,106 +624,79 @@ If a message doesn't match any interests, don't include it in your response.`;
       });
 
       const result: string | undefined = response.choices[0].message.content?.trim();
+      const processedMessages = new Set<number>();
+
       if (result) {
-        // Check for explicit "no matches" responses
-        if (result.toLowerCase().includes('no messages match') ||
-            result.toLowerCase().includes('none qualify') ||
-            result.toLowerCase().trim() === 'none') {
-          // All announcements have no matches - cache them as empty
-          for (const announcement of chunk) {
-            console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
-            cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
-            debugWriter.addStep5Entry({
-              announcement,
-              gpt_prompt: prompt,
-              gpt_response: result,
-              interests_matched: [],
-              result: 'discarded',
-              cached: false
-            });
-          }
-        } else {
-          // Parse normal MESSAGE_NUMBER: interests format
-          const lines: string[] = result.split('\n').filter((line: string) => /^\s*\d+\s*:/.test(line));
-          const processedMessages = new Set<number>();
+        // Parse EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ... format
+        const lines: string[] = result.split('\n').filter((line: string) => /^\s*\d+\s*:/.test(line));
 
-          for (const line of lines) {
-            const [numPart, interestsPart]: string[] = line.split(':');
-            const messageIdx: number = parseInt(numPart.trim()) - 1;
-            const rawInterests: string[] = interestsPart.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+        for (const line of lines) {
+          const match = line.match(/^(\d+)\s*:\s*(.*)$/);
+          if (match) {
+            const eventIdx: number = parseInt(match[1]);
+            const indicesPart: string = match[2].trim();
 
-            // Validate that GPT's returned interests actually exist in the user's interest list
-            const validInterests: string[] = rawInterests.filter((interest: string) =>
-              config.userInterests.some((userInterest: string) =>
-                userInterest.toLowerCase() === interest.toLowerCase()
-              )
-            );
+            if (eventIdx >= 0 && eventIdx < chunk.length) {
+              // Parse interest indices
+              const interestIndices: number[] = indicesPart
+                ? indicesPart.split(',').map((s: string) => parseInt(s.trim())).filter((idx: number) => !isNaN(idx))
+                : [];
 
-            // Log any invalid interests that GPT hallucinated
-            const invalidInterests: string[] = rawInterests.filter((interest: string) =>
-              !config.userInterests.some((userInterest: string) =>
-                userInterest.toLowerCase() === interest.toLowerCase()
-              )
-            );
-            if (invalidInterests.length > 0) {
-              console.log(`    WARNING: GPT returned invalid interests for ${chunk[messageIdx]?.message.link}: ${invalidInterests.join(', ')}`);
-            }
+              // Convert indices to interest names
+              const matchedInterests: string[] = interestIndices
+                .filter((idx: number) => idx >= 0 && idx < config.userInterests.length)
+                .map((idx: number) => config.userInterests[idx]);
 
-            if (messageIdx >= 0 && messageIdx < chunk.length && validInterests.length > 0) {
-              interestingAnnouncements.push({
-                announcement: chunk[messageIdx],
-                interests_matched: validInterests
-              });
-              cache.cacheMatchingInterests(chunk[messageIdx].message.link, validInterests, config.userInterests, false);
-              processedMessages.add(messageIdx);
+              // Warn about invalid indices
+              const invalidIndices: number[] = interestIndices.filter(
+                (idx: number) => idx < 0 || idx >= config.userInterests.length
+              );
+              if (invalidIndices.length > 0) {
+                console.log(`    WARNING: GPT returned invalid interest indices for event ${eventIdx}: ${invalidIndices.join(', ')}`);
+              }
 
-              debugWriter.addStep5Entry({
-                announcement: chunk[messageIdx],
-                gpt_prompt: prompt,
-                gpt_response: result,
-                interests_matched: validInterests,
-                result: 'matched',
-                cached: false
-              });
-            } else if (messageIdx >= 0 && messageIdx < chunk.length && rawInterests.length > 0 && validInterests.length === 0) {
-              // All interests were invalid, treat as no match
-              processedMessages.add(messageIdx);
-              console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - all returned interests were invalid`);
-              cache.cacheMatchingInterests(chunk[messageIdx].message.link, [], config.userInterests, false);
-              debugWriter.addStep5Entry({
-                announcement: chunk[messageIdx],
-                gpt_prompt: prompt,
-                gpt_response: result,
-                interests_matched: [],
-                result: 'discarded',
-                cached: false
-              });
-            }
-          }
-          
-          // Cache empty results for unmatched messages
-          for (let idx = 0; idx < chunk.length; idx++) {
-            if (!processedMessages.has(idx)) {
-              console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
-              cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
-              debugWriter.addStep5Entry({
-                announcement: chunk[idx],
-                gpt_prompt: prompt,
-                gpt_response: result,
-                interests_matched: [],
-                result: 'discarded',
-                cached: false
-              });
+              if (matchedInterests.length > 0) {
+                interestingAnnouncements.push({
+                  announcement: chunk[eventIdx],
+                  interests_matched: matchedInterests
+                });
+                cache.cacheMatchingInterests(chunk[eventIdx].message.link, matchedInterests, config.userInterests, false);
+                processedMessages.add(eventIdx);
+
+                debugWriter.addStep5Entry({
+                  announcement: chunk[eventIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result,
+                  interests_matched: matchedInterests,
+                  result: 'matched',
+                  cached: false
+                });
+              } else {
+                // Empty interest list for this event
+                processedMessages.add(eventIdx);
+                console.log(`    DISCARDED: ${chunk[eventIdx].message.link} - no interests matched`);
+                cache.cacheMatchingInterests(chunk[eventIdx].message.link, [], config.userInterests, false);
+                debugWriter.addStep5Entry({
+                  announcement: chunk[eventIdx],
+                  gpt_prompt: prompt,
+                  gpt_response: result,
+                  interests_matched: [],
+                  result: 'discarded',
+                  cached: false
+                });
+              }
             }
           }
         }
-      } else {
-        // No matches in this chunk
-        for (const announcement of chunk) {
-          console.log(`    DISCARDED: ${announcement.message.link} - no interests matched`);
-          cache.cacheMatchingInterests(announcement.message.link, [], config.userInterests, false);
+      }
+
+      // Cache empty results for unprocessed events
+      for (let idx = 0; idx < chunk.length; idx++) {
+        if (!processedMessages.has(idx)) {
+          console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
+          cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
           debugWriter.addStep5Entry({
-            announcement,
+            announcement: chunk[idx],
             gpt_prompt: prompt,
             gpt_response: result || '[NO RESPONSE]',
             interests_matched: [],
