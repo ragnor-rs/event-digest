@@ -115,6 +115,8 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedEventDetectionPrompt = config.eventDetectionPrompt !== undefined;
   const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
   const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
+  const providedScheduleExtractionPrompt = config.scheduleExtractionPrompt !== undefined;
+  const providedEventDescriptionPrompt = config.eventDescriptionPrompt !== undefined;
 
   // Set defaults for separate limits
   if (config.maxGroupMessages === undefined && config.maxChannelMessages === undefined) {
@@ -242,6 +244,55 @@ Respond with ONLY the message number and classification index (0, 1, or 2), one 
 Format: MESSAGE_NUMBER: INDEX`;
   }
 
+  // Set default schedule extraction prompt
+  if (!config.scheduleExtractionPrompt) {
+    config.scheduleExtractionPrompt = `Extract the start date and time for each event. Today's date is {{TODAY_DATE}}.
+
+CRITICAL: Use message timestamps to infer the correct year for events. If an event mentions "March 15" and the message was posted on "March 10, 2024", the event is "March 15, 2024". If a message from "Dec 10, 2023" mentions "Jan 5", the event is "Jan 5, 2024" (next occurrence).
+
+Messages:
+{{MESSAGES}}
+
+For each message, respond with the message number followed by the datetime in this EXACT format:
+MESSAGE_NUMBER: DD Mon YYYY HH:MM
+
+Examples:
+- "05 Dec 2024 19:30"
+- "18 Jan 2025 14:00"
+
+If you cannot determine the date/time from a message, respond with:
+MESSAGE_NUMBER: unknown
+
+IMPORTANT:
+- Always use 24-hour time format (e.g., 14:00, not 2:00 PM)
+- Use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
+- Always include leading zeros for days and hours (05, not 5)
+- Parse relative dates like "сегодня/today" using the current date
+- Parse "завтра/tomorrow" as current date + 1 day
+- For partial times like "18" assume "18:00"
+- Always ensure the event date is in the future relative to message timestamp`;
+  }
+
+  // Set default event description prompt
+  if (!config.eventDescriptionPrompt) {
+    config.eventDescriptionPrompt = `Convert these event messages into structured event information. Respond in English.
+
+Messages:
+{{EVENTS}}
+
+CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):
+MESSAGE_NUMBER:
+TITLE: [short catchy title in English]
+SUMMARY: [1-2 sentence summary in English - DO NOT mention dates/times as they are displayed separately]
+DESCRIPTION: [full description from the message, can be original language]
+
+Example:
+1:
+TITLE: JavaScript Meetup
+SUMMARY: Monthly meetup for JS developers to share knowledge and network.
+DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest trends, share projects, and network with fellow developers.`;
+  }
+
   // Validate required fields
   if (!config.groupsToParse || !config.channelsToParse || !config.userInterests || !config.weeklyTimeslots) {
     console.error('Missing required configuration fields:');
@@ -265,6 +316,8 @@ Format: MESSAGE_NUMBER: INDEX`;
   console.log(`  eventDetectionPrompt: ${finalConfig.eventDetectionPrompt!.length} chars${!providedEventDetectionPrompt ? ' (default)' : ''}`);
   console.log(`  interestMatchingPrompt: ${finalConfig.interestMatchingPrompt!.length} chars${!providedInterestMatchingPrompt ? ' (default)' : ''}`);
   console.log(`  eventTypeClassificationPrompt: ${finalConfig.eventTypeClassificationPrompt!.length} chars${!providedEventTypeClassificationPrompt ? ' (default)' : ''}`);
+  console.log(`  scheduleExtractionPrompt: ${finalConfig.scheduleExtractionPrompt!.length} chars${!providedScheduleExtractionPrompt ? ' (default)' : ''}`);
+  console.log(`  eventDescriptionPrompt: ${finalConfig.eventDescriptionPrompt!.length} chars${!providedEventDescriptionPrompt ? ' (default)' : ''}`);
   console.log('');
 
   return finalConfig;

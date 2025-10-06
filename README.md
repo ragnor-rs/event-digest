@@ -137,10 +137,12 @@ npm run dev -- \
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
-- **Custom GPT Prompts** (optional, YAML only):
+- **Custom GPT Prompts** (optional, YAML only - all 5 AI steps configurable):
   - `eventDetectionPrompt`: Custom prompt for event detection (step 3) - uses `{{MESSAGES}}` placeholder
-  - `interestMatchingPrompt`: Custom prompt for interest matching (step 5) - uses `{{EVENTS}}`, `{{INTERESTS}}` placeholders
-  - `eventTypeClassificationPrompt`: Custom prompt for event classification (step 4) - uses `{{MESSAGES}}` placeholder
+  - `eventTypeClassificationPrompt`: Custom prompt for event type classification (step 4) - uses `{{MESSAGES}}` placeholder
+  - `scheduleExtractionPrompt`: Custom prompt for datetime extraction (step 5) - uses `{{TODAY_DATE}}`, `{{MESSAGES}}` placeholders
+  - `interestMatchingPrompt`: Custom prompt for interest matching (step 6) - uses `{{EVENTS}}`, `{{INTERESTS}}` placeholders
+  - `eventDescriptionPrompt`: Custom prompt for event description generation (step 7) - uses `{{EVENTS}}` placeholder
   - See config.example.yaml for detailed documentation and examples
 - `maxInputMessages`/`--max-messages`: Legacy parameter for backward compatibility
 

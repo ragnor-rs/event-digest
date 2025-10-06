@@ -35,4 +35,6 @@ export interface Config {
   eventDetectionPrompt?: string;
   interestMatchingPrompt?: string;
   eventTypeClassificationPrompt?: string;
+  scheduleExtractionPrompt?: string;
+  eventDescriptionPrompt?: string;
 }

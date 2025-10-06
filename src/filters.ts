@@ -668,34 +668,14 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
 
-    const prompt = `Extract the start date and time for each event. Today's date is ${new Date().toDateString()}.
+    const messagesText = chunk.map((event, idx) => {
+      const messageDate = new Date(event.message.timestamp);
+      return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${event.message.content.replace(/\n/g, ' ')}`;
+    }).join('\n\n');
 
-CRITICAL: Use message timestamps to infer the correct year for events. If an event mentions "March 15" and the message was posted on "March 10, 2024", the event is "March 15, 2024". If a message from "Dec 10, 2023" mentions "Jan 5", the event is "Jan 5, 2024" (next occurrence).
-
-Messages with timestamps:
-${chunk.map((event, idx) => {
-  const messageDate = new Date(event.message.timestamp);
-  return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${event.message.content.replace(/\n/g, ' ')}`;
-}).join('\n\n')}
-
-For each message, respond in this format:
-MESSAGE_NUMBER: DD MMM YYYY HH:MM
-Example: 1: 08 Jan 2025 14:00
-Example: 2: 15 Dec 2024 19:30
-
-CRITICAL FORMAT REQUIREMENTS:
-- ALWAYS use the exact format: DD MMM YYYY HH:MM (with colon between hours and minutes)
-- Time MUST have both hours AND minutes (e.g., 18:00, NOT just 18)
-- If time is missing, estimate a reasonable time (e.g., 19:00 for evening events)
-- If you can't determine the complete date/time, use "unknown"
-- NEVER use formats like "06 Sep 2025 18" - this is WRONG
-- CORRECT: "06 Sep 2025 18:00"
-- WRONG: "06 Sep 2025 18"
-
-YEAR INFERENCE RULES:
-- If event date is after message date in same year, use same year
-- If event date is before message date, use next year (e.g., Dec message mentioning Jan event = next year)
-- Always ensure the event date is in the future relative to message timestamp`;
+    const prompt = config.scheduleExtractionPrompt!
+      .replace('{{TODAY_DATE}}', new Date().toDateString())
+      .replace('{{MESSAGES}}', messagesText);
 
     try {
       const response = await openai.chat.completions.create({

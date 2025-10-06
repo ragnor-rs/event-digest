@@ -154,3 +154,45 @@ weeklyTimeslots:
 #   Classify events: 0=offline (physical location), 1=online (virtual only), 2=hybrid (both).
 #   {{MESSAGES}}
 #   Format: MESSAGE_NUMBER: INDEX
+
+# Custom GPT prompt for schedule/datetime extraction (optional)
+# Extracts event start date and time from messages
+#
+# PLACEHOLDERS:
+#   {{TODAY_DATE}} - current date (e.g., "Mon Oct 07 2025")
+#   {{MESSAGES}} - numbered list with timestamps: "1. [Posted: date] text"
+#
+# REQUIRED OUTPUT:
+#   Datetime per message: "MESSAGE_NUMBER: DD MMM YYYY HH:MM"
+#   Example: "1: 08 Oct 2025 19:30"
+#   If unknown: "MESSAGE_NUMBER: unknown"
+#
+# EXAMPLE PROMPT:
+# scheduleExtractionPrompt: |
+#   Extract start datetime for each event. Today is {{TODAY_DATE}}.
+#   {{MESSAGES}}
+#   Format: MESSAGE_NUMBER: DD MMM YYYY HH:MM
+#   Example: 1: 15 Oct 2025 20:00
+
+# Custom GPT prompt for event description generation (optional)
+# Converts event messages into structured titles and summaries
+#
+# PLACEHOLDER:
+#   {{EVENTS}} - numbered list with metadata: "1. Start time: ... Interests: ... Content: ... Link: ..."
+#
+# REQUIRED OUTPUT:
+#   Structured format per event:
+#   "MESSAGE_NUMBER:
+#   TITLE: [title]
+#   SUMMARY: [summary]
+#   DESCRIPTION: [description]"
+#
+# EXAMPLE PROMPT:
+# eventDescriptionPrompt: |
+#   Convert events to English titles and summaries.
+#   {{EVENTS}}
+#   Format:
+#   MESSAGE_NUMBER:
+#   TITLE: [catchy title]
+#   SUMMARY: [1-2 sentences, no dates/times]
+#   DESCRIPTION: [full description]

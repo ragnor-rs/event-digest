@@ -57,26 +57,14 @@ export async function describeEvents(events: Event[], config: Config): Promise<E
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
-    const prompt = `Convert these event messages into structured event information. Respond in English.
 
-Messages:
-${chunk.map((event, idx) => `${idx + 1}.
+    const eventsText = chunk.map((event, idx) => `${idx + 1}.
 Start time: ${event.start_datetime}
 Interests: ${event.interests_matched!.join(', ')}
 Content: ${event.message.content.replace(/\n/g, ' ')}
-Link: ${event.message.link}`).join('\n\n')}
+Link: ${event.message.link}`).join('\n\n');
 
-CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):
-MESSAGE_NUMBER:
-TITLE: [short catchy title in English]
-SUMMARY: [1-2 sentence summary in English - DO NOT mention dates/times as they are displayed separately]
-DESCRIPTION: [full description from the message, can be original language]
-
-Example:
-1:
-TITLE: JavaScript Meetup
-SUMMARY: Monthly meetup for JS developers to share knowledge and network.
-DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest trends, share projects, and network with fellow developers.`;
+    const prompt = config.eventDescriptionPrompt!.replace('{{EVENTS}}', eventsText);
 
     try {
       const response = await openai.chat.completions.create({
