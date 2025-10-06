@@ -45,16 +45,21 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 ### Core Pipeline Flow
 1. **Message Fetching** (`src/telegram.ts`) - Fetches messages from Telegram groups/channels using GramJS
 2. **Event Cue Filtering** (`src/filters.ts:filterByEventCues`) - Text-based filtering using configurable cues
-3. **GPT Event Detection** (`src/filters.ts:detectEventAnnouncements`) - AI-powered filtering to identify single event announcements
-4. **Event Type Classification** (`src/filters.ts:classifyEventTypes`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents
-5. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria
-6. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots
-7. **Event Conversion** (`src/events.ts:convertToEvents`) - Converts to structured Event objects with GPT
+3. **GPT Event Detection** (`src/filters.ts:detectEventAnnouncements`) - AI-powered filtering to identify single event announcements, returns Event[] with message field
+4. **Event Type Classification** (`src/filters.ts:classifyEventTypes`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents, adds event_type field to Event
+5. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria, adds interests_matched field to Event
+6. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots, adds start_datetime field to Event
+7. **Event Description** (`src/events.ts:describeEvents`) - Generates structured event descriptions with GPT, adds event_description field to Event
 
 ### Key Components
 
 **Data Flow Types** (`src/types.ts`):
-- `TelegramMessage` → `TelegramMessage` → `EventAnnouncement` → `InterestingAnnouncement` → `ScheduledEvent` → `Event`
+- Single `Event` type with optional fields populated through pipeline stages:
+  - Step 3 adds: `message: TelegramMessage`
+  - Step 4 adds: `event_type?: 'offline' | 'online' | 'hybrid'`
+  - Step 5 adds: `interests_matched?: string[]`
+  - Step 6 adds: `start_datetime?: string`
+  - Step 7 adds: `event_description?: EventDescription`
 
 **Authentication** (`src/telegram.ts`):
 - Uses persistent session storage in `.telegram-session` file
@@ -99,7 +104,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 1. Basic event detection (`detectEventAnnouncements`) - Identifies genuine event announcements
 2. Event type classification (`classifyEventTypes`) - Classifies as offline/online/hybrid and applies filtering
 
-**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in EventAnnouncement interface. Classification uses explicit indicators:
+**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in Event.event_type field. Classification uses explicit indicators:
 - **Offline**: Physical addresses, venue names, city names, Google/Yandex Maps links, office locations
 - **Online**: Zoom/Google Meet links, explicit "online" mentions, webinar URLs
 - **Hybrid**: Events offering both physical and online participation options

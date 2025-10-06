@@ -169,11 +169,11 @@ The tool processes messages through a 7-step pipeline:
 
 1. **Fetch Messages** - Retrieves recent messages from specified Telegram sources
 2. **Event Cue Filter** - Filters messages containing date/event keywords
-3. **AI Event Detection** - Uses GPT to identify genuine event announcements
-4. **Event Type Classification** - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents
-5. **Interest Matching** - Matches events to your specified interests with 99% accuracy using comprehensive guidelines and keyword recognition
-6. **Schedule Filtering** - Filters by your available time slots and future dates
-7. **Event Conversion** - Converts to structured events with titles, summaries, descriptions
+3. **AI Event Detection** - Uses GPT to identify genuine event announcements, creates Event objects with message field
+4. **Event Type Classification** - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field
+5. **Interest Matching** - Matches events to your specified interests with 99% accuracy using comprehensive guidelines and keyword recognition, adds interests_matched field
+6. **Schedule Filtering** - Filters by your available time slots and future dates, adds start_datetime field
+7. **Event Description** - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field
 
 ## Output Format
 
