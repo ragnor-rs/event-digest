@@ -47,8 +47,8 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 2. **Event Cue Filtering** (`src/filters.ts:filterByEventCues`) - Text-based filtering using configurable cues
 3. **GPT Event Detection** (`src/filters.ts:detectEventAnnouncements`) - AI-powered filtering to identify single event announcements, returns Event[] with message field
 4. **Event Type Classification** (`src/filters.ts:classifyEventTypes`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents, adds event_type field to Event
-5. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria, adds interests_matched field to Event
-6. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots, adds start_datetime field to Event
+5. **Schedule Filtering** (`src/filters.ts:filterBySchedule`) - Filters by datetime and user availability slots, adds start_datetime field to Event
+6. **Interest Matching** (`src/filters.ts:filterByInterests`) - Matches events to user interests with strict criteria, adds interests_matched field to Event
 7. **Event Description** (`src/events.ts:describeEvents`) - Generates structured event descriptions with GPT, adds event_description field to Event
 
 ### Key Components
@@ -57,8 +57,8 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - Single `Event` type with optional fields populated through pipeline stages:
   - Step 3 adds: `message: TelegramMessage`
   - Step 4 adds: `event_type?: 'offline' | 'online' | 'hybrid'`
-  - Step 5 adds: `interests_matched?: string[]`
-  - Step 6 adds: `start_datetime?: string`
+  - Step 5 adds: `start_datetime?: string`
+  - Step 6 adds: `interests_matched?: string[]`
   - Step 7 adds: `event_description?: EventDescription`
 
 **Authentication** (`src/telegram.ts`):
@@ -71,8 +71,8 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
   - `telegram_messages`: Raw Telegram messages per source (step 1) - assumes message immutability
   - `messages`: Basic event detection results (step 3)
   - `event_type_classification`: Event type classification results (step 4)
-  - `matching_interests`: Interest matching results (step 5)
-  - `scheduled_events`: Schedule filtering and datetime extraction (step 6)
+  - `scheduled_events`: Schedule filtering and datetime extraction (step 5)
+  - `matching_interests`: Interest matching results (step 6)
   - `events`: Final event object conversion (step 7)
 - Message caching strategy: Fetches only new messages since last cached timestamp, combines with cached messages
 - Cache keys use message links + hashed preferences for efficient storage
@@ -130,8 +130,8 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/telegram_messages.json`: Raw Telegram messages per source (step 1, assumes immutability)
 - `.cache/messages.json`: Basic event detection results (step 3, no preferences needed)
 - `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed)
-- `.cache/matching_interests.json`: Interest matching results (step 5, includes interests hash)
-- `.cache/scheduled_events.json`: Schedule filtering results (step 6, includes timeslots hash)
+- `.cache/scheduled_events.json`: Schedule filtering results (step 5, includes timeslots hash)
+- `.cache/matching_interests.json`: Interest matching results (step 6, includes interests hash)
 - `.cache/events.json`: Final event objects (step 7, includes interests hash)
 
 **Message Caching Strategy:**
@@ -147,7 +147,7 @@ Cache keys include relevant user preferences to ensure correct invalidation when
 When `writeDebugFiles` is enabled (default: false), the tool writes detailed debug information to the `debug/` directory:
 - `event_detection.json`: GPT filtering to identify single event announcements (step 3)
 - `event_classification.json`: GPT classification of events as hybrid/offline/online with prompts and responses (step 4)
-- `interest_matching.json`: Interest matching results showing which events matched which interests (step 5)
-- `schedule_filtering.json`: Schedule filtering and datetime extraction results (step 6)
+- `schedule_filtering.json`: Schedule filtering and datetime extraction results (step 5)
+- `interest_matching.json`: Interest matching results showing which events matched which interests (step 6)
 
 Debug files include GPT prompts, responses, cache status, and detailed statistics. Use for troubleshooting event detection, interest matching accuracy, or understanding GPT's decision-making process.

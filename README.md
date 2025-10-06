@@ -171,8 +171,8 @@ The tool processes messages through a 7-step pipeline:
 2. **Event Cue Filter** - Filters messages containing date/event keywords
 3. **AI Event Detection** - Uses GPT to identify genuine event announcements, creates Event objects with message field
 4. **Event Type Classification** - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field
-5. **Interest Matching** - Matches events to your specified interests with 99% accuracy using comprehensive guidelines and keyword recognition, adds interests_matched field
-6. **Schedule Filtering** - Filters by your available time slots and future dates, adds start_datetime field
+5. **Schedule Filtering** - Filters by your available time slots and future dates, adds start_datetime field
+6. **Interest Matching** - Matches events to your specified interests with 99% accuracy using comprehensive guidelines and keyword recognition, adds interests_matched field
 7. **Event Description** - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field
 
 ## Output Format
@@ -233,8 +233,8 @@ npm run dev -- --write-debug-files true
 This creates four detailed JSON files in the `debug/` directory:
 - `event_detection.json`: GPT filtering to identify single event announcements (step 3)
 - `event_classification.json`: Event type detection (offline/online/hybrid) (step 4)
-- `interest_matching.json`: Interest matching decisions with GPT prompts/responses (step 5)
-- `schedule_filtering.json`: Schedule filtering and datetime extraction (step 6)
+- `schedule_filtering.json`: Schedule filtering and datetime extraction (step 5)
+- `interest_matching.json`: Interest matching decisions with GPT prompts/responses (step 6)
 
 Each file includes:
 - GPT prompts and responses

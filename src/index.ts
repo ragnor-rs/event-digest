@@ -32,13 +32,13 @@ async function main() {
     const classifiedEvents = await classifyEventTypes(events, config);
     console.log('');
 
-    const matchedEvents = await filterByInterests(classifiedEvents, config);
+    const scheduledEvents = await filterBySchedule(classifiedEvents, config);
     console.log('');
 
-    const scheduledEvents = await filterBySchedule(matchedEvents, config);
+    const matchedEvents = await filterByInterests(scheduledEvents, config);
     console.log('');
 
-    const describedEvents = await describeEvents(scheduledEvents, config);
+    const describedEvents = await describeEvents(matchedEvents, config);
     console.log('');
 
     printEvents(describedEvents);

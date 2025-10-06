@@ -362,7 +362,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
 }
 
 export async function filterByInterests(events: Event[], config: Config): Promise<Event[]> {
-  console.log(`Step 5: Filtering ${events.length} events by user interests...`);
+  console.log(`Step 6: Filtering ${events.length} events by user interests...`);
   
   if (events.length === 0) {
     console.log(`  No input on this step`);
@@ -386,7 +386,8 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           ...event,
           interests_matched: cachedInterests
         });
-        debugWriter.addStep5Entry({
+        debugWriter.addStep6Entry({
+          start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
           gpt_prompt: '[CACHED]',
@@ -397,7 +398,8 @@ export async function filterByInterests(events: Event[], config: Config): Promis
         });
       } else {
         console.log(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
-        debugWriter.addStep5Entry({
+        debugWriter.addStep6Entry({
+          start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
           gpt_prompt: '[CACHED]',
@@ -490,9 +492,10 @@ export async function filterByInterests(events: Event[], config: Config): Promis
                 cache.cacheMatchingInterests(chunk[eventIdx].message.link, matchedInterests, config.userInterests, false);
                 processedMessages.add(eventIdx);
 
-                debugWriter.addStep5Entry({
+                debugWriter.addStep6Entry({
                   message: chunk[eventIdx].message,
                   event_type: chunk[eventIdx].event_type!,
+                  start_datetime: chunk[eventIdx].start_datetime!,
                   gpt_prompt: prompt,
                   gpt_response: result,
                   interests_matched: matchedInterests,
@@ -504,9 +507,10 @@ export async function filterByInterests(events: Event[], config: Config): Promis
                 processedMessages.add(eventIdx);
                 console.log(`    DISCARDED: ${chunk[eventIdx].message.link} - no interests matched`);
                 cache.cacheMatchingInterests(chunk[eventIdx].message.link, [], config.userInterests, false);
-                debugWriter.addStep5Entry({
+                debugWriter.addStep6Entry({
                   message: chunk[eventIdx].message,
                   event_type: chunk[eventIdx].event_type!,
+                  start_datetime: chunk[eventIdx].start_datetime!,
                   gpt_prompt: prompt,
                   gpt_response: result,
                   interests_matched: [],
@@ -524,7 +528,8 @@ export async function filterByInterests(events: Event[], config: Config): Promis
         if (!processedMessages.has(idx)) {
           console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
           cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
-          debugWriter.addStep5Entry({
+          debugWriter.addStep6Entry({
+            start_datetime: chunk[idx].start_datetime!,
             message: chunk[idx].message,
             event_type: chunk[idx].event_type!,
             gpt_prompt: prompt,
@@ -552,7 +557,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
 }
 
 export async function filterBySchedule(events: Event[], config: Config): Promise<Event[]> {
-  console.log(`Step 6: Filtering ${events.length} event announcements by schedule and future dates...`);
+  console.log(`Step 5: Filtering ${events.length} event announcements by schedule and future dates...`);
 
   if (events.length === 0) {
     console.log(`  No input on this step`);
@@ -595,10 +600,10 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                 ...event,
                 start_datetime: normalizedCachedDateTime
               });
-              debugWriter.addStep6Entry({
+              debugWriter.addStep5Entry({
                 message: event.message,
                 event_type: event.event_type!,
-                interests_matched: event.interests_matched!,
+                
                 gpt_prompt: '[CACHED]',
                 gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
                 extracted_datetime: normalizedCachedDateTime,
@@ -607,10 +612,10 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               });
             } else {
               console.log(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
-              debugWriter.addStep6Entry({
+              debugWriter.addStep5Entry({
                 message: event.message,
                 event_type: event.event_type!,
-                interests_matched: event.interests_matched!,
+                
                 gpt_prompt: '[CACHED]',
                 gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
                 extracted_datetime: normalizedCachedDateTime,
@@ -621,10 +626,10 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
             }
           } else {
             console.log(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
-            debugWriter.addStep6Entry({
+            debugWriter.addStep5Entry({
               message: event.message,
               event_type: event.event_type!,
-              interests_matched: event.interests_matched!,
+              
               gpt_prompt: '[CACHED]',
               gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
               extracted_datetime: normalizedCachedDateTime,
@@ -638,10 +643,10 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
           uncachedEvents.push(event);
         }
       } else {
-        debugWriter.addStep6Entry({
+        debugWriter.addStep5Entry({
           message: event.message,
           event_type: event.event_type!,
-          interests_matched: event.interests_matched!,
+          
           gpt_prompt: '[CACHED]',
           gpt_response: '[CACHED: unknown datetime]',
           extracted_datetime: 'unknown',
@@ -736,10 +741,10 @@ YEAR INFERENCE RULES:
               // Check if the date is valid
               if (!isValid(eventDate)) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date`);
-                debugWriter.addStep6Entry({
+                debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
-                  interests_matched: chunk[messageIdx].interests_matched!,
+                  
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: dateTime,
@@ -757,10 +762,10 @@ YEAR INFERENCE RULES:
               // Check if the event is in the future relative to current time
               if (eventDate <= now) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
-                debugWriter.addStep6Entry({
+                debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
-                  interests_matched: chunk[messageIdx].interests_matched!,
+                  
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -775,10 +780,10 @@ YEAR INFERENCE RULES:
               const maxFutureDate = new Date(messageDate.getTime() + (2 * 365 * 24 * 60 * 60 * 1000)); // 2 years from message
               if (eventDate > maxFutureDate) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
-                debugWriter.addStep6Entry({
+                debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
-                  interests_matched: chunk[messageIdx].interests_matched!,
+                  
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -807,10 +812,10 @@ YEAR INFERENCE RULES:
                   ...chunk[messageIdx],
                   start_datetime: normalizedDateTime
                 });
-                debugWriter.addStep6Entry({
+                debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
-                  interests_matched: chunk[messageIdx].interests_matched!,
+                  
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -819,10 +824,10 @@ YEAR INFERENCE RULES:
                 });
               } else {
                 console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
-                debugWriter.addStep6Entry({
+                debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
-                  interests_matched: chunk[messageIdx].interests_matched!,
+                  
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -833,10 +838,10 @@ YEAR INFERENCE RULES:
               }
             } catch (error) {
               console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
-              debugWriter.addStep6Entry({
+              debugWriter.addStep5Entry({
                 message: chunk[messageIdx].message,
                 event_type: chunk[messageIdx].event_type!,
-                interests_matched: chunk[messageIdx].interests_matched!,
+                
                 gpt_prompt: prompt,
                 gpt_response: result || '',
                 extracted_datetime: dateTime,
@@ -853,10 +858,10 @@ YEAR INFERENCE RULES:
           if (!processedMessages.has(idx)) {
             console.log(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
             cache.cacheScheduledEvent(chunk[idx].message.link, 'unknown', config.weeklyTimeslots, false);
-            debugWriter.addStep6Entry({
+            debugWriter.addStep5Entry({
               message: chunk[idx].message,
               event_type: chunk[idx].event_type!,
-              interests_matched: chunk[idx].interests_matched!,
+              
               gpt_prompt: prompt,
               gpt_response: result || '',
               extracted_datetime: 'unknown',
@@ -871,10 +876,10 @@ YEAR INFERENCE RULES:
         for (const event of chunk) {
           console.log(`    DISCARDED: ${event.message.link} - no date/time found`);
           cache.cacheScheduledEvent(event.message.link, 'unknown', config.weeklyTimeslots, false);
-          debugWriter.addStep6Entry({
+          debugWriter.addStep5Entry({
             message: event.message,
             event_type: event.event_type!,
-            interests_matched: event.interests_matched!,
+            
             gpt_prompt: prompt,
             gpt_response: result || '[NO RESPONSE]',
             extracted_datetime: 'unknown',

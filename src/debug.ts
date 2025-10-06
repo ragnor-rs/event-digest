@@ -24,20 +24,20 @@ export interface DebugStep5Entry {
   event_type: string;
   gpt_prompt: string;
   gpt_response: string;
-  interests_matched: string[];
-  result: 'matched' | 'discarded';
+  extracted_datetime: string;
+  result: 'scheduled' | 'discarded';
+  discard_reason?: string;
   cached: boolean;
 }
 
 export interface DebugStep6Entry {
   message: TelegramMessage;
   event_type: string;
-  interests_matched: string[];
+  start_datetime: string;
   gpt_prompt: string;
   gpt_response: string;
-  extracted_datetime: string;
-  result: 'scheduled' | 'discarded';
-  discard_reason?: string;
+  interests_matched: string[];
+  result: 'matched' | 'discarded';
   cached: boolean;
 }
 
@@ -120,15 +120,16 @@ class DebugWriter {
   }
 
   private writeStep5(): void {
-    const filename = path.join(this.debugDir, 'interest_matching.json');
+    const filename = path.join(this.debugDir, 'schedule_filtering.json');
     const data = {
-      step: 'Interest Matching',
-      description: 'GPT matching of events to user interests',
+      step: 'Schedule Filtering',
+      description: 'GPT datetime extraction and schedule matching',
       total_entries: this.step5Entries.length,
       result_counts: {
-        matched: this.step5Entries.filter(e => e.result === 'matched').length,
+        scheduled: this.step5Entries.filter(e => e.result === 'scheduled').length,
         discarded: this.step5Entries.filter(e => e.result === 'discarded').length
       },
+      discard_reasons: this.getStep5DiscardReasons(),
       cache_stats: {
         cached: this.step5Entries.filter(e => e.cached).length,
         uncached: this.step5Entries.filter(e => !e.cached).length
@@ -139,16 +140,15 @@ class DebugWriter {
   }
 
   private writeStep6(): void {
-    const filename = path.join(this.debugDir, 'schedule_filtering.json');
+    const filename = path.join(this.debugDir, 'interest_matching.json');
     const data = {
-      step: 'Schedule Filtering',
-      description: 'GPT datetime extraction and schedule matching',
+      step: 'Interest Matching',
+      description: 'GPT matching of events to user interests',
       total_entries: this.step6Entries.length,
       result_counts: {
-        scheduled: this.step6Entries.filter(e => e.result === 'scheduled').length,
+        matched: this.step6Entries.filter(e => e.result === 'matched').length,
         discarded: this.step6Entries.filter(e => e.result === 'discarded').length
       },
-      discard_reasons: this.getStep6DiscardReasons(),
       cache_stats: {
         cached: this.step6Entries.filter(e => e.cached).length,
         uncached: this.step6Entries.filter(e => !e.cached).length
@@ -158,9 +158,9 @@ class DebugWriter {
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
-  private getStep6DiscardReasons(): Record<string, number> {
+  private getStep5DiscardReasons(): Record<string, number> {
     const reasons: Record<string, number> = {};
-    this.step6Entries
+    this.step5Entries
       .filter(e => e.result === 'discarded' && e.discard_reason)
       .forEach(e => {
         const reason = e.discard_reason!;
