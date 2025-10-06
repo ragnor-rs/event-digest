@@ -19,12 +19,16 @@ export interface ScheduledEvent {
   start_datetime: string;
 }
 
-export interface Event {
+export interface EventDescription {
   date_time: string;
   met_interests: string[];
   title: string;
   short_summary: string;
   link: string;
+}
+
+export interface Event {
+  event_description: EventDescription;
 }
 
 export interface Config {

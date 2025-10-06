@@ -23,17 +23,17 @@ export async function convertToEvents(scheduledEvents: ScheduledEvent[], config:
   let cacheHits = 0;
 
   for (const scheduledEvent of scheduledEvents) {
-    const cachedEvent = cache.getConvertedEventCache(scheduledEvent.interesting_announcement.announcement.message.link, config.userInterests);
-    if (cachedEvent !== null) {
+    const cachedEventDescription = cache.getConvertedEventCache(scheduledEvent.interesting_announcement.announcement.message.link, config.userInterests);
+    if (cachedEventDescription !== null) {
       cacheHits++;
-      // Update cached event with current data (interests might have changed)
-      const updatedEvent = {
-        ...cachedEvent,
+      // Update cached event description with current data (interests might have changed)
+      const updatedEventDescription = {
+        ...cachedEventDescription,
         date_time: scheduledEvent.start_datetime,
         met_interests: scheduledEvent.interesting_announcement.interests_matched,
         link: scheduledEvent.interesting_announcement.announcement.message.link
       };
-      events.push(updatedEvent);
+      events.push({ event_description: updatedEventDescription });
     } else {
       uncachedEvents.push(scheduledEvent);
     }
@@ -101,22 +101,22 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
           const summary = summaryMatch ? summaryMatch[1].trim() : '';
           const description = descriptionMatch ? descriptionMatch[1].trim() : '';
           
-          const eventData = {
+          const eventDescriptionData = {
             title: title || 'Event',
             short_summary: summary || 'Event details not extracted properly'
           };
 
-          const finalEvent = {
+          const eventDescription = {
             date_time: chunk[i].start_datetime,
             met_interests: chunk[i].interesting_announcement.interests_matched,
-            ...eventData,
+            ...eventDescriptionData,
             link: chunk[i].interesting_announcement.announcement.message.link
           };
 
-          events.push(finalEvent);
-          
-          // Cache the extracted event data (without dynamic fields like date_time and interests)
-          cache.cacheConvertedEvent(chunk[i].interesting_announcement.announcement.message.link, eventData, config.userInterests, false);
+          events.push({ event_description: eventDescription });
+
+          // Cache the extracted event description data (without dynamic fields like date_time and interests)
+          cache.cacheConvertedEvent(chunk[i].interesting_announcement.announcement.message.link, eventDescriptionData, config.userInterests, false);
           
           if (title && summary && description) {
             console.log(`    ✓ Created event: ${title}`);
@@ -153,8 +153,8 @@ export function printEvents(events: Event[]): void {
   // Sort events by date in chronological order
   const sortedEvents = events.sort((a, b) => {
     try {
-      const dateA = parse(a.date_time, 'dd MMM yyyy HH:mm', new Date());
-      const dateB = parse(b.date_time, 'dd MMM yyyy HH:mm', new Date());
+      const dateA = parse(a.event_description.date_time, 'dd MMM yyyy HH:mm', new Date());
+      const dateB = parse(b.event_description.date_time, 'dd MMM yyyy HH:mm', new Date());
       return dateA.getTime() - dateB.getTime();
     } catch (error) {
       // If date parsing fails, keep original order
@@ -163,11 +163,11 @@ export function printEvents(events: Event[]): void {
   });
 
   sortedEvents.forEach((event, index) => {
-    console.log(`${index + 1}. ${event.title}`);
-    console.log(`   📅 ${event.date_time}`);
-    console.log(`   🏷️ ${event.met_interests.join(', ')}`);
-    console.log(`   📝 ${event.short_summary}`);
-    console.log(`   🔗 ${event.link}`);
+    console.log(`${index + 1}. ${event.event_description.title}`);
+    console.log(`   📅 ${event.event_description.date_time}`);
+    console.log(`   🏷️ ${event.event_description.met_interests.join(', ')}`);
+    console.log(`   📝 ${event.event_description.short_summary}`);
+    console.log(`   🔗 ${event.event_description.link}`);
     console.log('');
   });
   
