@@ -102,49 +102,55 @@ weeklyTimeslots:
 #     - "saturday"
 #     - "sunday"
 
+# Custom GPT prompt for event detection (optional)
+# Identifies which messages are single event announcements
+#
+# PLACEHOLDER:
+#   {{MESSAGES}} - numbered list: "1. text\n\n2. text"
+#
+# REQUIRED OUTPUT:
+#   Message numbers (one per line) or "none"
+#   Example: "1\n3\n7" or "none"
+#
+# EXAMPLE PROMPT:
+# eventDetectionPrompt: |
+#   Which messages announce a single specific event with date/time?
+#   {{MESSAGES}}
+#   Respond with message numbers (one per line) or "none".
+
 # Custom GPT prompt for interest matching (optional)
-# If not specified, uses a simple general prompt
+# Matches events to user interests
 #
-# PLACEHOLDERS (automatically replaced with actual data):
-#   {{EVENTS}} - Replaced with numbered list of event messages: "0: event text", "1: event text", etc.
-#   {{INTERESTS}} - Replaced with numbered list of user interests: "0: interest name", "1: interest name", etc.
+# PLACEHOLDERS:
+#   {{EVENTS}} - numbered list: "0: event text\n1: event text"
+#   {{INTERESTS}} - numbered list: "0: interest name\n1: interest name"
 #
-# REQUIRED: GPT MUST respond with interest indices (numbers), not interest names
-# This is not optional - the system expects index-based responses to properly match events to interests
+# REQUIRED OUTPUT:
+#   Index mappings per event: "EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2"
+#   Example: "0: 1, 3\n1: 2\n2:"
 #
-# REQUIRED RESPONSE FORMAT: EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ...
-# Example (if there are 5 interests numbered 0-4):
-#   0: 1, 3
-#   1: 2
-#   2: 0, 1, 4
-#   3:
-#
-# See config.yaml for an example of a detailed prompt with specific matching guidelines
+# EXAMPLE PROMPT:
 # interestMatchingPrompt: |
-#   Your custom prompt here...
+#   Match events to interests. Respond with indices only.
+#   EVENTS:
 #   {{EVENTS}}
+#   INTERESTS:
 #   {{INTERESTS}}
+#   Format: EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2
 
 # Custom GPT prompt for event type classification (optional)
-# If not specified, uses a simple general prompt
+# Classifies events as offline (0), online (1), or hybrid (2)
 #
-# PLACEHOLDERS (automatically replaced with actual data):
-#   {{MESSAGES}} - Replaced with numbered list of event messages: "1. message text", "2. message text", etc.
+# PLACEHOLDER:
+#   {{MESSAGES}} - numbered list: "1. text\n\n2. text"
 #
-# REQUIRED: GPT MUST respond with classification indices (0, 1, or 2), not text labels
-# This is not optional - the system expects index-based responses to classify event types
-#   0 = offline (in-person event)
-#   1 = online (virtual event only)
-#   2 = hybrid (both in-person and online options)
+# REQUIRED OUTPUT:
+#   Message classifications: "MESSAGE_NUMBER: INDEX"
+#   Indices: 0=offline, 1=online, 2=hybrid
+#   Example: "1: 0\n2: 1\n3: 2"
 #
-# REQUIRED RESPONSE FORMAT: MESSAGE_NUMBER: INDEX
-# Example:
-#   1: 0
-#   2: 1
-#   3: 2
-#   4: 0
-#
-# See config.yaml for an example of a detailed prompt with specific classification guidelines
+# EXAMPLE PROMPT:
 # eventTypeClassificationPrompt: |
-#   Your custom prompt here...
+#   Classify events: 0=offline (physical location), 1=online (virtual only), 2=hybrid (both).
 #   {{MESSAGES}}
+#   Format: MESSAGE_NUMBER: INDEX

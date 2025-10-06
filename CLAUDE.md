@@ -77,6 +77,11 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - Detailed validation for groups, channels, interests, timeslots, and message limits
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
+- **Configurable GPT prompts** (all optional with sensible defaults):
+  - `eventDetectionPrompt`: Customizes event detection logic (step 3) - uses `{{MESSAGES}}` placeholder
+  - `interestMatchingPrompt`: Customizes interest matching logic (step 5) - uses `{{EVENTS}}` and `{{INTERESTS}}` placeholders
+  - `eventTypeClassificationPrompt`: Customizes event type classification (step 4) - uses `{{MESSAGES}}` placeholder
+  - See config.example.yaml for placeholder documentation and example prompts
 
 ### Important Implementation Details
 

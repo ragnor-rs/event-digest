@@ -107,43 +107,10 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
     
     // No offline filtering at this step
 
-    const prompt = `Analyze these messages and identify which ones are announcements for a SINGLE SPECIFIC EVENT.
-
-An event announcement should include:
-- A specific date/time (can be relative like "сегодня/today", "завтра/tomorrow", specific times like "19:30", or absolute dates)
-- A specific activity, meetup, workshop, presentation, talk, or gathering
-- Details about what will happen (even if brief)
-
-INCLUDE messages that:
-- Announce workshops, meetups, presentations, talks, networking events, webinars, broadcasts
-- Have clear timing information (specific time, date, or relative dates)  
-- Describe a specific gathering or activity (online or offline)
-- Invite people to participate, attend, or join something specific
-- Contain meeting links (Zoom, Google Meet, etc.) with scheduled times
-- Use words like "приходите/come", "присоединяйтесь/join", "встреча/meeting", "событие/event", "вещать/broadcast"
-- Ask people to set calendar reminders or save dates
-- Provide specific times with timezone information (МСК, GMT, etc.)
-
-EXCLUDE only messages that:
-- Are clearly event digests/roundups listing multiple different events
-- Are general announcements without specific timing or scheduling
-- Are purely informational posts without inviting participation
-- Are job postings, news articles, or promotional content without events
-
-IMPORTANT: Look for timing indicators in ANY language:
-- Russian: сегодня, завтра, время, встреча, МСК, вещать
-- English: today, tomorrow, time, meeting, at X:XX, broadcast
-- Numbers indicating time: 19:30, 14:00, etc.
-- Calendar references: "ставьте в календарь", "set reminder", "save the date"
-
-EXAMPLE of what should be INCLUDED:
-- A message saying "Today at 19:30 MSK I will broadcast about LinkedIn" with a Zoom link → This IS an event
-- A message with "сегодня вещать" + time + meeting link → This IS an event
-
-Messages:
-${chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')}
-
-CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", "3", "7"). If none qualify, respond with "none".`;
+    const prompt = config.eventDetectionPrompt!.replace(
+      '{{MESSAGES}}',
+      chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')
+    );
 
     try {
       const response = await openai.chat.completions.create({

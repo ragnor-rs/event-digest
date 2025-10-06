@@ -112,6 +112,7 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedSkipOnlineEvents = config.skipOnlineEvents !== undefined;
   const providedWriteDebugFiles = config.writeDebugFiles !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
+  const providedEventDetectionPrompt = config.eventDetectionPrompt !== undefined;
   const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
   const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
 
@@ -147,6 +148,47 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Set default for write debug files
   if (config.writeDebugFiles === undefined) {
     config.writeDebugFiles = false;
+  }
+
+  // Set default event detection prompt
+  if (!config.eventDetectionPrompt) {
+    config.eventDetectionPrompt = `Analyze these messages and identify which ones are announcements for a SINGLE SPECIFIC EVENT.
+
+An event announcement should include:
+- A specific date/time (can be relative like "сегодня/today", "завтра/tomorrow", specific times like "19:30", or absolute dates)
+- A specific activity, meetup, workshop, presentation, talk, or gathering
+- Details about what will happen (even if brief)
+
+INCLUDE messages that:
+- Announce workshops, meetups, presentations, talks, networking events, webinars, broadcasts
+- Have clear timing information (specific time, date, or relative dates)
+- Describe a specific gathering or activity (online or offline)
+- Invite people to participate, attend, or join something specific
+- Contain meeting links (Zoom, Google Meet, etc.) with scheduled times
+- Use words like "приходите/come", "присоединяйтесь/join", "встреча/meeting", "событие/event", "вещать/broadcast"
+- Ask people to set calendar reminders or save dates
+- Provide specific times with timezone information (МСК, GMT, etc.)
+
+EXCLUDE only messages that:
+- Are clearly event digests/roundups listing multiple different events
+- Are general announcements without specific timing or scheduling
+- Are purely informational posts without inviting participation
+- Are job postings, news articles, or promotional content without events
+
+IMPORTANT: Look for timing indicators in ANY language:
+- Russian: сегодня, завтра, время, встреча, МСК, вещать
+- English: today, tomorrow, time, meeting, at X:XX, broadcast
+- Numbers indicating time: 19:30, 14:00, etc.
+- Calendar references: "ставьте в календарь", "set reminder", "save the date"
+
+EXAMPLE of what should be INCLUDED:
+- A message saying "Today at 19:30 MSK I will broadcast about LinkedIn" with a Zoom link → This IS an event
+- A message with "сегодня вещать" + time + meeting link → This IS an event
+
+Messages:
+{{MESSAGES}}
+
+CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", "3", "7"). If none qualify, respond with "none".`;
   }
 
   // Set default interest matching prompt
@@ -220,6 +262,7 @@ Format: MESSAGE_NUMBER: INDEX`;
   console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
   console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp || 'not set'}`);
   console.log(`  eventMessageCues: ${Object.values(finalConfig.eventMessageCues).flat().length} cues${!providedEventMessageCues ? ' (default)' : ''}`);
+  console.log(`  eventDetectionPrompt: ${finalConfig.eventDetectionPrompt!.length} chars${!providedEventDetectionPrompt ? ' (default)' : ''}`);
   console.log(`  interestMatchingPrompt: ${finalConfig.interestMatchingPrompt!.length} chars${!providedInterestMatchingPrompt ? ' (default)' : ''}`);
   console.log(`  eventTypeClassificationPrompt: ${finalConfig.eventTypeClassificationPrompt!.length} chars${!providedEventTypeClassificationPrompt ? ' (default)' : ''}`);
   console.log('');

@@ -39,6 +39,7 @@ export interface Config {
   eventMessageCues: Record<string, string[]>;
   skipOnlineEvents: boolean;
   writeDebugFiles: boolean;
+  eventDetectionPrompt?: string;
   interestMatchingPrompt?: string;
   eventTypeClassificationPrompt?: string;
 }
