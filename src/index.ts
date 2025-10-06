@@ -13,8 +13,9 @@ async function main() {
     console.log('Starting Event Digest CLI...\n');
 
     const config = parseArgs();
+    const cache = new Cache();
 
-    const telegramClient = new TelegramClient();
+    const telegramClient = new TelegramClient(cache);
     await telegramClient.connect();
     console.log('');
 

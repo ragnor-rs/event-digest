@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { TelegramMessage } from './types';
 
 interface CacheEntry {
   result: any;
@@ -10,6 +11,7 @@ interface CacheEntry {
 export class Cache {
   private cacheDir: string;
   private cacheFiles: {
+    telegram_messages: string;
     messages: string;
     event_type_classification: string;
     matching_interests: string;
@@ -17,6 +19,7 @@ export class Cache {
     events: string;
   };
   private cache: {
+    telegram_messages: Record<string, TelegramMessage[]>; // source name -> telegram messages (step 1)
     messages: Record<string, boolean>; // message link -> is event (step 3)
     event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
     matching_interests: Record<string, string[]>; // message link -> matched interests (step 5)
@@ -27,6 +30,7 @@ export class Cache {
   constructor() {
     this.cacheDir = path.join(process.cwd(), '.cache');
     this.cacheFiles = {
+      telegram_messages: path.join(this.cacheDir, 'telegram_messages.json'),
       messages: path.join(this.cacheDir, 'messages.json'),
       event_type_classification: path.join(this.cacheDir, 'event_type_classification.json'),
       matching_interests: path.join(this.cacheDir, 'matching_interests.json'),
@@ -37,6 +41,7 @@ export class Cache {
   }
 
   private loadCache(): {
+    telegram_messages: Record<string, TelegramMessage[]>;
     messages: Record<string, boolean>;
     event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>;
     matching_interests: Record<string, string[]>;
@@ -52,6 +57,7 @@ export class Cache {
     }
 
     return {
+      telegram_messages: this.loadCacheFile('telegram_messages', {}),
       messages: this.loadCacheFile('messages', {}),
       event_type_classification: this.loadCacheFile('event_type_classification', {}),
       matching_interests: this.loadCacheFile('matching_interests', {}),
@@ -84,11 +90,33 @@ export class Cache {
 
   // Public method to manually save cache when batching updates
   public save(): void {
+    this.saveCacheFile('telegram_messages');
     this.saveCacheFile('messages');
     this.saveCacheFile('event_type_classification');
     this.saveCacheFile('matching_interests');
     this.saveCacheFile('scheduled_events');
     this.saveCacheFile('events');
+  }
+
+  // Telegram messages caching (step 1)
+  getCachedMessages(sourceName: string): TelegramMessage[] | null {
+    return this.cache.telegram_messages[sourceName] ?? null;
+  }
+
+  cacheMessages(sourceName: string, messages: TelegramMessage[], autoSave: boolean = true): void {
+    this.cache.telegram_messages[sourceName] = messages;
+    if (autoSave) {
+      this.saveCacheFile('telegram_messages');
+    }
+  }
+
+  getLastMessageTimestamp(sourceName: string): string | null {
+    const cachedMessages = this.getCachedMessages(sourceName);
+    if (!cachedMessages || cachedMessages.length === 0) {
+      return null;
+    }
+    // Messages are assumed to be sorted by timestamp, return the last one
+    return cachedMessages[cachedMessages.length - 1].timestamp;
   }
 
   // Event message detection (step 3)
@@ -172,6 +200,7 @@ export class Cache {
 
   // Cache statistics
   getStats(): {
+    telegram_messages_cached: number;
     messages_cached: number;
     event_type_classification_cached: number;
     matching_interests_cached: number;
@@ -179,13 +208,16 @@ export class Cache {
     events_cached: number;
     total_cached: number;
   } {
+    const telegramMessagesCount = Object.values(this.cache.telegram_messages).reduce((sum, msgs) => sum + msgs.length, 0);
     return {
+      telegram_messages_cached: telegramMessagesCount,
       messages_cached: Object.keys(this.cache.messages).length,
       event_type_classification_cached: Object.keys(this.cache.event_type_classification).length,
       matching_interests_cached: Object.keys(this.cache.matching_interests).length,
       scheduled_events_cached: Object.keys(this.cache.scheduled_events).length,
       events_cached: Object.keys(this.cache.events).length,
-      total_cached: Object.keys(this.cache.messages).length +
+      total_cached: telegramMessagesCount +
+                   Object.keys(this.cache.messages).length +
                    Object.keys(this.cache.event_type_classification).length +
                    Object.keys(this.cache.matching_interests).length +
                    Object.keys(this.cache.scheduled_events).length +
@@ -201,6 +233,7 @@ export class Cache {
     // In a more sophisticated implementation, we'd track timestamps per entry
     if (Date.now() > cutoffTime) {
       this.cache = {
+        telegram_messages: {},
         messages: {},
         event_type_classification: {},
         matching_interests: {},

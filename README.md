@@ -15,7 +15,8 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
-- **Intelligent Caching**: Reduces API costs by caching GPT results with preference-aware cache keys
+- **Intelligent Caching**: Reduces API costs by caching both Telegram messages and GPT results with preference-aware cache keys
+- **Incremental Message Fetching**: Assumes message immutability, fetches only new messages since last run
 - **Multi-Language Support**: Handles events in different languages with configurable cues
 - **Debug Mode**: Optional detailed debug files for troubleshooting and analysis
 

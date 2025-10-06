@@ -61,13 +61,15 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - First run requires phone verification, subsequent runs are automatic
 
 **Caching System** (`src/cache.ts`):
-- Comprehensive GPT result caching with descriptive cache store names
-- Five separate cache stores:
+- Comprehensive caching with descriptive cache store names
+- Six separate cache stores:
+  - `telegram_messages`: Raw Telegram messages per source (step 1) - assumes message immutability
   - `messages`: Basic event detection results (step 3)
   - `event_type_classification`: Event type classification results (step 4)
   - `matching_interests`: Interest matching results (step 5)
   - `scheduled_events`: Schedule filtering and datetime extraction (step 6)
   - `events`: Final event object conversion (step 7)
+- Message caching strategy: Fetches only new messages since last cached timestamp, combines with cached messages
 - Cache keys use message links + hashed preferences for efficient storage
 - Hash-based keys prevent cache bloat while maintaining preference isolation
 
@@ -120,11 +122,18 @@ The `.telegram-session` file is automatically created and managed for persistent
 ## Cache Management
 
 Cache is stored in `.cache/` directory with separate files per cache store:
+- `.cache/telegram_messages.json`: Raw Telegram messages per source (step 1, assumes immutability)
 - `.cache/messages.json`: Basic event detection results (step 3, no preferences needed)
 - `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed)
 - `.cache/matching_interests.json`: Interest matching results (step 5, includes interests hash)
 - `.cache/scheduled_events.json`: Schedule filtering results (step 6, includes timeslots hash)
 - `.cache/events.json`: Final event objects (step 7, includes interests hash)
+
+**Message Caching Strategy:**
+- Messages are assumed to be immutable once published
+- On each run, fetches only messages newer than the last cached message timestamp
+- Combines cached and newly fetched messages, removing duplicates by message link
+- Significantly reduces Telegram API calls on subsequent runs
 
 Cache keys include relevant user preferences to ensure correct invalidation when settings change. Each cache store is maintained in its own file for better organization and independent management.
 

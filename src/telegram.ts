@@ -4,14 +4,17 @@ import { TelegramMessage, Config } from './types';
 import { parse } from 'date-fns';
 import fs from 'fs';
 import path from 'path';
+import { Cache } from './cache';
 
 export class TelegramClient {
   private client: GramJSClient;
   private session: StringSession;
   private sessionFile: string;
   private isNewSession: boolean;
+  private cache: Cache;
 
-  constructor() {
+  constructor(cache: Cache) {
+    this.cache = cache;
     const apiId = parseInt(process.env.TELEGRAM_API_ID!);
     const apiHash = process.env.TELEGRAM_API_HASH!;
     
@@ -113,36 +116,63 @@ export class TelegramClient {
   }
 
   private async fetchMessagesFromSource(sourceName: string, sourceType: 'group' | 'channel', limit: number, config: Config): Promise<TelegramMessage[]> {
-    const messages: TelegramMessage[] = [];
-    
+    const cacheKey = `${sourceType}:${sourceName}`;
+
+    // Get cached messages
+    const cachedMessages = this.cache.getCachedMessages(cacheKey) || [];
+    const lastTimestamp = this.cache.getLastMessageTimestamp(cacheKey);
+
     try {
       console.log(`  Fetching messages from ${sourceType} ${sourceName}...`);
-      
+      if (cachedMessages.length > 0) {
+        console.log(`  Found ${cachedMessages.length} cached messages`);
+      }
+
       const entity = await this.client.getEntity(sourceName);
-      
+
+      // Determine offset date - use last cached message timestamp or config timestamp
+      let offsetDate: number | undefined;
+      if (lastTimestamp) {
+        offsetDate = Math.floor(new Date(lastTimestamp).getTime() / 1000);
+      } else if (config.lastGenerationTimestamp) {
+        offsetDate = Math.floor(parse(config.lastGenerationTimestamp, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", new Date()).getTime() / 1000);
+      }
+
       const telegramMessages = await this.client.getMessages(entity, {
         limit: limit,
-        offsetDate: config.lastGenerationTimestamp ? 
-          Math.floor(parse(config.lastGenerationTimestamp, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", new Date()).getTime() / 1000) : 
-          undefined
+        offsetDate: offsetDate
       });
 
+      const newMessages: TelegramMessage[] = [];
       for (const msg of telegramMessages) {
         if (msg.message) {
-          messages.push({
+          newMessages.push({
             timestamp: new Date(msg.date * 1000).toISOString(),
             content: msg.message,
             link: `https://t.me/${sourceName}/${msg.id}`
           });
         }
       }
-      
-      console.log(`  Fetched ${telegramMessages.length} messages from ${sourceType} ${sourceName}`);
+
+      console.log(`  Fetched ${newMessages.length} new messages from ${sourceType} ${sourceName}`);
+
+      // Combine cached and new messages, sort by timestamp, remove duplicates
+      const allMessages = [...cachedMessages, ...newMessages];
+      const uniqueMessages = Array.from(
+        new Map(allMessages.map(msg => [msg.link, msg])).values()
+      ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      // Update cache with all messages
+      this.cache.cacheMessages(cacheKey, uniqueMessages);
+
+      console.log(`  Total messages (cached + new): ${uniqueMessages.length}`);
+
+      return uniqueMessages;
     } catch (error) {
       console.error(`Error fetching from ${sourceType} ${sourceName}:`, error);
+      // Return cached messages if fetch fails
+      return cachedMessages;
     }
-    
-    return messages;
   }
 
   async fetchMessages(config: Config): Promise<TelegramMessage[]> {
