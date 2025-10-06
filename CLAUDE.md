@@ -92,13 +92,13 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 ### Important Implementation Details
 
-**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). Achieved ~99% accuracy through detailed keyword recognition and inclusive matching criteria. **Validation layer** (added in `src/filters.ts:719-765`) ensures GPT-returned interests are validated against the actual user interest list, preventing hallucinated categories like "Cultural interests" or "EdTech" from polluting results.
+**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). **Validation layer** (implemented in `src/filters.ts:487-497`) ensures GPT-returned interests are validated against the actual user interest list, preventing hallucinated categories like "Cultural interests" or "EdTech" from polluting results. Events are processed individually (not batched) to ensure accurate validation.
 
 **Date Handling:** Single source of truth in `normalizeDateTime()` function handles GPT's inconsistent date format responses.
 
 **GPT Response Parsing:** Robust parsing handles both structured responses and prose responses like "No messages match any interests."
 
-**Rate Limiting:** 1-second delays between GPT calls with batch processing (5-16 messages per batch).
+**Rate Limiting:** 1-second delays between GPT calls. Batch processing: event detection (16 per batch), event type classification (16 per batch), schedule filtering (16 per batch), and event description (5 per batch). Interest matching processes events individually for accurate validation.
 
 **Two-Stage GPT Processing:**
 1. Basic event detection (`detectEventAnnouncements`) - Identifies genuine event announcements

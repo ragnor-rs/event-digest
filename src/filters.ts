@@ -448,8 +448,36 @@ export async function filterByInterests(events: Event[], config: Config): Promis
 
       const result: string | undefined = response.choices[0].message.content?.trim();
 
-      if (result && result.toLowerCase() !== 'none') {
-        // Parse comma-separated interest indices
+      if (!result) {
+        // GPT returned undefined/empty - technical issue
+        console.log(`    DISCARDED: ${event.message.link} - GPT returned no response`);
+        cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
+        debugWriter.addStep6Entry({
+          start_datetime: event.start_datetime!,
+          message: event.message,
+          event_type: event.event_type!,
+          gpt_prompt: prompt,
+          gpt_response: '[NO RESPONSE - EMPTY]',
+          interests_matched: [],
+          result: 'discarded',
+          cached: false
+        });
+      } else if (result.toLowerCase() === 'none') {
+        // GPT explicitly said "none" - legitimate no match
+        console.log(`    DISCARDED: ${event.message.link} - GPT returned "none"`);
+        cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
+        debugWriter.addStep6Entry({
+          message: event.message,
+          event_type: event.event_type!,
+          start_datetime: event.start_datetime!,
+          gpt_prompt: prompt,
+          gpt_response: 'none',
+          interests_matched: [],
+          result: 'discarded',
+          cached: false
+        });
+      } else {
+        // GPT returned interest indices
         const interestIndices: number[] = result
           .split(',')
           .map((s: string) => parseInt(s.trim()))
@@ -486,7 +514,8 @@ export async function filterByInterests(events: Event[], config: Config): Promis
             cached: false
           });
         } else {
-          console.log(`    DISCARDED: ${event.message.link} - no interests matched`);
+          // Parsed result but no valid interests (all invalid indices or empty)
+          console.log(`    DISCARDED: ${event.message.link} - no valid interests parsed from response`);
           cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
           debugWriter.addStep6Entry({
             message: event.message,
@@ -499,19 +528,6 @@ export async function filterByInterests(events: Event[], config: Config): Promis
             cached: false
           });
         }
-      } else {
-        console.log(`    DISCARDED: ${event.message.link} - no interests matched`);
-        cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
-        debugWriter.addStep6Entry({
-          start_datetime: event.start_datetime!,
-          message: event.message,
-          event_type: event.event_type!,
-          gpt_prompt: prompt,
-          gpt_response: '[NO RESPONSE]',
-          interests_matched: [],
-          result: 'discarded',
-          cached: false
-        });
       }
     } catch (error) {
       console.error('Error with OpenAI:', error);

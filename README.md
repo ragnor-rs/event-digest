@@ -11,7 +11,7 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **YAML Configuration**: Easy-to-manage configuration files with organized settings
 - **Smart Event Detection**: Uses GPT to identify genuine event announcements vs general messages
 - **Event Type Classification**: Classifies events as offline, online, or hybrid with intelligent location detection
-- **High-Accuracy Interest Matching**: 99% accuracy with comprehensive GPT guidelines, mandatory matching rules, and validation to prevent hallucinated interests
+- **High-Accuracy Interest Matching**: Comprehensive GPT guidelines with mandatory matching rules and validation to prevent hallucinated interests
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
@@ -172,7 +172,7 @@ The tool processes messages through a 7-step pipeline:
 3. **AI Event Detection** - Uses GPT to identify genuine event announcements, creates Event objects with message field
 4. **Event Type Classification** - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field
 5. **Schedule Filtering** - Filters by your available time slots and future dates, adds start_datetime field
-6. **Interest Matching** - Matches events to your specified interests with 99% accuracy using comprehensive guidelines and keyword recognition, adds interests_matched field
+6. **Interest Matching** - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interests_matched field
 7. **Event Description** - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field
 
 ## Output Format
@@ -214,7 +214,8 @@ npm run dev
 
 - Uses GPT-4o-mini (50-100x cheaper than GPT-4)
 - Intelligent caching prevents redundant API calls
-- Batch processing reduces API requests
+- Batch processing for event detection (16 per batch), classification (16 per batch), schedule filtering (16 per batch), and description generation (5 per batch)
+- Individual processing for interest matching to ensure accurate validation
 - Preference-aware cache invalidation
 
 ## Debug Mode

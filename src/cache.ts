@@ -22,8 +22,8 @@ export class Cache {
     telegram_messages: Record<string, TelegramMessage[]>; // source name -> telegram messages (step 1)
     messages: Record<string, boolean>; // message link -> is event (step 3)
     event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
-    matching_interests: Record<string, string[]>; // message link -> matched interests (step 5)
-    scheduled_events: Record<string, string>; // message link -> extracted datetime (step 6)
+    matching_interests: Record<string, string[]>; // message link -> matched interests (step 6)
+    scheduled_events: Record<string, string>; // message link -> extracted datetime (step 5)
     events: Record<string, any>; // message link -> event object (step 7)
   };
 
@@ -132,7 +132,7 @@ export class Cache {
   }
 
 
-  // Interest matching (step 5)
+  // Interest matching (step 6)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): string[] | null {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     return this.cache.matching_interests[cacheKey] ?? null;
@@ -158,7 +158,7 @@ export class Cache {
     return `${messageLink}|interests:${preferencesHash}`;
   }
 
-  // Schedule filtering (datetime extraction) (step 6)
+  // Schedule filtering (datetime extraction) (step 5)
   getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): string | null {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     return this.cache.scheduled_events[cacheKey] ?? null;
