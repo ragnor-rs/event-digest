@@ -193,22 +193,22 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
 
   // Set default interest matching prompt
   if (!config.interestMatchingPrompt) {
-    config.interestMatchingPrompt = `Match event messages to user interests by selecting interest indices for each event.
+    config.interestMatchingPrompt = `Match this event to user interests by selecting relevant interest indices.
 
-EVENTS:
+EVENT:
 {{EVENTS}}
 
 INTERESTS:
 {{INTERESTS}}
 
-Match events that are directly related to the interest topics. Be inclusive - events can match multiple interests if relevant.
+Match the event if it is directly related to any of the interest topics.
 
 RESPONSE FORMAT:
-EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ...
+Respond with a comma-separated list of interest indices that match the event.
+Example: 0, 3, 7
+If no interests match, respond with: none
 
-If an event has no matching interests, leave the line empty or omit it.
-
-Respond with ONLY the event-to-interest index mappings, one per line.`;
+Respond with ONLY the comma-separated interest indices or "none".`;
   }
 
   // Set default event type classification prompt

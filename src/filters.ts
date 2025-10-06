@@ -424,18 +424,12 @@ export async function filterByInterests(events: Event[], config: Config): Promis
     return matchedEvents;
   }
 
-  const chunks: Event[][] = [];
-  for (let i = 0; i < uncachedEvents.length; i += 16) {
-    chunks.push(uncachedEvents.slice(i, i + 16));
-  }
+  // Process each event individually
+  for (let i = 0; i < uncachedEvents.length; i++) {
+    const event: Event = uncachedEvents[i];
+    console.log(`  Processing event ${i + 1}/${uncachedEvents.length}...`);
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk: Event[] = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-
-    const eventsText = chunk.map((event: Event, idx: number) =>
-      `${idx}: ${event.message.content.replace(/\n/g, ' ')}`
-    ).join('\n');
+    const eventsText = `0: ${event.message.content.replace(/\n/g, ' ')}`;
 
     const interestsText = config.userInterests.map((interest: string, idx: number) =>
       `${idx}: ${interest}`
@@ -453,98 +447,77 @@ export async function filterByInterests(events: Event[], config: Config): Promis
       });
 
       const result: string | undefined = response.choices[0].message.content?.trim();
-      const processedMessages = new Set<number>();
 
-      if (result) {
-        // Parse EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2, ... format
-        const lines: string[] = result.split('\n').filter((line: string) => /^\s*\d+\s*:/.test(line));
+      if (result && result.toLowerCase() !== 'none') {
+        // Parse comma-separated interest indices
+        const interestIndices: number[] = result
+          .split(',')
+          .map((s: string) => parseInt(s.trim()))
+          .filter((idx: number) => !isNaN(idx));
 
-        for (const line of lines) {
-          const match = line.match(/^(\d+)\s*:\s*(.*)$/);
-          if (match) {
-            const eventIdx: number = parseInt(match[1]);
-            const indicesPart: string = match[2].trim();
+        // Convert indices to interest names
+        const matchedInterests: string[] = interestIndices
+          .filter((idx: number) => idx >= 0 && idx < config.userInterests.length)
+          .map((idx: number) => config.userInterests[idx]);
 
-            if (eventIdx >= 0 && eventIdx < chunk.length) {
-              // Parse interest indices
-              const interestIndices: number[] = indicesPart
-                ? indicesPart.split(',').map((s: string) => parseInt(s.trim())).filter((idx: number) => !isNaN(idx))
-                : [];
-
-              // Convert indices to interest names
-              const matchedInterests: string[] = interestIndices
-                .filter((idx: number) => idx >= 0 && idx < config.userInterests.length)
-                .map((idx: number) => config.userInterests[idx]);
-
-              // Warn about invalid indices
-              const invalidIndices: number[] = interestIndices.filter(
-                (idx: number) => idx < 0 || idx >= config.userInterests.length
-              );
-              if (invalidIndices.length > 0) {
-                console.log(`    WARNING: GPT returned invalid interest indices for event ${eventIdx}: ${invalidIndices.join(', ')}`);
-              }
-
-              if (matchedInterests.length > 0) {
-                matchedEvents.push({
-                  ...chunk[eventIdx],
-                  interests_matched: matchedInterests
-                });
-                cache.cacheMatchingInterests(chunk[eventIdx].message.link, matchedInterests, config.userInterests, false);
-                processedMessages.add(eventIdx);
-
-                debugWriter.addStep6Entry({
-                  message: chunk[eventIdx].message,
-                  event_type: chunk[eventIdx].event_type!,
-                  start_datetime: chunk[eventIdx].start_datetime!,
-                  gpt_prompt: prompt,
-                  gpt_response: result,
-                  interests_matched: matchedInterests,
-                  result: 'matched',
-                  cached: false
-                });
-              } else {
-                // Empty interest list for this event
-                processedMessages.add(eventIdx);
-                console.log(`    DISCARDED: ${chunk[eventIdx].message.link} - no interests matched`);
-                cache.cacheMatchingInterests(chunk[eventIdx].message.link, [], config.userInterests, false);
-                debugWriter.addStep6Entry({
-                  message: chunk[eventIdx].message,
-                  event_type: chunk[eventIdx].event_type!,
-                  start_datetime: chunk[eventIdx].start_datetime!,
-                  gpt_prompt: prompt,
-                  gpt_response: result,
-                  interests_matched: [],
-                  result: 'discarded',
-                  cached: false
-                });
-              }
-            }
-          }
+        // Warn about invalid indices
+        const invalidIndices: number[] = interestIndices.filter(
+          (idx: number) => idx < 0 || idx >= config.userInterests.length
+        );
+        if (invalidIndices.length > 0) {
+          console.log(`    WARNING: GPT returned invalid interest indices: ${invalidIndices.join(', ')}`);
         }
-      }
 
-      // Cache empty results for unprocessed events
-      for (let idx = 0; idx < chunk.length; idx++) {
-        if (!processedMessages.has(idx)) {
-          console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
-          cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
+        if (matchedInterests.length > 0) {
+          matchedEvents.push({
+            ...event,
+            interests_matched: matchedInterests
+          });
+          cache.cacheMatchingInterests(event.message.link, matchedInterests, config.userInterests, false);
+
           debugWriter.addStep6Entry({
-            start_datetime: chunk[idx].start_datetime!,
-            message: chunk[idx].message,
-            event_type: chunk[idx].event_type!,
+            message: event.message,
+            event_type: event.event_type!,
+            start_datetime: event.start_datetime!,
             gpt_prompt: prompt,
-            gpt_response: result || '[NO RESPONSE]',
+            gpt_response: result,
+            interests_matched: matchedInterests,
+            result: 'matched',
+            cached: false
+          });
+        } else {
+          console.log(`    DISCARDED: ${event.message.link} - no interests matched`);
+          cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
+          debugWriter.addStep6Entry({
+            message: event.message,
+            event_type: event.event_type!,
+            start_datetime: event.start_datetime!,
+            gpt_prompt: prompt,
+            gpt_response: result,
             interests_matched: [],
             result: 'discarded',
             cached: false
           });
         }
+      } else {
+        console.log(`    DISCARDED: ${event.message.link} - no interests matched`);
+        cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
+        debugWriter.addStep6Entry({
+          start_datetime: event.start_datetime!,
+          message: event.message,
+          event_type: event.event_type!,
+          gpt_prompt: prompt,
+          gpt_response: '[NO RESPONSE]',
+          interests_matched: [],
+          result: 'discarded',
+          cached: false
+        });
       }
     } catch (error) {
       console.error('Error with OpenAI:', error);
     }
 
-    // Save cache after processing batch
+    // Save cache after processing each event
     cache.save();
 
     // Add delay to avoid rate limits
