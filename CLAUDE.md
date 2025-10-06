@@ -119,14 +119,14 @@ The `.telegram-session` file is automatically created and managed for persistent
 
 ## Cache Management
 
-Cache is stored in `.cache/gpt-results.json` with descriptive cache stores:
-- `messages`: Stores basic event detection results (no preferences needed)
-- `event_type_classification`: Stores event type classification results (no preferences needed)
-- `matching_interests`: Stores interest matching results (includes interests hash)
-- `scheduled_events`: Stores schedule filtering results (includes timeslots hash)
-- `events`: Stores final event objects (includes interests hash)
+Cache is stored in `.cache/` directory with separate files per cache store:
+- `.cache/messages.json`: Basic event detection results (step 3, no preferences needed)
+- `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed)
+- `.cache/matching_interests.json`: Interest matching results (step 5, includes interests hash)
+- `.cache/scheduled_events.json`: Schedule filtering results (step 6, includes timeslots hash)
+- `.cache/events.json`: Final event objects (step 7, includes interests hash)
 
-Cache keys include relevant user preferences to ensure correct invalidation when settings change.
+Cache keys include relevant user preferences to ensure correct invalidation when settings change. Each cache store is maintained in its own file for better organization and independent management.
 
 ## Debug Files
 

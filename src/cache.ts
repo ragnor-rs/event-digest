@@ -7,59 +7,88 @@ interface CacheEntry {
   timestamp: number;
 }
 
-interface CacheStore {
-  messages: Record<string, boolean>; // message link -> is event (step 3)
-  event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
-  matching_interests: Record<string, string[]>; // message link -> matched interests (step 5)
-  scheduled_events: Record<string, string>; // message link -> extracted datetime (step 6)
-  events: Record<string, any>; // message link -> event object (step 7)
-}
-
 export class Cache {
   private cacheDir: string;
-  private cacheFile: string;
-  private cache: CacheStore;
+  private cacheFiles: {
+    messages: string;
+    event_type_classification: string;
+    matching_interests: string;
+    scheduled_events: string;
+    events: string;
+  };
+  private cache: {
+    messages: Record<string, boolean>; // message link -> is event (step 3)
+    event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
+    matching_interests: Record<string, string[]>; // message link -> matched interests (step 5)
+    scheduled_events: Record<string, string>; // message link -> extracted datetime (step 6)
+    events: Record<string, any>; // message link -> event object (step 7)
+  };
 
   constructor() {
     this.cacheDir = path.join(process.cwd(), '.cache');
-    this.cacheFile = path.join(this.cacheDir, 'gpt-results.json');
+    this.cacheFiles = {
+      messages: path.join(this.cacheDir, 'messages.json'),
+      event_type_classification: path.join(this.cacheDir, 'event_type_classification.json'),
+      matching_interests: path.join(this.cacheDir, 'matching_interests.json'),
+      scheduled_events: path.join(this.cacheDir, 'scheduled_events.json'),
+      events: path.join(this.cacheDir, 'events.json')
+    };
     this.cache = this.loadCache();
   }
 
-  private loadCache(): CacheStore {
+  private loadCache(): {
+    messages: Record<string, boolean>;
+    event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>;
+    matching_interests: Record<string, string[]>;
+    scheduled_events: Record<string, string>;
+    events: Record<string, any>;
+  } {
     try {
       if (!fs.existsSync(this.cacheDir)) {
         fs.mkdirSync(this.cacheDir, { recursive: true });
       }
-
-      if (fs.existsSync(this.cacheFile)) {
-        const data = fs.readFileSync(this.cacheFile, 'utf-8');
-        return JSON.parse(data);
-      }
     } catch (error) {
-      console.log('  Cache file not found or corrupted, starting fresh');
+      console.log('  Failed to create cache directory, starting fresh');
     }
 
     return {
-      messages: {},
-      event_type_classification: {},
-      matching_interests: {},
-      scheduled_events: {},
-      events: {}
+      messages: this.loadCacheFile('messages', {}),
+      event_type_classification: this.loadCacheFile('event_type_classification', {}),
+      matching_interests: this.loadCacheFile('matching_interests', {}),
+      scheduled_events: this.loadCacheFile('scheduled_events', {}),
+      events: this.loadCacheFile('events', {})
     };
   }
 
-  private saveCache(): void {
+  private loadCacheFile<T>(storeName: keyof typeof this.cacheFiles, defaultValue: T): T {
     try {
-      fs.writeFileSync(this.cacheFile, JSON.stringify(this.cache, null, 2));
+      const filePath = this.cacheFiles[storeName];
+      if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(data);
+      }
     } catch (error) {
-      console.error('Failed to save cache:', error);
+      console.log(`  Cache file ${storeName}.json not found or corrupted, starting fresh`);
+    }
+    return defaultValue;
+  }
+
+  private saveCacheFile(storeName: keyof typeof this.cacheFiles): void {
+    try {
+      const filePath = this.cacheFiles[storeName];
+      fs.writeFileSync(filePath, JSON.stringify(this.cache[storeName], null, 2));
+    } catch (error) {
+      console.error(`Failed to save ${storeName} cache:`, error);
     }
   }
 
   // Public method to manually save cache when batching updates
   public save(): void {
-    this.saveCache();
+    this.saveCacheFile('messages');
+    this.saveCacheFile('event_type_classification');
+    this.saveCacheFile('matching_interests');
+    this.saveCacheFile('scheduled_events');
+    this.saveCacheFile('events');
   }
 
   // Event message detection (step 3)
@@ -70,7 +99,7 @@ export class Cache {
   cacheEventMessage(messageLink: string, isEvent: boolean, autoSave: boolean = true): void {
     this.cache.messages[messageLink] = isEvent;
     if (autoSave) {
-      this.saveCache();
+      this.saveCacheFile('messages');
     }
   }
 
@@ -85,7 +114,7 @@ export class Cache {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.matching_interests[cacheKey] = interests;
     if (autoSave) {
-      this.saveCache();
+      this.saveCacheFile('matching_interests');
     }
   }
 
@@ -111,7 +140,7 @@ export class Cache {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     this.cache.scheduled_events[cacheKey] = datetime;
     if (autoSave) {
-      this.saveCache();
+      this.saveCacheFile('scheduled_events');
     }
   }
 
@@ -137,7 +166,7 @@ export class Cache {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.events[cacheKey] = event;
     if (autoSave) {
-      this.saveCache();
+      this.saveCacheFile('events');
     }
   }
 
@@ -178,7 +207,7 @@ export class Cache {
         scheduled_events: {},
         events: {}
       };
-      this.saveCache();
+      this.save();
       console.log('  Cache cleared (older than 30 days)');
     }
   }
@@ -191,21 +220,21 @@ export class Cache {
   cacheEventType(messageLink: string, eventType: 'offline' | 'online' | 'hybrid', autoSave: boolean = true): void {
     this.cache.event_type_classification[messageLink] = eventType;
     if (autoSave) {
-      this.saveCache();
+      this.saveCacheFile('event_type_classification');
     }
   }
 
   // Clear event announcements cache specifically
   clearAnnouncementsCache(): void {
     this.cache.event_type_classification = {};
-    this.saveCache();
+    this.saveCacheFile('event_type_classification');
     console.log('  Event announcements cache cleared');
   }
 
   // Clear matching interests cache specifically
   clearInterestingAnnouncementsCache(): void {
     this.cache.matching_interests = {};
-    this.saveCache();
+    this.saveCacheFile('matching_interests');
     console.log('  Matching interests cache cleared');
   }
 
