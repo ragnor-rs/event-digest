@@ -94,7 +94,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 ### Important Implementation Details
 
-**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). **Validation layer** (implemented in `src/filters.ts:487-497`) ensures GPT-returned interests are validated against the actual user interest list, preventing hallucinated categories like "Cultural interests" or "EdTech" from polluting results. Events are processed individually (not batched) to ensure accurate validation.
+**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). **Validation layer** (implemented in `src/filters.ts:487-497`) ensures GPT-returned interest indices are validated against the actual user interest list (filters invalid indices and warns about them), preventing hallucinated categories like "Cultural interests" or "EdTech" from polluting results. Events are processed individually (not batched) to ensure accurate validation.
 
 **Date Handling:** Single source of truth in `normalizeDateTime()` function handles GPT's inconsistent date format responses.
 
@@ -138,7 +138,8 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 
 **Message Caching Strategy:**
 - Messages are assumed to be immutable once published
-- On each run, fetches only messages newer than the last cached message timestamp
+- Uses `minId` parameter to fetch only messages with ID greater than the last cached message ID
+- Extracts last message ID from cache, passes as minId to Telegram API
 - Combines cached and newly fetched messages, removing duplicates by message link
 - Significantly reduces Telegram API calls on subsequent runs
 

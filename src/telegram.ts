@@ -125,22 +125,22 @@ export class TelegramClient {
     try {
       console.log(`  Fetching messages from ${sourceType} ${sourceName}...`);
       if (cachedMessages.length > 0) {
-        console.log(`  Found ${cachedMessages.length} cached messages`);
+        console.log(`    Cache contains ${cachedMessages.length} messages`);
       }
 
       const entity = await this.client.getEntity(sourceName);
 
-      // Determine offset date - use last cached message timestamp or config timestamp
-      let offsetDate: number | undefined;
-      if (lastTimestamp) {
-        offsetDate = Math.floor(new Date(lastTimestamp).getTime() / 1000);
-      } else if (config.lastGenerationTimestamp) {
-        offsetDate = Math.floor(parse(config.lastGenerationTimestamp, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", new Date()).getTime() / 1000);
+      // Get the last cached message ID to fetch only newer messages
+      let minId: number | undefined;
+      if (cachedMessages.length > 0) {
+        const lastCachedLink = cachedMessages[cachedMessages.length - 1].link;
+        const lastCachedId = parseInt(lastCachedLink.split('/').pop() || '0');
+        minId = lastCachedId;
       }
 
       const telegramMessages = await this.client.getMessages(entity, {
         limit: limit,
-        offsetDate: offsetDate
+        minId: minId
       });
 
       const newMessages: TelegramMessage[] = [];
@@ -154,20 +154,25 @@ export class TelegramClient {
         }
       }
 
-      console.log(`  Fetched ${newMessages.length} new messages from ${sourceType} ${sourceName}`);
+      console.log(`    Fetched ${newMessages.length} new messages`);
 
-      // Combine cached and new messages, sort by timestamp, remove duplicates
+      // Combine cached messages with new messages
       const allMessages = [...cachedMessages, ...newMessages];
+
+      // Remove duplicates by link (new messages override cached)
       const uniqueMessages = Array.from(
         new Map(allMessages.map(msg => [msg.link, msg])).values()
       ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      // Update cache with all messages
+      // Take the most recent 'limit' messages as final result
+      const finalMessages = uniqueMessages.slice(-limit);
+
+      console.log(`    Total messages: ${finalMessages.length}`);
+
+      // Update cache with all unique messages for future runs
       this.cache.cacheMessages(cacheKey, uniqueMessages);
 
-      console.log(`  Total messages (cached + new): ${uniqueMessages.length}`);
-
-      return uniqueMessages;
+      return finalMessages;
     } catch (error) {
       console.error(`Error fetching from ${sourceType} ${sourceName}:`, error);
       // Return cached messages if fetch fails

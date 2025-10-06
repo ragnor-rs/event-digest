@@ -16,7 +16,7 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
 - **Intelligent Caching**: Reduces API costs by caching both Telegram messages and GPT results with preference-aware cache keys
-- **Incremental Message Fetching**: Assumes message immutability, fetches only new messages since last run
+- **Incremental Message Fetching**: Uses minId parameter to fetch only messages with ID greater than last cached message ID
 - **Multi-Language Support**: Handles events in different languages with configurable cues
 - **Debug Mode**: Optional detailed debug files for troubleshooting and analysis
 
@@ -78,10 +78,12 @@ weeklyTimeslots:
   - "6 14:00"  # Saturday after 14:00
   - "0 14:00"  # Sunday after 14:00
 
-# Maximum number of messages to fetch from groups (default: 200)
+# Maximum number of messages to fetch from groups
+# Default: 150 when both limits unspecified, 200 when only channels limit specified
 maxGroupMessages: 200
 
-# Maximum number of messages to fetch from channels (default: 100)
+# Maximum number of messages to fetch from channels
+# Default: 100
 maxChannelMessages: 100
 
 # Skip online-only events (default: true)
@@ -133,7 +135,7 @@ npm run dev -- \
 - `channelsToParse`/`--channels`: Telegram channel usernames (without @)
 - `userInterests`/`--interests`: Your interests (events must be directly about these topics)
 - `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
-- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200)
+- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 150 when both unspecified, 200 when only channels specified)
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
