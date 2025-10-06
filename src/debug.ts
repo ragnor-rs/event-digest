@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { TelegramMessage, EventAnnouncement, InterestingAnnouncement } from './types';
+import { TelegramMessage } from './types';
 
 export interface DebugStep3Entry {
   messageLink: string;
@@ -20,7 +20,8 @@ export interface DebugStep4Entry {
 }
 
 export interface DebugStep5Entry {
-  announcement: EventAnnouncement;
+  message: TelegramMessage;
+  event_type: string;
   gpt_prompt: string;
   gpt_response: string;
   interests_matched: string[];
@@ -29,7 +30,9 @@ export interface DebugStep5Entry {
 }
 
 export interface DebugStep6Entry {
-  announcement: InterestingAnnouncement;
+  message: TelegramMessage;
+  event_type: string;
+  interests_matched: string[];
   gpt_prompt: string;
   gpt_response: string;
   extracted_datetime: string;

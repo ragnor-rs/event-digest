@@ -4,7 +4,7 @@ dotenv.config();
 import { parseArgs } from './config';
 import { TelegramClient } from './telegram';
 import { filterByEventCues, detectEventAnnouncements, classifyEventTypes, filterByInterests, filterBySchedule } from './filters';
-import { convertToEvents, printEvents } from './events';
+import { describeEvents, printEvents } from './events';
 import { Cache } from './cache';
 import { debugWriter } from './debug';
 
@@ -26,22 +26,22 @@ async function main() {
     const eventCueMessages = await filterByEventCues(allMessages, config);
     console.log('');
 
-    const eventMessages = await detectEventAnnouncements(eventCueMessages, config);
+    const events = await detectEventAnnouncements(eventCueMessages, config);
     console.log('');
 
-    const eventAnnouncements = await classifyEventTypes(eventMessages, config);
+    const classifiedEvents = await classifyEventTypes(events, config);
     console.log('');
 
-    const interestingMessages = await filterByInterests(eventAnnouncements, config);
+    const matchedEvents = await filterByInterests(classifiedEvents, config);
     console.log('');
 
-    const scheduledMessages = await filterBySchedule(interestingMessages, config);
+    const scheduledEvents = await filterBySchedule(matchedEvents, config);
     console.log('');
 
-    const events = await convertToEvents(scheduledMessages, config);
+    const describedEvents = await describeEvents(scheduledEvents, config);
     console.log('');
 
-    printEvents(events);
+    printEvents(describedEvents);
     console.log('');
 
     // Write debug files if enabled

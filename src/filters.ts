@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { TelegramMessage, EventAnnouncement, InterestingAnnouncement, ScheduledEvent, Config } from './types';
+import { TelegramMessage, Event, Config } from './types';
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 import { Cache } from './cache';
 import { debugWriter } from './debug';
@@ -34,7 +34,7 @@ export async function filterByEventCues(messages: TelegramMessage[], config: Con
   return eventMessages;
 }
 
-export async function detectEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
+export async function detectEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<Event[]> {
   console.log(`Step 3: Using GPT to detect event announcements from ${messages.length} messages...`);
 
   if (messages.length === 0) {
@@ -54,7 +54,7 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
 
   // Check cache first
   const uncachedMessages: TelegramMessage[] = [];
-  const eventMessages: TelegramMessage[] = [];
+  const events: Event[] = [];
   let cacheHits = 0;
 
   for (const message of messages) {
@@ -62,7 +62,7 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
     if (cachedResult !== null) {
       cacheHits++;
       if (cachedResult) {
-        eventMessages.push(message);
+        events.push({ message });
         debugResults.push({
           messageLink: message.link,
           isEvent: true,
@@ -87,13 +87,13 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
 
   if (uncachedMessages.length === 0) {
     console.log(`  All messages cached, skipping GPT calls`);
-    console.log(`  GPT identified ${eventMessages.length} event messages`);
+    console.log(`  GPT identified ${events.length} event messages`);
 
     if (config.writeDebugFiles) {
       debugWriter.writeEventDetection(debugResults);
     }
 
-    return eventMessages;
+    return events;
   }
   
   const chunks = [];
@@ -130,7 +130,7 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
             const idx = parseInt(match[1]) - 1;
 
             if (idx >= 0 && idx < chunk.length) {
-              eventMessages.push(chunk[idx]);
+              events.push({ message: chunk[idx] });
               cache.cacheEventMessage(chunk[idx].link, true, false);
               processedIndices.add(idx);
 
@@ -186,39 +186,39 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`  GPT identified ${eventMessages.length} event messages`);
+  console.log(`  GPT identified ${events.length} event messages`);
 
   if (config.writeDebugFiles) {
     debugWriter.writeEventDetection(debugResults);
   }
 
-  return eventMessages;
+  return events;
 }
 
-export async function classifyEventTypes(messages: TelegramMessage[], config: Config): Promise<EventAnnouncement[]> {
-  console.log(`Step 4: Classifying event types for ${messages.length} messages...`);
+export async function classifyEventTypes(events: Event[], config: Config): Promise<Event[]> {
+  console.log(`Step 4: Classifying event types for ${events.length} events...`);
 
-  if (messages.length === 0) {
+  if (events.length === 0) {
     console.log(`  No input on this step`);
     return [];
   }
 
   const cache = new Cache();
-  const eventAnnouncements: EventAnnouncement[] = [];
-  const uncachedMessages: TelegramMessage[] = [];
+  const classifiedEvents: Event[] = [];
+  const uncachedEvents: Event[] = [];
   let cacheHits = 0;
 
   console.log('  Processing cache...');
-  for (const message of messages) {
-    const cachedType = cache.getEventTypeCache(message.link);
+  for (const event of events) {
+    const cachedType = cache.getEventTypeCache(event.message.link);
     if (cachedType !== null) {
       cacheHits++;
 
       // Check if we should include this event based on skipOnlineEvents
       if (cachedType === 'online' && config.skipOnlineEvents) {
-        console.log(`    DISCARDED: ${message.link} [${cachedType}] - skipping online events (cached)`);
+        console.log(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
         debugWriter.addStep4Entry({
-          message,
+          message: event.message,
           gpt_prompt: '[CACHED]',
           gpt_response: `[CACHED: ${cachedType}]`,
           result: 'discarded',
@@ -226,12 +226,12 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
           cached: true
         });
       } else {
-        eventAnnouncements.push({
-          message,
+        classifiedEvents.push({
+          ...event,
           event_type: cachedType
         });
         debugWriter.addStep4Entry({
-          message,
+          message: event.message,
           gpt_prompt: '[CACHED]',
           gpt_response: `[CACHED: ${cachedType}]`,
           result: cachedType,
@@ -240,30 +240,30 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
         });
       }
     } else {
-      uncachedMessages.push(message);
+      uncachedEvents.push(event);
     }
   }
 
   if (cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+    console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
-  if (uncachedMessages.length === 0) {
-    console.log(`  All messages cached, skipping GPT calls`);
-    console.log(`  Created ${eventAnnouncements.length} event announcements`);
-    return eventAnnouncements;
+  if (uncachedEvents.length === 0) {
+    console.log(`  All events cached, skipping GPT calls`);
+    console.log(`  Created ${classifiedEvents.length} classified events`);
+    return classifiedEvents;
   }
 
   const chunks = [];
-  for (let i = 0; i < uncachedMessages.length; i += 16) {
-    chunks.push(uncachedMessages.slice(i, i + 16));
+  for (let i = 0; i < uncachedEvents.length; i += 16) {
+    chunks.push(uncachedEvents.slice(i, i + 16));
   }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
 
-    const messagesText = chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n');
+    const messagesText = chunk.map((event, idx) => `${idx + 1}. ${event.message.content.replace(/\n/g, ' ')}`).join('\n\n');
     const prompt = (config.eventTypeClassificationPrompt || '').replace('{{MESSAGES}}', messagesText);
 
     try {
@@ -289,14 +289,14 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
               const eventType = classificationIdx === 0 ? 'offline' : classificationIdx === 1 ? 'online' : 'hybrid';
 
               // Cache the result
-              cache.cacheEventType(chunk[messageIdx].link, eventType, false);
+              cache.cacheEventType(chunk[messageIdx].message.link, eventType, false);
               processedIndices.add(messageIdx);
 
               // Check if we should include this event
               if (eventType === 'online' && config.skipOnlineEvents) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].link} [${eventType}] - skipping online events`);
+                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
                 debugWriter.addStep4Entry({
-                  message: chunk[messageIdx],
+                  message: chunk[messageIdx].message,
                   gpt_prompt: prompt,
                   gpt_response: result,
                   result: 'discarded',
@@ -304,12 +304,12 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
                   cached: false
                 });
               } else {
-                eventAnnouncements.push({
-                  message: chunk[messageIdx],
+                classifiedEvents.push({
+                  ...chunk[messageIdx],
                   event_type: eventType
                 });
                 debugWriter.addStep4Entry({
-                  message: chunk[messageIdx],
+                  message: chunk[messageIdx].message,
                   gpt_prompt: prompt,
                   gpt_response: result,
                   result: eventType,
@@ -322,18 +322,18 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
         }
       }
 
-      // Handle unprocessed messages (shouldn't happen, but just in case)
+      // Handle unprocessed events (shouldn't happen, but just in case)
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedIndices.has(idx)) {
-          console.log(`    WARNING: ${chunk[idx].link} - no classification received, defaulting to offline`);
+          console.log(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
           const eventType = 'offline';
-          cache.cacheEventType(chunk[idx].link, eventType, false);
-          eventAnnouncements.push({
-            message: chunk[idx],
+          cache.cacheEventType(chunk[idx].message.link, eventType, false);
+          classifiedEvents.push({
+            ...chunk[idx],
             event_type: eventType
           });
           debugWriter.addStep4Entry({
-            message: chunk[idx],
+            message: chunk[idx].message,
             gpt_prompt: prompt,
             gpt_response: result || '[NO RESPONSE]',
             result: eventType,
@@ -345,9 +345,9 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
     } catch (error) {
       console.error('Error with OpenAI event classification:', error);
       // On error, add all as offline events
-      for (const message of chunk) {
-        eventAnnouncements.push({
-          message,
+      for (const event of chunk) {
+        classifiedEvents.push({
+          ...event,
           event_type: 'offline'
         });
       }
@@ -357,14 +357,14 @@ export async function classifyEventTypes(messages: TelegramMessage[], config: Co
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`  Created ${eventAnnouncements.length} event announcements`);
-  return eventAnnouncements;
+  console.log(`  Created ${classifiedEvents.length} classified events`);
+  return classifiedEvents;
 }
 
-export async function filterByInterests(announcements: EventAnnouncement[], config: Config): Promise<InterestingAnnouncement[]> {
-  console.log(`Step 5: Filtering ${announcements.length} event announcements by user interests...`);
+export async function filterByInterests(events: Event[], config: Config): Promise<Event[]> {
+  console.log(`Step 5: Filtering ${events.length} events by user interests...`);
   
-  if (announcements.length === 0) {
+  if (events.length === 0) {
     console.log(`  No input on this step`);
     return [];
   }
@@ -372,22 +372,23 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
   const cache = new Cache();
   
   // Check cache first
-  const uncachedAnnouncements: EventAnnouncement[] = [];
-  const interestingAnnouncements: InterestingAnnouncement[] = [];
+  const uncachedEvents: Event[] = [];
+  const matchedEvents: Event[] = [];
   let cacheHits = 0;
 
   console.log('  Processing cache...');
-  for (const announcement of announcements) {
-    const cachedInterests = cache.getMatchingInterestsCache(announcement.message.link, config.userInterests);
+  for (const event of events) {
+    const cachedInterests = cache.getMatchingInterestsCache(event.message.link, config.userInterests);
     if (cachedInterests !== null) {
       cacheHits++;
       if (cachedInterests.length > 0) {
-        interestingAnnouncements.push({
-          announcement,
+        matchedEvents.push({
+          ...event,
           interests_matched: cachedInterests
         });
         debugWriter.addStep5Entry({
-          announcement,
+          message: event.message,
+          event_type: event.event_type!,
           gpt_prompt: '[CACHED]',
           gpt_response: `[CACHED: matched interests: ${cachedInterests.join(', ')}]`,
           interests_matched: cachedInterests,
@@ -395,9 +396,10 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
           cached: true
         });
       } else {
-        console.log(`    DISCARDED: ${announcement.message.link} - no interests matched (cached)`);
+        console.log(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
         debugWriter.addStep5Entry({
-          announcement,
+          message: event.message,
+          event_type: event.event_type!,
           gpt_prompt: '[CACHED]',
           gpt_response: '[CACHED: no interests matched]',
           interests_matched: [],
@@ -406,31 +408,31 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
         });
       }
     } else {
-      uncachedAnnouncements.push(announcement);
+      uncachedEvents.push(event);
     }
   }
 
   if (cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${announcements.length} messages`);
+    console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
-  if (uncachedAnnouncements.length === 0) {
-    console.log(`  All messages cached, skipping GPT calls`);
-    console.log(`  Found ${interestingAnnouncements.length} messages matching user interests`);
-    return interestingAnnouncements;
+  if (uncachedEvents.length === 0) {
+    console.log(`  All events cached, skipping GPT calls`);
+    console.log(`  Found ${matchedEvents.length} events matching user interests`);
+    return matchedEvents;
   }
-  
-  const chunks: EventAnnouncement[][] = [];
-  for (let i = 0; i < uncachedAnnouncements.length; i += 16) {
-    chunks.push(uncachedAnnouncements.slice(i, i + 16));
+
+  const chunks: Event[][] = [];
+  for (let i = 0; i < uncachedEvents.length; i += 16) {
+    chunks.push(uncachedEvents.slice(i, i + 16));
   }
 
   for (let i = 0; i < chunks.length; i++) {
-    const chunk: EventAnnouncement[] = chunks[i];
+    const chunk: Event[] = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
 
-    const eventsText = chunk.map((announcement: EventAnnouncement, idx: number) =>
-      `${idx}: ${announcement.message.content.replace(/\n/g, ' ')}`
+    const eventsText = chunk.map((event: Event, idx: number) =>
+      `${idx}: ${event.message.content.replace(/\n/g, ' ')}`
     ).join('\n');
 
     const interestsText = config.userInterests.map((interest: string, idx: number) =>
@@ -481,15 +483,16 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
               }
 
               if (matchedInterests.length > 0) {
-                interestingAnnouncements.push({
-                  announcement: chunk[eventIdx],
+                matchedEvents.push({
+                  ...chunk[eventIdx],
                   interests_matched: matchedInterests
                 });
                 cache.cacheMatchingInterests(chunk[eventIdx].message.link, matchedInterests, config.userInterests, false);
                 processedMessages.add(eventIdx);
 
                 debugWriter.addStep5Entry({
-                  announcement: chunk[eventIdx],
+                  message: chunk[eventIdx].message,
+                  event_type: chunk[eventIdx].event_type!,
                   gpt_prompt: prompt,
                   gpt_response: result,
                   interests_matched: matchedInterests,
@@ -502,7 +505,8 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
                 console.log(`    DISCARDED: ${chunk[eventIdx].message.link} - no interests matched`);
                 cache.cacheMatchingInterests(chunk[eventIdx].message.link, [], config.userInterests, false);
                 debugWriter.addStep5Entry({
-                  announcement: chunk[eventIdx],
+                  message: chunk[eventIdx].message,
+                  event_type: chunk[eventIdx].event_type!,
                   gpt_prompt: prompt,
                   gpt_response: result,
                   interests_matched: [],
@@ -521,7 +525,8 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
           console.log(`    DISCARDED: ${chunk[idx].message.link} - no interests matched`);
           cache.cacheMatchingInterests(chunk[idx].message.link, [], config.userInterests, false);
           debugWriter.addStep5Entry({
-            announcement: chunk[idx],
+            message: chunk[idx].message,
+            event_type: chunk[idx].event_type!,
             gpt_prompt: prompt,
             gpt_response: result || '[NO RESPONSE]',
             interests_matched: [],
@@ -533,37 +538,37 @@ export async function filterByInterests(announcements: EventAnnouncement[], conf
     } catch (error) {
       console.error('Error with OpenAI:', error);
     }
-    
+
     // Save cache after processing batch
     cache.save();
-    
+
     // Add delay to avoid rate limits
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`  Found ${interestingAnnouncements.length} messages matching user interests`);
-  
-  return interestingAnnouncements;
+  console.log(`  Found ${matchedEvents.length} events matching user interests`);
+
+  return matchedEvents;
 }
 
-export async function filterBySchedule(announcements: InterestingAnnouncement[], config: Config): Promise<ScheduledEvent[]> {
-  console.log(`Step 6: Filtering ${announcements.length} event announcements by schedule and future dates...`);
-  
-  if (announcements.length === 0) {
+export async function filterBySchedule(events: Event[], config: Config): Promise<Event[]> {
+  console.log(`Step 6: Filtering ${events.length} event announcements by schedule and future dates...`);
+
+  if (events.length === 0) {
     console.log(`  No input on this step`);
     return [];
   }
-  
+
   const cache = new Cache();
-  
+
   // Check cache first
-  const uncachedAnnouncements: InterestingAnnouncement[] = [];
-  const scheduledEvents: ScheduledEvent[] = [];
+  const uncachedEvents: Event[] = [];
+  const scheduledEvents: Event[] = [];
   let cacheHits = 0;
 
   console.log('  Processing cache...');
-  for (const announcement of announcements) {
-    const cachedDateTime = cache.getScheduledEventCache(announcement.announcement.message.link, config.weeklyTimeslots);
+  for (const event of events) {
+    const cachedDateTime = cache.getScheduledEventCache(event.message.link, config.weeklyTimeslots);
     if (cachedDateTime !== null) {
       cacheHits++;
       if (cachedDateTime !== 'unknown') {
@@ -571,27 +576,29 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
         try {
           const normalizedCachedDateTime = normalizeDateTime(cachedDateTime);
           const eventDate = parse(normalizedCachedDateTime, 'dd MMM yyyy HH:mm', new Date());
-          
+
           const now = new Date();
           if (eventDate > now) {
             const dayOfWeek = getDay(eventDate);
             const hour = getHours(eventDate);
             const minute = getMinutes(eventDate);
             const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-            
+
             const matchesSchedule = config.weeklyTimeslots.some(slot => {
               const [slotDay, slotTime] = slot.split(' ');
               const slotDayNum = parseInt(slotDay);
               return slotDayNum === dayOfWeek && timeStr >= slotTime;
             });
-            
+
             if (matchesSchedule) {
               scheduledEvents.push({
-                interesting_announcement: announcement,
+                ...event,
                 start_datetime: normalizedCachedDateTime
               });
               debugWriter.addStep6Entry({
-                announcement,
+                message: event.message,
+                event_type: event.event_type!,
+                interests_matched: event.interests_matched!,
                 gpt_prompt: '[CACHED]',
                 gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
                 extracted_datetime: normalizedCachedDateTime,
@@ -599,9 +606,11 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
                 cached: true
               });
             } else {
-              console.log(`    DISCARDED: ${announcement.announcement.message.link} - outside desired timeslots (cached)`);
+              console.log(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
               debugWriter.addStep6Entry({
-                announcement,
+                message: event.message,
+                event_type: event.event_type!,
+                interests_matched: event.interests_matched!,
                 gpt_prompt: '[CACHED]',
                 gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
                 extracted_datetime: normalizedCachedDateTime,
@@ -611,9 +620,11 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
               });
             }
           } else {
-            console.log(`    DISCARDED: ${announcement.announcement.message.link} - event in the past (cached)`);
+            console.log(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
             debugWriter.addStep6Entry({
-              announcement,
+              message: event.message,
+              event_type: event.event_type!,
+              interests_matched: event.interests_matched!,
               gpt_prompt: '[CACHED]',
               gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
               extracted_datetime: normalizedCachedDateTime,
@@ -624,11 +635,13 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
           }
         } catch (error) {
           // If cached data is invalid, re-process
-          uncachedAnnouncements.push(announcement);
+          uncachedEvents.push(event);
         }
       } else {
         debugWriter.addStep6Entry({
-          announcement,
+          message: event.message,
+          event_type: event.event_type!,
+          interests_matched: event.interests_matched!,
           gpt_prompt: '[CACHED]',
           gpt_response: '[CACHED: unknown datetime]',
           extracted_datetime: 'unknown',
@@ -638,37 +651,37 @@ export async function filterBySchedule(announcements: InterestingAnnouncement[],
         });
       }
     } else {
-      uncachedAnnouncements.push(announcement);
+      uncachedEvents.push(event);
     }
   }
 
   if (cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${announcements.length} messages`);
+    console.log(`  Cache hits: ${cacheHits}/${events.length} messages`);
   }
 
-  if (uncachedAnnouncements.length === 0) {
+  if (uncachedEvents.length === 0) {
     console.log(`  All messages cached, skipping GPT calls`);
     console.log(`  Found ${scheduledEvents.length} messages matching schedule`);
     return scheduledEvents;
   }
   
   const chunks = [];
-  for (let i = 0; i < uncachedAnnouncements.length; i += 16) {
-    chunks.push(uncachedAnnouncements.slice(i, i + 16));
+  for (let i = 0; i < uncachedEvents.length; i += 16) {
+    chunks.push(uncachedEvents.slice(i, i + 16));
   }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-    
+
     const prompt = `Extract the start date and time for each event. Today's date is ${new Date().toDateString()}.
 
 CRITICAL: Use message timestamps to infer the correct year for events. If an event mentions "March 15" and the message was posted on "March 10, 2024", the event is "March 15, 2024". If a message from "Dec 10, 2023" mentions "Jan 5", the event is "Jan 5, 2024" (next occurrence).
 
 Messages with timestamps:
-${chunk.map((announcement, idx) => {
-  const messageDate = new Date(announcement.announcement.message.timestamp);
-  return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${announcement.announcement.message.content.replace(/\n/g, ' ')}`;
+${chunk.map((event, idx) => {
+  const messageDate = new Date(event.message.timestamp);
+  return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${event.message.content.replace(/\n/g, ' ')}`;
 }).join('\n\n')}
 
 For each message, respond in this format:
@@ -710,21 +723,23 @@ YEAR INFERENCE RULES:
           // Cache the extracted datetime with proper formatting
           if (messageIdx >= 0 && messageIdx < chunk.length) {
             const normalizedDateTime = normalizeDateTime(dateTime);
-            cache.cacheScheduledEvent(chunk[messageIdx].announcement.message.link, normalizedDateTime, config.weeklyTimeslots, false);
+            cache.cacheScheduledEvent(chunk[messageIdx].message.link, normalizedDateTime, config.weeklyTimeslots, false);
             processedMessages.add(messageIdx);
           }
-          
+
           if (messageIdx >= 0 && messageIdx < chunk.length && dateTime !== 'unknown') {
             try {
               // Use normalized date for all processing
               const normalizedDateTime = normalizeDateTime(dateTime);
               const eventDate = parse(normalizedDateTime, 'dd MMM yyyy HH:mm', new Date());
-              
+
               // Check if the date is valid
               if (!isValid(eventDate)) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - could not parse date`);
+                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date`);
                 debugWriter.addStep6Entry({
-                  announcement: chunk[messageIdx],
+                  message: chunk[messageIdx].message,
+                  event_type: chunk[messageIdx].event_type!,
+                  interests_matched: chunk[messageIdx].interests_matched!,
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: dateTime,
@@ -734,16 +749,18 @@ YEAR INFERENCE RULES:
                 });
                 continue;
               }
-              
+
               // Validate event date against message timestamp
-              const messageDate = new Date(chunk[messageIdx].announcement.message.timestamp);
+              const messageDate = new Date(chunk[messageIdx].message.timestamp);
               const now = new Date();
-              
+
               // Check if the event is in the future relative to current time
               if (eventDate <= now) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - event in the past`);
+                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
                 debugWriter.addStep6Entry({
-                  announcement: chunk[messageIdx],
+                  message: chunk[messageIdx].message,
+                  event_type: chunk[messageIdx].event_type!,
+                  interests_matched: chunk[messageIdx].interests_matched!,
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -753,13 +770,15 @@ YEAR INFERENCE RULES:
                 });
                 continue;
               }
-              
+
               // Check if event date is reasonable relative to message date (not more than 2 years in the future)
               const maxFutureDate = new Date(messageDate.getTime() + (2 * 365 * 24 * 60 * 60 * 1000)); // 2 years from message
               if (eventDate > maxFutureDate) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - event too far in future`);
+                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
                 debugWriter.addStep6Entry({
-                  announcement: chunk[messageIdx],
+                  message: chunk[messageIdx].message,
+                  event_type: chunk[messageIdx].event_type!,
+                  interests_matched: chunk[messageIdx].interests_matched!,
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -769,27 +788,29 @@ YEAR INFERENCE RULES:
                 });
                 continue;
               }
-              
+
               const dayOfWeek = getDay(eventDate);
               const hour = getHours(eventDate);
               const minute = getMinutes(eventDate);
-              
+
               const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
               const dayTimeStr = `${dayOfWeek} ${timeStr}`;
-              
+
               const matchesSchedule = config.weeklyTimeslots.some(slot => {
                 const [slotDay, slotTime] = slot.split(' ');
                 const slotDayNum = parseInt(slotDay);
                 return slotDayNum === dayOfWeek && timeStr >= slotTime;
               });
-              
+
               if (matchesSchedule) {
                 scheduledEvents.push({
-                  interesting_announcement: chunk[messageIdx],
+                  ...chunk[messageIdx],
                   start_datetime: normalizedDateTime
                 });
                 debugWriter.addStep6Entry({
-                  announcement: chunk[messageIdx],
+                  message: chunk[messageIdx].message,
+                  event_type: chunk[messageIdx].event_type!,
+                  interests_matched: chunk[messageIdx].interests_matched!,
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -797,9 +818,11 @@ YEAR INFERENCE RULES:
                   cached: false
                 });
               } else {
-                console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - outside desired timeslots`);
+                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
                 debugWriter.addStep6Entry({
-                  announcement: chunk[messageIdx],
+                  message: chunk[messageIdx].message,
+                  event_type: chunk[messageIdx].event_type!,
+                  interests_matched: chunk[messageIdx].interests_matched!,
                   gpt_prompt: prompt,
                   gpt_response: result || '',
                   extracted_datetime: normalizedDateTime,
@@ -809,9 +832,11 @@ YEAR INFERENCE RULES:
                 });
               }
             } catch (error) {
-              console.log(`    DISCARDED: ${chunk[messageIdx].announcement.message.link} - date parsing error`);
+              console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
               debugWriter.addStep6Entry({
-                announcement: chunk[messageIdx],
+                message: chunk[messageIdx].message,
+                event_type: chunk[messageIdx].event_type!,
+                interests_matched: chunk[messageIdx].interests_matched!,
                 gpt_prompt: prompt,
                 gpt_response: result || '',
                 extracted_datetime: dateTime,
@@ -822,14 +847,16 @@ YEAR INFERENCE RULES:
             }
           }
         }
-        
+
         // Cache 'unknown' for unprocessed messages
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedMessages.has(idx)) {
-            console.log(`    DISCARDED: ${chunk[idx].announcement.message.link} - no date/time found`);
-            cache.cacheScheduledEvent(chunk[idx].announcement.message.link, 'unknown', config.weeklyTimeslots, false);
+            console.log(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
+            cache.cacheScheduledEvent(chunk[idx].message.link, 'unknown', config.weeklyTimeslots, false);
             debugWriter.addStep6Entry({
-              announcement: chunk[idx],
+              message: chunk[idx].message,
+              event_type: chunk[idx].event_type!,
+              interests_matched: chunk[idx].interests_matched!,
               gpt_prompt: prompt,
               gpt_response: result || '',
               extracted_datetime: 'unknown',
@@ -841,11 +868,13 @@ YEAR INFERENCE RULES:
         }
       } else {
         // No results from GPT, cache as unknown
-        for (const announcement of chunk) {
-          console.log(`    DISCARDED: ${announcement.announcement.message.link} - no date/time found`);
-          cache.cacheScheduledEvent(announcement.announcement.message.link, 'unknown', config.weeklyTimeslots, false);
+        for (const event of chunk) {
+          console.log(`    DISCARDED: ${event.message.link} - no date/time found`);
+          cache.cacheScheduledEvent(event.message.link, 'unknown', config.weeklyTimeslots, false);
           debugWriter.addStep6Entry({
-            announcement,
+            message: event.message,
+            event_type: event.event_type!,
+            interests_matched: event.interests_matched!,
             gpt_prompt: prompt,
             gpt_response: result || '[NO RESPONSE]',
             extracted_datetime: 'unknown',

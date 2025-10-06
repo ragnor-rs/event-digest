@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { ScheduledEvent, Event, Config } from './types';
+import { Event, Config } from './types';
 import { Cache } from './cache';
 import { parse } from 'date-fns';
 
@@ -7,46 +7,46 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-export async function convertToEvents(scheduledEvents: ScheduledEvent[], config: Config): Promise<Event[]> {
-  console.log(`Step 7: Converting ${scheduledEvents.length} scheduled events to events...`);
-  
-  if (scheduledEvents.length === 0) {
+export async function describeEvents(events: Event[], config: Config): Promise<Event[]> {
+  console.log(`Step 7: Converting ${events.length} scheduled events to events...`);
+
+  if (events.length === 0) {
     console.log(`  No input on this step`);
     return [];
   }
-  
+
   const cache = new Cache();
-  
+
   // Check cache first
-  const uncachedEvents: ScheduledEvent[] = [];
-  const events: Event[] = [];
+  const uncachedEvents: Event[] = [];
+  const describedEvents: Event[] = [];
   let cacheHits = 0;
 
-  for (const scheduledEvent of scheduledEvents) {
-    const cachedEventDescription = cache.getConvertedEventCache(scheduledEvent.interesting_announcement.announcement.message.link, config.userInterests);
+  for (const event of events) {
+    const cachedEventDescription = cache.getConvertedEventCache(event.message.link, config.userInterests);
     if (cachedEventDescription !== null) {
       cacheHits++;
       // Update cached event description with current data (interests might have changed)
       const updatedEventDescription = {
         ...cachedEventDescription,
-        date_time: scheduledEvent.start_datetime,
-        met_interests: scheduledEvent.interesting_announcement.interests_matched,
-        link: scheduledEvent.interesting_announcement.announcement.message.link
+        date_time: event.start_datetime!,
+        met_interests: event.interests_matched!,
+        link: event.message.link
       };
-      events.push({ event_description: updatedEventDescription });
+      describedEvents.push({ ...event, event_description: updatedEventDescription });
     } else {
-      uncachedEvents.push(scheduledEvent);
+      uncachedEvents.push(event);
     }
   }
 
   if (cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${scheduledEvents.length} events`);
+    console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
     console.log(`  All events cached, skipping GPT calls`);
-    console.log(`  Created ${events.length} events`);
-    return events;
+    console.log(`  Created ${describedEvents.length} events`);
+    return describedEvents;
   }
   
   const chunks = [];
@@ -60,11 +60,11 @@ export async function convertToEvents(scheduledEvents: ScheduledEvent[], config:
     const prompt = `Convert these event messages into structured event information. Respond in English.
 
 Messages:
-${chunk.map((scheduledEvent, idx) => `${idx + 1}. 
-Start time: ${scheduledEvent.start_datetime}
-Interests: ${scheduledEvent.interesting_announcement.interests_matched.join(', ')}
-Content: ${scheduledEvent.interesting_announcement.announcement.message.content.replace(/\n/g, ' ')}
-Link: ${scheduledEvent.interesting_announcement.announcement.message.link}`).join('\n\n')}
+${chunk.map((event, idx) => `${idx + 1}.
+Start time: ${event.start_datetime}
+Interests: ${event.interests_matched!.join(', ')}
+Content: ${event.message.content.replace(/\n/g, ' ')}
+Link: ${event.message.link}`).join('\n\n')}
 
 CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):
 MESSAGE_NUMBER:
@@ -107,21 +107,21 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
           };
 
           const eventDescription = {
-            date_time: chunk[i].start_datetime,
-            met_interests: chunk[i].interesting_announcement.interests_matched,
+            date_time: chunk[i].start_datetime!,
+            met_interests: chunk[i].interests_matched!,
             ...eventDescriptionData,
-            link: chunk[i].interesting_announcement.announcement.message.link
+            link: chunk[i].message.link
           };
 
-          events.push({ event_description: eventDescription });
+          describedEvents.push({ ...chunk[i], event_description: eventDescription });
 
           // Cache the extracted event description data (without dynamic fields like date_time and interests)
-          cache.cacheConvertedEvent(chunk[i].interesting_announcement.announcement.message.link, eventDescriptionData, config.userInterests, false);
-          
+          cache.cacheConvertedEvent(chunk[i].message.link, eventDescriptionData, config.userInterests, false);
+
           if (title && summary && description) {
             console.log(`    ✓ Created event: ${title}`);
           } else {
-            console.log(`    ✗ Failed to extract complete event info for ${chunk[i].interesting_announcement.announcement.message.link}`);
+            console.log(`    ✗ Failed to extract complete event info for ${chunk[i].message.link}`);
           }
         }
       }
@@ -136,8 +136,8 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log(`  Created ${events.length} events`);
-  return events;
+  console.log(`  Created ${describedEvents.length} events`);
+  return describedEvents;
 }
 
 export function printEvents(events: Event[]): void {
@@ -153,8 +153,8 @@ export function printEvents(events: Event[]): void {
   // Sort events by date in chronological order
   const sortedEvents = events.sort((a, b) => {
     try {
-      const dateA = parse(a.event_description.date_time, 'dd MMM yyyy HH:mm', new Date());
-      const dateB = parse(b.event_description.date_time, 'dd MMM yyyy HH:mm', new Date());
+      const dateA = parse(a.event_description!.date_time, 'dd MMM yyyy HH:mm', new Date());
+      const dateB = parse(b.event_description!.date_time, 'dd MMM yyyy HH:mm', new Date());
       return dateA.getTime() - dateB.getTime();
     } catch (error) {
       // If date parsing fails, keep original order
@@ -163,11 +163,11 @@ export function printEvents(events: Event[]): void {
   });
 
   sortedEvents.forEach((event, index) => {
-    console.log(`${index + 1}. ${event.event_description.title}`);
-    console.log(`   📅 ${event.event_description.date_time}`);
-    console.log(`   🏷️ ${event.event_description.met_interests.join(', ')}`);
-    console.log(`   📝 ${event.event_description.short_summary}`);
-    console.log(`   🔗 ${event.event_description.link}`);
+    console.log(`${index + 1}. ${event.event_description!.title}`);
+    console.log(`   📅 ${event.event_description!.date_time}`);
+    console.log(`   🏷️ ${event.event_description!.met_interests.join(', ')}`);
+    console.log(`   📝 ${event.event_description!.short_summary}`);
+    console.log(`   🔗 ${event.event_description!.link}`);
     console.log('');
   });
   

@@ -4,21 +4,6 @@ export interface TelegramMessage {
   link: string;
 }
 
-export interface EventAnnouncement {
-  message: TelegramMessage;
-  event_type: 'offline' | 'online' | 'hybrid';
-}
-
-export interface InterestingAnnouncement {
-  announcement: EventAnnouncement;
-  interests_matched: string[];
-}
-
-export interface ScheduledEvent {
-  interesting_announcement: InterestingAnnouncement;
-  start_datetime: string;
-}
-
 export interface EventDescription {
   date_time: string;
   met_interests: string[];
@@ -28,7 +13,11 @@ export interface EventDescription {
 }
 
 export interface Event {
-  event_description: EventDescription;
+  message: TelegramMessage;
+  event_type?: 'offline' | 'online' | 'hybrid';
+  interests_matched?: string[];
+  start_datetime?: string;
+  event_description?: EventDescription;
 }
 
 export interface Config {
