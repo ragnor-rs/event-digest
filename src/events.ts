@@ -50,8 +50,8 @@ export async function describeEvents(events: Event[], config: Config): Promise<E
   }
   
   const chunks = [];
-  for (let i = 0; i < uncachedEvents.length; i += 5) {
-    chunks.push(uncachedEvents.slice(i, i + 5));
+  for (let i = 0; i < uncachedEvents.length; i += config.gptBatchSizeEventDescription) {
+    chunks.push(uncachedEvents.slice(i, i + config.gptBatchSizeEventDescription));
   }
 
   for (let i = 0; i < chunks.length; i++) {

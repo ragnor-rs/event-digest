@@ -97,8 +97,8 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
   }
   
   const chunks = [];
-  for (let i = 0; i < uncachedMessages.length; i += 16) {
-    chunks.push(uncachedMessages.slice(i, i + 16));
+  for (let i = 0; i < uncachedMessages.length; i += config.gptBatchSizeEventDetection) {
+    chunks.push(uncachedMessages.slice(i, i + config.gptBatchSizeEventDetection));
   }
 
   for (let i = 0; i < chunks.length; i++) {
@@ -255,8 +255,8 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
   }
 
   const chunks = [];
-  for (let i = 0; i < uncachedEvents.length; i += 16) {
-    chunks.push(uncachedEvents.slice(i, i + 16));
+  for (let i = 0; i < uncachedEvents.length; i += config.gptBatchSizeEventClassification) {
+    chunks.push(uncachedEvents.slice(i, i + config.gptBatchSizeEventClassification));
   }
 
   for (let i = 0; i < chunks.length; i++) {
@@ -660,8 +660,8 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
   }
   
   const chunks = [];
-  for (let i = 0; i < uncachedEvents.length; i += 16) {
-    chunks.push(uncachedEvents.slice(i, i + 16));
+  for (let i = 0; i < uncachedEvents.length; i += config.gptBatchSizeScheduleExtraction) {
+    chunks.push(uncachedEvents.slice(i, i + config.gptBatchSizeScheduleExtraction));
   }
 
   for (let i = 0; i < chunks.length; i++) {

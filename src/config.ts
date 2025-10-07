@@ -112,6 +112,10 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedSkipOnlineEvents = config.skipOnlineEvents !== undefined;
   const providedWriteDebugFiles = config.writeDebugFiles !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
+  const providedGptBatchSizeEventDetection = config.gptBatchSizeEventDetection !== undefined;
+  const providedGptBatchSizeEventClassification = config.gptBatchSizeEventClassification !== undefined;
+  const providedGptBatchSizeScheduleExtraction = config.gptBatchSizeScheduleExtraction !== undefined;
+  const providedGptBatchSizeEventDescription = config.gptBatchSizeEventDescription !== undefined;
   const providedEventDetectionPrompt = config.eventDetectionPrompt !== undefined;
   const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
   const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
@@ -150,6 +154,20 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Set default for write debug files
   if (config.writeDebugFiles === undefined) {
     config.writeDebugFiles = false;
+  }
+
+  // Set default GPT batch sizes
+  if (config.gptBatchSizeEventDetection === undefined) {
+    config.gptBatchSizeEventDetection = 16;
+  }
+  if (config.gptBatchSizeEventClassification === undefined) {
+    config.gptBatchSizeEventClassification = 16;
+  }
+  if (config.gptBatchSizeScheduleExtraction === undefined) {
+    config.gptBatchSizeScheduleExtraction = 16;
+  }
+  if (config.gptBatchSizeEventDescription === undefined) {
+    config.gptBatchSizeEventDescription = 5;
   }
 
   // Set default event detection prompt
@@ -311,6 +329,10 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
   console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}${!providedMaxChannelMessages && !config.maxInputMessages ? ' (default)' : ''}`);
   console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}${!providedSkipOnlineEvents ? ' (default)' : ''}`);
   console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
+  console.log(`  gptBatchSizeEventDetection: ${finalConfig.gptBatchSizeEventDetection}${!providedGptBatchSizeEventDetection ? ' (default)' : ''}`);
+  console.log(`  gptBatchSizeEventClassification: ${finalConfig.gptBatchSizeEventClassification}${!providedGptBatchSizeEventClassification ? ' (default)' : ''}`);
+  console.log(`  gptBatchSizeScheduleExtraction: ${finalConfig.gptBatchSizeScheduleExtraction}${!providedGptBatchSizeScheduleExtraction ? ' (default)' : ''}`);
+  console.log(`  gptBatchSizeEventDescription: ${finalConfig.gptBatchSizeEventDescription}${!providedGptBatchSizeEventDescription ? ' (default)' : ''}`);
   console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp || 'not set'}`);
   console.log(`  eventMessageCues: ${Object.values(finalConfig.eventMessageCues).flat().length} cues${!providedEventMessageCues ? ' (default)' : ''}`);
   console.log(`  eventDetectionPrompt: ${finalConfig.eventDetectionPrompt!.length} chars${!providedEventDetectionPrompt ? ' (default)' : ''}`);

@@ -84,6 +84,11 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - Detailed validation for groups, channels, interests, timeslots, and message limits
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
+- **Configurable GPT batch sizes** (all optional with defaults optimized for balance of speed and accuracy):
+  - `gptBatchSizeEventDetection` (default: 16): Controls batch size for step 3 event detection
+  - `gptBatchSizeEventClassification` (default: 16): Controls batch size for step 4 event type classification
+  - `gptBatchSizeScheduleExtraction` (default: 16): Controls batch size for step 5 schedule extraction
+  - `gptBatchSizeEventDescription` (default: 5): Controls batch size for step 7 event description generation
 - **Configurable GPT prompts** (all optional with sensible defaults):
   - `eventDetectionPrompt`: Customizes event detection logic (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Customizes event type classification (step 4) - uses `{{MESSAGES}}` placeholder
@@ -100,7 +105,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 **GPT Response Parsing:** Robust parsing handles both structured responses and prose responses like "No messages match any interests."
 
-**Rate Limiting:** 1-second delays between GPT calls. Batch processing: event detection (16 per batch), event type classification (16 per batch), schedule filtering (16 per batch), and event description (5 per batch). Interest matching processes events individually for accurate validation.
+**Rate Limiting:** 1-second delays between GPT calls. Batch processing with configurable batch sizes (defaults: event detection 16, event type classification 16, schedule filtering 16, event description 5). Interest matching processes events individually for accurate validation.
 
 **Two-Stage GPT Processing:**
 1. Basic event detection (`detectEventAnnouncements`) - Identifies genuine event announcements

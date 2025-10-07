@@ -32,6 +32,10 @@ export interface Config {
   eventMessageCues: Record<string, string[]>;
   skipOnlineEvents: boolean;
   writeDebugFiles: boolean;
+  gptBatchSizeEventDetection: number;
+  gptBatchSizeEventClassification: number;
+  gptBatchSizeScheduleExtraction: number;
+  gptBatchSizeEventDescription: number;
   eventDetectionPrompt?: string;
   interestMatchingPrompt?: string;
   eventTypeClassificationPrompt?: string;

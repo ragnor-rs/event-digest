@@ -55,6 +55,14 @@ weeklyTimeslots:
 # Files include: event_classification.json, interest_matching.json, schedule_filtering.json
 # writeDebugFiles: false
 
+# Optional: GPT batch sizes for processing (defaults shown)
+# Controls how many items are processed in each GPT API call
+# Larger batches are faster but may reduce accuracy
+# gptBatchSizeEventDetection: 16      # Step 3: Event detection
+# gptBatchSizeEventClassification: 16 # Step 4: Event type classification
+# gptBatchSizeScheduleExtraction: 16  # Step 5: Schedule extraction
+# gptBatchSizeEventDescription: 5     # Step 7: Event description generation
+
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used
 # eventMessageCues:
