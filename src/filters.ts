@@ -756,7 +756,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               // Check if the date is valid
               if (!isValid(eventDate)) {
                 if (config.verboseLogging) {
-                  console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date`);
+                  console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`);
                 }
                 debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
