@@ -94,6 +94,14 @@ skipOnlineEvents: true
 # When enabled, writes detailed debug files to debug/ directory
 writeDebugFiles: false
 
+# GPT batch sizes for processing (optional)
+# Controls how many items are processed in each GPT API call
+# Larger batches are faster but may reduce accuracy
+gptBatchSizeEventDetection: 16      # Step 3: Event detection
+gptBatchSizeEventClassification: 16 # Step 4: Event type classification
+gptBatchSizeScheduleExtraction: 16  # Step 5: Schedule extraction
+gptBatchSizeEventDescription: 5     # Step 7: Event description generation
+
 # Optional: Custom GPT prompts for AI filtering steps
 # See config.example.yaml for detailed placeholder docs and examples
 # eventDetectionPrompt: |
@@ -139,6 +147,11 @@ npm run dev -- \
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
+- **GPT Batch Sizes** (optional, YAML only - controls processing efficiency):
+  - `gptBatchSizeEventDetection`: Items per batch for event detection (default: 16)
+  - `gptBatchSizeEventClassification`: Items per batch for event type classification (default: 16)
+  - `gptBatchSizeScheduleExtraction`: Items per batch for schedule extraction (default: 16)
+  - `gptBatchSizeEventDescription`: Items per batch for event description generation (default: 5)
 - **Custom GPT Prompts** (optional, YAML only - all 5 AI steps configurable):
   - `eventDetectionPrompt`: Custom prompt for event detection (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Custom prompt for event type classification (step 4) - uses `{{MESSAGES}}` placeholder
@@ -218,7 +231,7 @@ npm run dev
 
 - Uses GPT-4o-mini (50-100x cheaper than GPT-4)
 - Intelligent caching prevents redundant API calls
-- Batch processing for event detection (16 per batch), classification (16 per batch), schedule filtering (16 per batch), and description generation (5 per batch)
+- Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 5)
 - Individual processing for interest matching to ensure accurate validation
 - Preference-aware cache invalidation
 
