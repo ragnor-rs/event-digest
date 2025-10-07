@@ -48,7 +48,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 ### Configuration Options
 
-You can configure the tool in three ways:
+You can configure the tool in multiple ways. **Command-line arguments always override YAML configuration values.**
 
 #### Option 1: YAML Configuration (Recommended)
 
@@ -145,6 +145,18 @@ npm run dev -- \
   --gpt-batch-size-event-classification 16 \
   --gpt-batch-size-schedule-extraction 16 \
   --gpt-batch-size-event-description 5
+```
+
+#### Option 4: Mix YAML and CLI (Override Specific Values)
+
+Load YAML config and override specific parameters via command line:
+
+```bash
+# Use config.yaml but enable verbose logging for this run
+npm run dev -- --verbose-logging true
+
+# Use config.yaml but change batch sizes for testing
+npm run dev -- --gpt-batch-size-event-detection 8 --verbose-logging true
 ```
 
 ### Configuration Parameters

@@ -43,6 +43,17 @@ npm run dev -- \
   --gpt-batch-size-event-description 5
 ```
 
+Option 4 - Override YAML config with CLI arguments:
+```bash
+# Use config.yaml but enable verbose logging for this run
+npm run dev -- --verbose-logging true
+
+# Mix YAML config with specific CLI overrides
+npm run dev -- --gpt-batch-size-event-detection 8 --verbose-logging true
+```
+
+**Note:** Command-line arguments always override YAML configuration values.
+
 ## Architecture
 
 This is an event digest CLI that processes Telegram messages through a 7-step filtering pipeline to extract relevant events.
@@ -85,6 +96,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 **Configuration** (`src/config.ts`):
 - Supports YAML configuration files (config.yaml/config.yml) or command-line arguments
+- Command-line arguments override YAML configuration values
 - YAML config provides better organization and version control
 - Detailed validation for groups, channels, interests, timeslots, and message limits
 - `skipOnlineEvents` parameter (default: true) excludes online-only events

@@ -17,66 +17,49 @@ function loadYamlConfig(filePath: string): Partial<Config> | null {
   return null;
 }
 
-export function parseArgs(): Config {
-  const args = process.argv.slice(2);
-  
-  // Check for YAML config file first
-  const configArg = args.find(arg => arg.startsWith('--config='));
-  if (configArg) {
-    const configPath = configArg.split('=')[1];
-    const yamlConfig = loadYamlConfig(configPath);
-    if (yamlConfig) {
-      return validateAndCompleteConfig(yamlConfig);
-    }
-  }
-  
-  // Check for default config.yaml
-  const defaultConfigPaths = [
-    path.join(process.cwd(), 'config.yaml'),
-    path.join(process.cwd(), 'config.yml')
-  ];
-  
-  for (const configPath of defaultConfigPaths) {
-    const yamlConfig = loadYamlConfig(configPath);
-    if (yamlConfig) {
-      return validateAndCompleteConfig(yamlConfig);
-    }
-  }
-  
-  // Fall back to command line arguments
-  if (args.length === 0) {
-    console.log(`Usage:
-  Option 1 - YAML config file:
-    npm run dev -- --config=config.yaml
-
-  Option 2 - Command line arguments:
-    npm run dev -- \\
-      --groups "group1,group2" \\
-      --channels "channel1,channel2" \\
-      --interests "Interest1,Interest2" \\
-      --timeslots "6 14:00,0 14:00" \\
-      [--max-group-messages 200] \\
-      [--max-channel-messages 100] \\
-      [--skip-online-events true] \\
-      [--write-debug-files false] \\
-      [--verbose-logging false] \\
-      [--gpt-batch-size-event-detection 16] \\
-      [--gpt-batch-size-event-classification 16] \\
-      [--gpt-batch-size-schedule-extraction 16] \\
-      [--gpt-batch-size-event-description 5] \\
-      [--last-timestamp "2011-08-12T20:17:46.384Z"] \\
-      [--max-messages 100]
-
-  Option 3 - Default config file (config.yaml or config.yml in project root)`);
-    process.exit(1);
-  }
-
+function parseCommandLineArgs(args: string[]): Partial<Config> {
   const config: Partial<Config> = {};
-  
+
+  const validOptions = [
+    '--config',
+    '--groups',
+    '--channels',
+    '--interests',
+    '--timeslots',
+    '--last-timestamp',
+    '--max-messages',
+    '--max-group-messages',
+    '--max-channel-messages',
+    '--write-debug-files',
+    '--skip-online-events',
+    '--verbose-logging',
+    '--gpt-batch-size-event-detection',
+    '--gpt-batch-size-event-classification',
+    '--gpt-batch-size-schedule-extraction',
+    '--gpt-batch-size-event-description'
+  ];
+
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     const value = args[i + 1];
-    
+
+    // Skip --config argument as it's handled separately
+    if (key === '--config' || key.startsWith('--config=')) {
+      i -= 1; // Adjust since --config= doesn't consume next arg
+      continue;
+    }
+
+    // Check if option is recognized
+    if (!validOptions.includes(key)) {
+      console.error(`\nError: Unrecognized option '${key}'`);
+      console.error('\nValid options:');
+      validOptions.filter(opt => opt !== '--config').forEach(opt => {
+        console.error(`  ${opt}`);
+      });
+      console.error('\nSee README.md for usage examples.');
+      process.exit(1);
+    }
+
     switch (key) {
       case '--groups':
         config.groupsToParse = value.split(',').map(s => s.trim());
@@ -124,6 +107,74 @@ export function parseArgs(): Config {
         config.gptBatchSizeEventDescription = parseInt(value);
         break;
     }
+  }
+
+  return config;
+}
+
+export function parseArgs(): Config {
+  const args = process.argv.slice(2);
+
+  // Start with empty config
+  let config: Partial<Config> = {};
+
+  // Check for YAML config file first
+  const configArg = args.find(arg => arg.startsWith('--config='));
+  if (configArg) {
+    const configPath = configArg.split('=')[1];
+    const yamlConfig = loadYamlConfig(configPath);
+    if (yamlConfig) {
+      config = yamlConfig;
+    }
+  } else {
+    // Check for default config.yaml
+    const defaultConfigPaths = [
+      path.join(process.cwd(), 'config.yaml'),
+      path.join(process.cwd(), 'config.yml')
+    ];
+
+    for (const configPath of defaultConfigPaths) {
+      const yamlConfig = loadYamlConfig(configPath);
+      if (yamlConfig) {
+        config = yamlConfig;
+        break;
+      }
+    }
+  }
+
+  // Parse command line arguments and merge with YAML config (CLI overrides YAML)
+  const cliConfig = parseCommandLineArgs(args);
+  config = { ...config, ...cliConfig };
+
+  // If no config source provided, show usage
+  if (Object.keys(config).length === 0 && args.length === 0) {
+    console.log(`Usage:
+  Option 1 - YAML config file:
+    npm run dev -- --config=config.yaml
+
+  Option 2 - Command line arguments:
+    npm run dev -- \\
+      --groups "group1,group2" \\
+      --channels "channel1,channel2" \\
+      --interests "Interest1,Interest2" \\
+      --timeslots "6 14:00,0 14:00" \\
+      [--max-group-messages 200] \\
+      [--max-channel-messages 100] \\
+      [--skip-online-events true] \\
+      [--write-debug-files false] \\
+      [--verbose-logging false] \\
+      [--gpt-batch-size-event-detection 16] \\
+      [--gpt-batch-size-event-classification 16] \\
+      [--gpt-batch-size-schedule-extraction 16] \\
+      [--gpt-batch-size-event-description 5] \\
+      [--last-timestamp "2011-08-12T20:17:46.384Z"] \\
+      [--max-messages 100]
+
+  Option 3 - Default config file (config.yaml or config.yml in project root)
+
+  Option 4 - Mix YAML and CLI (CLI arguments override YAML values):
+    npm run dev -- --verbose-logging true`);
+    process.exit(1);
   }
 
   return validateAndCompleteConfig(config);
