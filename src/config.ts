@@ -33,6 +33,7 @@ function parseCommandLineArgs(args: string[]): Partial<Config> {
     '--write-debug-files',
     '--skip-online-events',
     '--verbose-logging',
+    '--min-interest-confidence',
     '--gpt-batch-size-event-detection',
     '--gpt-batch-size-event-classification',
     '--gpt-batch-size-schedule-extraction',
@@ -93,6 +94,9 @@ function parseCommandLineArgs(args: string[]): Partial<Config> {
         break;
       case '--verbose-logging':
         config.verboseLogging = value.toLowerCase() === 'true';
+        break;
+      case '--min-interest-confidence':
+        config.minInterestConfidence = parseFloat(value);
         break;
       case '--gpt-batch-size-event-detection':
         config.gptBatchSizeEventDetection = parseInt(value);
@@ -187,6 +191,7 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedSkipOnlineEvents = config.skipOnlineEvents !== undefined;
   const providedWriteDebugFiles = config.writeDebugFiles !== undefined;
   const providedVerboseLogging = config.verboseLogging !== undefined;
+  const providedMinInterestConfidence = config.minInterestConfidence !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
   const providedGptBatchSizeEventDetection = config.gptBatchSizeEventDetection !== undefined;
   const providedGptBatchSizeEventClassification = config.gptBatchSizeEventClassification !== undefined;
@@ -235,6 +240,11 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Set default for verbose logging
   if (config.verboseLogging === undefined) {
     config.verboseLogging = false;
+  }
+
+  // Set default for minimum interest confidence
+  if (config.minInterestConfidence === undefined) {
+    config.minInterestConfidence = 0.75;
   }
 
   // Set default GPT batch sizes
@@ -294,7 +304,7 @@ CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", 
 
   // Set default interest matching prompt
   if (!config.interestMatchingPrompt) {
-    config.interestMatchingPrompt = `Match this event to user interests by selecting relevant interest indices.
+    config.interestMatchingPrompt = `Match this event to user interests by selecting relevant interest indices with confidence scores.
 
 EVENT:
 {{EVENTS}}
@@ -302,14 +312,26 @@ EVENT:
 INTERESTS:
 {{INTERESTS}}
 
-Match the event if it is directly related to any of the interest topics.
+STRICT MATCHING RULES:
+- Match ONLY if the event content is DIRECTLY related to the interest topic
+- "Communication skills" or "public speaking" ≠ "Speed dating" (professional ≠ romantic)
+- "Frontend/React/UI" ≠ "Backend/server/database" (different tech stacks)
+- "Networking (professional meetups)" ≠ "Social events (casual parties)"
+- When uncertain, prefer NO MATCH over questionable match
 
 RESPONSE FORMAT:
-Respond with a comma-separated list of interest indices that match the event.
-Example: 0, 3, 7
-If no interests match, respond with: none
+For each match, provide: INDEX:CONFIDENCE
+Confidence must be between 0.0 (no match) and 1.0 (perfect match)
+Separate multiple matches with commas
 
-Respond with ONLY the comma-separated interest indices or "none".`;
+Examples:
+- Strong matches: 19:0.95, 6:0.85
+- Uncertain match: 3:0.60
+- No matches: none
+
+IMPORTANT: Only include matches with confidence ≥ 0.75
+
+Respond with ONLY the index:confidence pairs (comma-separated) or "none".`;
   }
 
   // Set default event type classification prompt
@@ -420,6 +442,7 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
   console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}${!providedSkipOnlineEvents ? ' (default)' : ''}`);
   console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
   console.log(`  verboseLogging: ${finalConfig.verboseLogging}${!providedVerboseLogging ? ' (default)' : ''}`);
+  console.log(`  minInterestConfidence: ${finalConfig.minInterestConfidence}${!providedMinInterestConfidence ? ' (default)' : ''}`);
   console.log(`  gptBatchSizeEventDetection: ${finalConfig.gptBatchSizeEventDetection}${!providedGptBatchSizeEventDetection ? ' (default)' : ''}`);
   console.log(`  gptBatchSizeEventClassification: ${finalConfig.gptBatchSizeEventClassification}${!providedGptBatchSizeEventClassification ? ' (default)' : ''}`);
   console.log(`  gptBatchSizeScheduleExtraction: ${finalConfig.gptBatchSizeScheduleExtraction}${!providedGptBatchSizeScheduleExtraction ? ' (default)' : ''}`);

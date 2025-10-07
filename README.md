@@ -170,6 +170,7 @@ npm run dev -- --gpt-batch-size-event-detection 8 --verbose-logging true
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
+- `minInterestConfidence`/`--min-interest-confidence`: Minimum confidence threshold (0.0-1.0) for interest matching; GPT assigns scores, only matches ≥ threshold included (default: 0.75)
 - **GPT Batch Sizes** (optional - controls processing efficiency):
   - `gptBatchSizeEventDetection`/`--gpt-batch-size-event-detection`: Items per batch for event detection (default: 16)
   - `gptBatchSizeEventClassification`/`--gpt-batch-size-event-classification`: Items per batch for event type classification (default: 16)

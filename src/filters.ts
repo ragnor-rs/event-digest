@@ -406,9 +406,15 @@ export async function filterByInterests(events: Event[], config: Config): Promis
     if (cachedInterests !== null) {
       cacheHits++;
       if (cachedInterests.length > 0) {
+        // For cached results, we don't have confidence scores, so assume they all passed threshold (1.0)
+        const cachedMatches = cachedInterests.map(interest => ({
+          interest,
+          confidence: 1.0
+        }));
         matchedEvents.push({
           ...event,
-          interests_matched: cachedInterests
+          interests_matched: cachedInterests,
+          interest_matches: cachedMatches
         });
         debugWriter.addStep6Entry({
           start_datetime: event.start_datetime!,
@@ -417,6 +423,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           gpt_prompt: '[CACHED]',
           gpt_response: `[CACHED: matched interests: ${cachedInterests.join(', ')}]`,
           interests_matched: cachedInterests,
+          interest_matches: cachedMatches,
           result: 'matched',
           cached: true
         });
@@ -431,6 +438,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           gpt_prompt: '[CACHED]',
           gpt_response: '[CACHED: no interests matched]',
           interests_matched: [],
+          interest_matches: [],
           result: 'discarded',
           cached: true
         });
@@ -511,29 +519,68 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           cached: false
         });
       } else {
-        // GPT returned interest indices
-        const interestIndices: number[] = result
-          .split(',')
-          .map((s: string) => parseInt(s.trim()))
-          .filter((idx: number) => !isNaN(idx));
+        // GPT returned interest indices with confidence scores
+        // Format: "INDEX:CONFIDENCE, INDEX:CONFIDENCE" e.g., "19:0.95, 6:0.85"
+        const matchPairs = result.split(',').map((s: string) => s.trim());
+        const interestMatches: { index: number; confidence: number }[] = [];
 
-        // Convert indices to interest names
-        const matchedInterests: string[] = interestIndices
-          .filter((idx: number) => idx >= 0 && idx < config.userInterests.length)
-          .map((idx: number) => config.userInterests[idx]);
+        for (const pair of matchPairs) {
+          const parts = pair.split(':');
+          if (parts.length === 2) {
+            const idx = parseInt(parts[0].trim());
+            const conf = parseFloat(parts[1].trim());
+            if (!isNaN(idx) && !isNaN(conf)) {
+              interestMatches.push({ index: idx, confidence: conf });
+            }
+          } else {
+            // Fallback: try parsing as just index (backward compatibility)
+            const idx = parseInt(pair);
+            if (!isNaN(idx)) {
+              interestMatches.push({ index: idx, confidence: 1.0 });
+            }
+          }
+        }
+
+        // Filter by confidence threshold and validate indices
+        const validMatches = interestMatches.filter(
+          (m) => m.confidence >= config.minInterestConfidence &&
+                 m.index >= 0 &&
+                 m.index < config.userInterests.length
+        );
 
         // Warn about invalid indices
-        const invalidIndices: number[] = interestIndices.filter(
-          (idx: number) => idx < 0 || idx >= config.userInterests.length
-        );
+        const invalidIndices = interestMatches
+          .filter((m) => m.index < 0 || m.index >= config.userInterests.length)
+          .map((m) => m.index);
         if (config.verboseLogging && invalidIndices.length > 0) {
           console.log(`    WARNING: GPT returned invalid interest indices: ${invalidIndices.join(', ')}`);
         }
 
+        // Warn about low-confidence matches
+        const lowConfidenceMatches = interestMatches.filter(
+          (m) => m.confidence < config.minInterestConfidence &&
+                 m.index >= 0 &&
+                 m.index < config.userInterests.length
+        );
+        if (config.verboseLogging && lowConfidenceMatches.length > 0) {
+          const lowConfDetails = lowConfidenceMatches
+            .map((m) => `${config.userInterests[m.index]}(${m.confidence.toFixed(2)})`)
+            .join(', ');
+          console.log(`    Filtered out low-confidence matches: ${lowConfDetails}`);
+        }
+
+        // Convert to interest names (for backward compat) and InterestMatch objects
+        const matchedInterests: string[] = validMatches.map((m) => config.userInterests[m.index]);
+        const interestMatchesWithNames: Array<{ interest: string; confidence: number }> = validMatches.map((m) => ({
+          interest: config.userInterests[m.index],
+          confidence: m.confidence
+        }));
+
         if (matchedInterests.length > 0) {
           matchedEvents.push({
             ...event,
-            interests_matched: matchedInterests
+            interests_matched: matchedInterests,
+            interest_matches: interestMatchesWithNames
           });
           cache.cacheMatchingInterests(event.message.link, matchedInterests, config.userInterests, false);
 
@@ -544,13 +591,17 @@ export async function filterByInterests(events: Event[], config: Config): Promis
             gpt_prompt: prompt,
             gpt_response: result,
             interests_matched: matchedInterests,
+            interest_matches: interestMatchesWithNames,
             result: 'matched',
             cached: false
           });
         } else {
-          // Parsed result but no valid interests (all invalid indices or empty)
+          // Parsed result but no valid interests (all filtered out by confidence or invalid indices)
           if (config.verboseLogging) {
-            console.log(`    DISCARDED: ${event.message.link} - no valid interests parsed from response`);
+            const reason = interestMatches.length > 0
+              ? 'all matches below confidence threshold or invalid indices'
+              : 'no valid interests parsed from response';
+            console.log(`    DISCARDED: ${event.message.link} - ${reason}`);
           }
           cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
           debugWriter.addStep6Entry({
@@ -560,6 +611,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
             gpt_prompt: prompt,
             gpt_response: result,
             interests_matched: [],
+            interest_matches: [],
             result: 'discarded',
             cached: false
           });

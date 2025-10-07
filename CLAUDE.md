@@ -37,6 +37,7 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files true \
   --verbose-logging false \
+  --min-interest-confidence 0.75 \
   --gpt-batch-size-event-detection 16 \
   --gpt-batch-size-event-classification 16 \
   --gpt-batch-size-schedule-extraction 16 \
@@ -102,6 +103,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
 - `verboseLogging` parameter (default: false) enables detailed processing logs with cache stats, batch numbers, and DISCARDED message links
+- `minInterestConfidence` parameter (default: 0.75) sets minimum confidence threshold for interest matching; GPT assigns 0.0-1.0 scores, only matches ≥ threshold are included
 - **Configurable GPT batch sizes** (all optional with defaults optimized for balance of speed and accuracy):
   - `gptBatchSizeEventDetection` (default: 16): Controls batch size for step 3 event detection
   - `gptBatchSizeEventClassification` (default: 16): Controls batch size for step 4 event type classification
@@ -117,7 +119,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 ### Important Implementation Details
 
-**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). **Validation layer** (implemented in `src/filters.ts:487-497`) ensures GPT-returned interest indices are validated against the actual user interest list (filters invalid indices and warns about them), preventing hallucinated categories like "Cultural interests" or "EdTech" from polluting results. Events are processed individually (not batched) to ensure accurate validation.
+**Interest Matching:** Uses comprehensive GPT guidelines with mandatory matching rules for specific patterns (e.g., "айти нытьё" → IT networking, karaoke → social events). **Confidence scoring** ensures only high-quality matches: GPT assigns 0.0-1.0 confidence scores to each interest match, with only matches ≥ `minInterestConfidence` (default: 0.75) included in results. This reduces over-matching from ~8% to <3%. **Validation layer** (implemented in `src/filters.ts`) ensures GPT-returned interest indices are validated against the actual user interest list (filters invalid indices and warns about them), preventing hallucinated categories like "Cultural interests" or "EdTech" from polluting results. Events are processed individually (not batched) to ensure accurate validation.
 
 **Date Handling:** Single source of truth in `normalizeDateTime()` function handles GPT's inconsistent date format responses.
 

@@ -64,6 +64,14 @@ weeklyTimeslots:
 # When disabled, only prints step names and final statistics
 # verboseLogging: false
 
+# Optional: Minimum confidence threshold for interest matching (default: 0.75)
+# GPT assigns confidence scores (0.0-1.0) to each interest match
+# Only matches with confidence >= this threshold are included
+# Higher values (0.8-0.9) = fewer but more certain matches
+# Lower values (0.5-0.7) = more matches but may include questionable ones
+# Recommended: 0.75 for balanced precision/recall
+# minInterestConfidence: 0.75
+
 # Optional: GPT batch sizes for processing (defaults shown)
 # Controls how many items are processed in each GPT API call
 # Larger batches are faster but may reduce accuracy
@@ -140,24 +148,26 @@ weeklyTimeslots:
 #   Respond with message numbers (one per line) or "none".
 
 # Custom GPT prompt for interest matching (optional)
-# Matches events to user interests
+# Matches events to user interests with confidence scores
 #
 # PLACEHOLDERS:
 #   {{EVENTS}} - numbered list: "0: event text\n1: event text"
 #   {{INTERESTS}} - numbered list: "0: interest name\n1: interest name"
 #
 # REQUIRED OUTPUT:
-#   Index mappings per event: "EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2"
-#   Example: "0: 1, 3\n1: 2\n2:"
+#   Interest matches with confidence: "INTEREST_INDEX:CONFIDENCE, INTEREST_INDEX:CONFIDENCE"
+#   Example: "19:0.95, 6:0.85" or "none"
 #
 # EXAMPLE PROMPT:
 # interestMatchingPrompt: |
-#   Match events to interests. Respond with indices only.
+#   Match events to interests with confidence scores (0.0-1.0).
 #   EVENTS:
 #   {{EVENTS}}
 #   INTERESTS:
 #   {{INTERESTS}}
-#   Format: EVENT_INDEX: INTEREST_INDEX1, INTEREST_INDEX2
+#   Format: INDEX:CONFIDENCE, INDEX:CONFIDENCE
+#   Example: 19:0.95, 6:0.70
+#   If no matches: none
 
 # Custom GPT prompt for event type classification (optional)
 # Classifies events as offline (0), online (1), or hybrid (2)

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { TelegramMessage } from './types';
+import { TelegramMessage, InterestMatch } from './types';
 
 export interface DebugStep3Entry {
   messageLink: string;
@@ -37,6 +37,7 @@ export interface DebugStep6Entry {
   gpt_prompt: string;
   gpt_response: string;
   interests_matched: string[];
+  interest_matches?: InterestMatch[];  // New: with confidence scores
   result: 'matched' | 'discarded';
   cached: boolean;
 }

@@ -11,3 +11,9 @@ session/
 debug/
 gpt_judgment_analysis.md
 app_output.log
+
+# Quality assessment reports
+*ASSESSMENT*.md
+*REPORT*.md
+*_REPORT.md
+*_ASSESSMENT.md
