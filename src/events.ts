@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { Event, Config } from './types';
 import { Cache } from './cache';
 import { parse } from 'date-fns';
+import { debugWriter } from './debug';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -34,6 +35,21 @@ export async function describeEvents(events: Event[], config: Config): Promise<E
         link: event.message.link
       };
       describedEvents.push({ ...event, event_description: updatedEventDescription });
+
+      if (config.writeDebugFiles) {
+        debugWriter.addStep7Entry({
+          message: event.message,
+          event_type: event.event_type!,
+          start_datetime: event.start_datetime!,
+          interests_matched: event.interests_matched!,
+          gpt_prompt: '[CACHED]',
+          gpt_response: `[CACHED: ${cachedEventDescription.title}]`,
+          extracted_title: cachedEventDescription.title,
+          extracted_summary: cachedEventDescription.short_summary,
+          extraction_success: true,
+          cached: true
+        });
+      }
     } else {
       uncachedEvents.push(event);
     }
@@ -116,6 +132,21 @@ Link: ${event.message.link}`).join('\n\n');
             } else {
               console.log(`    ✗ Failed to extract complete event info for ${chunk[i].message.link}`);
             }
+          }
+
+          if (config.writeDebugFiles) {
+            debugWriter.addStep7Entry({
+              message: chunk[i].message,
+              event_type: chunk[i].event_type!,
+              start_datetime: chunk[i].start_datetime!,
+              interests_matched: chunk[i].interests_matched!,
+              gpt_prompt: prompt,
+              gpt_response: result,
+              extracted_title: title,
+              extracted_summary: summary,
+              extraction_success: !!(title && summary && description),
+              cached: false
+            });
           }
         }
       }

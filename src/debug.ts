@@ -42,12 +42,26 @@ export interface DebugStep6Entry {
   cached: boolean;
 }
 
+export interface DebugStep7Entry {
+  message: TelegramMessage;
+  event_type: string;
+  start_datetime: string;
+  interests_matched: string[];
+  gpt_prompt: string;
+  gpt_response: string;
+  extracted_title: string;
+  extracted_summary: string;
+  extraction_success: boolean;
+  cached: boolean;
+}
+
 class DebugWriter {
   private debugDir = 'debug';
   private step3Entries: DebugStep3Entry[] = [];
   private step4Entries: DebugStep4Entry[] = [];
   private step5Entries: DebugStep5Entry[] = [];
   private step6Entries: DebugStep6Entry[] = [];
+  private step7Entries: DebugStep7Entry[] = [];
 
   constructor() {
     // Create debug directory if it doesn't exist
@@ -73,10 +87,15 @@ class DebugWriter {
     this.step6Entries.push(entry);
   }
 
+  addStep7Entry(entry: DebugStep7Entry): void {
+    this.step7Entries.push(entry);
+  }
+
   writeAll(): void {
     this.writeStep4();
     this.writeStep5();
     this.writeStep6();
+    this.writeStep7();
     console.log(`Debug files written to ${this.debugDir}/ directory`);
   }
 
@@ -168,6 +187,25 @@ class DebugWriter {
         reasons[reason] = (reasons[reason] || 0) + 1;
       });
     return reasons;
+  }
+
+  private writeStep7(): void {
+    const filename = path.join(this.debugDir, 'event_description.json');
+    const data = {
+      step: 'Event Description Generation',
+      description: 'GPT-based event description extraction (title, summary)',
+      total_entries: this.step7Entries.length,
+      result_counts: {
+        successful: this.step7Entries.filter(e => e.extraction_success).length,
+        failed: this.step7Entries.filter(e => !e.extraction_success).length
+      },
+      cache_stats: {
+        cached: this.step7Entries.filter(e => e.cached).length,
+        uncached: this.step7Entries.filter(e => !e.cached).length
+      },
+      entries: this.step7Entries
+    };
+    fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 }
 

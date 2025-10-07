@@ -75,8 +75,9 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
   - Step 3 adds: `message: TelegramMessage`
   - Step 4 adds: `event_type?: 'offline' | 'online' | 'hybrid'`
   - Step 5 adds: `start_datetime?: string`
-  - Step 6 adds: `interests_matched?: string[]`
+  - Step 6 adds: `interests_matched?: string[]` and `interest_matches?: InterestMatch[]` (with confidence scores)
   - Step 7 adds: `event_description?: EventDescription`
+- `InterestMatch` interface contains `interest: string` and `confidence: number` for detailed interest matching results
 
 **Authentication** (`src/telegram.ts`):
 - Uses persistent session storage in `.telegram-session` file
@@ -177,5 +178,6 @@ When `writeDebugFiles` is enabled (default: false), the tool writes detailed deb
 - `event_classification.json`: GPT classification of events as hybrid/offline/online with prompts and responses (step 4)
 - `schedule_filtering.json`: Schedule filtering and datetime extraction results (step 5)
 - `interest_matching.json`: Interest matching results showing which events matched which interests (step 6)
+- `event_description.json`: Event description generation with extracted titles and summaries (step 7)
 
 Debug files include GPT prompts, responses, cache status, and detailed statistics. Use for troubleshooting event detection, interest matching accuracy, or understanding GPT's decision-making process.
