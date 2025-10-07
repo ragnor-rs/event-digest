@@ -19,9 +19,8 @@ async function main() {
     await telegramClient.connect();
     console.log('');
 
-    console.log('Step 1: Fetching messages...');
     const allMessages = await telegramClient.fetchMessages(config);
-    console.log(`  Fetched ${allMessages.length} total messages\n`);
+    console.log('');
 
     const eventCueMessages = await filterByEventCues(allMessages, config);
     console.log('');

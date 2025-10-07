@@ -181,8 +181,10 @@ export class TelegramClient {
   }
 
   async fetchMessages(config: Config): Promise<TelegramMessage[]> {
+    console.log('Step 1: Fetching messages...');
+
     const allMessages: TelegramMessage[] = [];
-    
+
     // Process groups with higher message limit
     for (const groupName of config.groupsToParse) {
       const messages = await this.fetchMessagesFromSource(groupName, 'group', config.maxGroupMessages, config);
@@ -195,9 +197,13 @@ export class TelegramClient {
       allMessages.push(...messages);
     }
 
-    return allMessages.sort((a, b) => 
+    const sortedMessages = allMessages.sort((a, b) =>
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
+
+    console.log(`  Fetched ${sortedMessages.length} total messages`);
+
+    return sortedMessages;
   }
 
   async disconnect(): Promise<void> {
