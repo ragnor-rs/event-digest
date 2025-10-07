@@ -94,6 +94,11 @@ skipOnlineEvents: true
 # When enabled, writes detailed debug files to debug/ directory
 writeDebugFiles: false
 
+# Verbose logging (default: false)
+# When enabled, prints detailed processing information including cache stats,
+# batch numbers, DISCARDED messages with links, and event creation status
+verboseLogging: false
+
 # GPT batch sizes for processing (optional)
 # Controls how many items are processed in each GPT API call
 # Larger batches are faster but may reduce accuracy
@@ -134,7 +139,12 @@ npm run dev -- \
   --max-group-messages 200 \
   --max-channel-messages 100 \
   --skip-online-events true \
-  --write-debug-files false
+  --write-debug-files false \
+  --verbose-logging false \
+  --gpt-batch-size-event-detection 16 \
+  --gpt-batch-size-event-classification 16 \
+  --gpt-batch-size-schedule-extraction 16 \
+  --gpt-batch-size-event-description 5
 ```
 
 ### Configuration Parameters
@@ -147,11 +157,12 @@ npm run dev -- \
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
-- **GPT Batch Sizes** (optional, YAML only - controls processing efficiency):
-  - `gptBatchSizeEventDetection`: Items per batch for event detection (default: 16)
-  - `gptBatchSizeEventClassification`: Items per batch for event type classification (default: 16)
-  - `gptBatchSizeScheduleExtraction`: Items per batch for schedule extraction (default: 16)
-  - `gptBatchSizeEventDescription`: Items per batch for event description generation (default: 5)
+- `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
+- **GPT Batch Sizes** (optional - controls processing efficiency):
+  - `gptBatchSizeEventDetection`/`--gpt-batch-size-event-detection`: Items per batch for event detection (default: 16)
+  - `gptBatchSizeEventClassification`/`--gpt-batch-size-event-classification`: Items per batch for event type classification (default: 16)
+  - `gptBatchSizeScheduleExtraction`/`--gpt-batch-size-schedule-extraction`: Items per batch for schedule extraction (default: 16)
+  - `gptBatchSizeEventDescription`/`--gpt-batch-size-event-description`: Items per batch for event description generation (default: 5)
 - **Custom GPT Prompts** (optional, YAML only - all 5 AI steps configurable):
   - `eventDetectionPrompt`: Custom prompt for event detection (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Custom prompt for event type classification (step 4) - uses `{{MESSAGES}}` placeholder

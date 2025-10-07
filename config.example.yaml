@@ -55,6 +55,15 @@ weeklyTimeslots:
 # Files include: event_classification.json, interest_matching.json, schedule_filtering.json
 # writeDebugFiles: false
 
+# Optional: Verbose logging (default: false)
+# When enabled, prints detailed processing information including:
+# - Cache processing details
+# - Processing batch numbers
+# - Individual DISCARDED messages with links
+# - Event creation status
+# When disabled, only prints step names and final statistics
+# verboseLogging: false
+
 # Optional: GPT batch sizes for processing (defaults shown)
 # Controls how many items are processed in each GPT API call
 # Larger batches are faster but may reduce accuracy

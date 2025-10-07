@@ -42,7 +42,9 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
     return [];
   }
 
-  console.log(`  Processing cache...`);
+  if (config.verboseLogging) {
+    console.log(`  Processing cache...`);
+  }
   const cache = new Cache();
   const debugResults: Array<{
     messageLink: string;
@@ -69,7 +71,9 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
           cached: true,
         });
       } else {
-        console.log(`    DISCARDED: ${message.link} - not an event announcement (cached)`);
+        if (config.verboseLogging) {
+          console.log(`    DISCARDED: ${message.link} - not an event announcement (cached)`);
+        }
         debugResults.push({
           messageLink: message.link,
           isEvent: false,
@@ -81,12 +85,14 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
     }
   }
 
-  if (cacheHits > 0) {
+  if (config.verboseLogging && cacheHits > 0) {
     console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
   }
 
   if (uncachedMessages.length === 0) {
-    console.log(`  All messages cached, skipping GPT calls`);
+    if (config.verboseLogging) {
+      console.log(`  All messages cached, skipping GPT calls`);
+    }
     console.log(`  GPT identified ${events.length} event messages`);
 
     if (config.writeDebugFiles) {
@@ -148,7 +154,9 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
         // Cache negative results for unprocessed messages
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedIndices.has(idx)) {
-            console.log(`    DISCARDED: ${chunk[idx].link} - not an event announcement`);
+            if (config.verboseLogging) {
+              console.log(`    DISCARDED: ${chunk[idx].link} - not an event announcement`);
+            }
             cache.cacheEventMessage(chunk[idx].link, false, false);
 
             debugResults.push({
@@ -163,7 +171,9 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
       } else {
         // All messages in chunk are not events
         for (const message of chunk) {
-          console.log(`    DISCARDED: ${message.link} - not an event announcement`);
+          if (config.verboseLogging) {
+            console.log(`    DISCARDED: ${message.link} - not an event announcement`);
+          }
           cache.cacheEventMessage(message.link, false, false);
 
           debugResults.push({
@@ -208,7 +218,9 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
   const uncachedEvents: Event[] = [];
   let cacheHits = 0;
 
-  console.log('  Processing cache...');
+  if (config.verboseLogging) {
+    console.log('  Processing cache...');
+  }
   for (const event of events) {
     const cachedType = cache.getEventTypeCache(event.message.link);
     if (cachedType !== null) {
@@ -216,7 +228,9 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
 
       // Check if we should include this event based on skipOnlineEvents
       if (cachedType === 'online' && config.skipOnlineEvents) {
-        console.log(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
+        if (config.verboseLogging) {
+          console.log(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
+        }
         debugWriter.addStep4Entry({
           message: event.message,
           gpt_prompt: '[CACHED]',
@@ -244,12 +258,14 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
     }
   }
 
-  if (cacheHits > 0) {
+  if (config.verboseLogging && cacheHits > 0) {
     console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
-    console.log(`  All events cached, skipping GPT calls`);
+    if (config.verboseLogging) {
+      console.log(`  All events cached, skipping GPT calls`);
+    }
     console.log(`  Created ${classifiedEvents.length} classified events`);
     return classifiedEvents;
   }
@@ -261,7 +277,9 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
+    if (config.verboseLogging) {
+      console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
+    }
 
     const messagesText = chunk.map((event, idx) => `${idx + 1}. ${event.message.content.replace(/\n/g, ' ')}`).join('\n\n');
     const prompt = (config.eventTypeClassificationPrompt || '').replace('{{MESSAGES}}', messagesText);
@@ -294,7 +312,9 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
 
               // Check if we should include this event
               if (eventType === 'online' && config.skipOnlineEvents) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
+                if (config.verboseLogging) {
+                  console.log(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
+                }
                 debugWriter.addStep4Entry({
                   message: chunk[messageIdx].message,
                   gpt_prompt: prompt,
@@ -325,7 +345,9 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
       // Handle unprocessed events (shouldn't happen, but just in case)
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedIndices.has(idx)) {
-          console.log(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
+          if (config.verboseLogging) {
+            console.log(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
+          }
           const eventType = 'offline';
           cache.cacheEventType(chunk[idx].message.link, eventType, false);
           classifiedEvents.push({
@@ -376,7 +398,9 @@ export async function filterByInterests(events: Event[], config: Config): Promis
   const matchedEvents: Event[] = [];
   let cacheHits = 0;
 
-  console.log('  Processing cache...');
+  if (config.verboseLogging) {
+    console.log('  Processing cache...');
+  }
   for (const event of events) {
     const cachedInterests = cache.getMatchingInterestsCache(event.message.link, config.userInterests);
     if (cachedInterests !== null) {
@@ -397,7 +421,9 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           cached: true
         });
       } else {
-        console.log(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
+        if (config.verboseLogging) {
+          console.log(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
+        }
         debugWriter.addStep6Entry({
           start_datetime: event.start_datetime!,
           message: event.message,
@@ -414,12 +440,14 @@ export async function filterByInterests(events: Event[], config: Config): Promis
     }
   }
 
-  if (cacheHits > 0) {
+  if (config.verboseLogging && cacheHits > 0) {
     console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
-    console.log(`  All events cached, skipping GPT calls`);
+    if (config.verboseLogging) {
+      console.log(`  All events cached, skipping GPT calls`);
+    }
     console.log(`  Found ${matchedEvents.length} events matching user interests`);
     return matchedEvents;
   }
@@ -427,7 +455,9 @@ export async function filterByInterests(events: Event[], config: Config): Promis
   // Process each event individually
   for (let i = 0; i < uncachedEvents.length; i++) {
     const event: Event = uncachedEvents[i];
-    console.log(`  Processing event ${i + 1}/${uncachedEvents.length}...`);
+    if (config.verboseLogging) {
+      console.log(`  Processing event ${i + 1}/${uncachedEvents.length}...`);
+    }
 
     const eventsText = `0: ${event.message.content.replace(/\n/g, ' ')}`;
 
@@ -450,7 +480,9 @@ export async function filterByInterests(events: Event[], config: Config): Promis
 
       if (!result) {
         // GPT returned undefined/empty - technical issue
-        console.log(`    DISCARDED: ${event.message.link} - GPT returned no response`);
+        if (config.verboseLogging) {
+          console.log(`    DISCARDED: ${event.message.link} - GPT returned no response`);
+        }
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
         debugWriter.addStep6Entry({
           start_datetime: event.start_datetime!,
@@ -464,7 +496,9 @@ export async function filterByInterests(events: Event[], config: Config): Promis
         });
       } else if (result.toLowerCase() === 'none') {
         // GPT explicitly said "none" - legitimate no match
-        console.log(`    DISCARDED: ${event.message.link} - GPT returned "none"`);
+        if (config.verboseLogging) {
+          console.log(`    DISCARDED: ${event.message.link} - GPT returned "none"`);
+        }
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
         debugWriter.addStep6Entry({
           message: event.message,
@@ -492,7 +526,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
         const invalidIndices: number[] = interestIndices.filter(
           (idx: number) => idx < 0 || idx >= config.userInterests.length
         );
-        if (invalidIndices.length > 0) {
+        if (config.verboseLogging && invalidIndices.length > 0) {
           console.log(`    WARNING: GPT returned invalid interest indices: ${invalidIndices.join(', ')}`);
         }
 
@@ -515,7 +549,9 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           });
         } else {
           // Parsed result but no valid interests (all invalid indices or empty)
-          console.log(`    DISCARDED: ${event.message.link} - no valid interests parsed from response`);
+          if (config.verboseLogging) {
+            console.log(`    DISCARDED: ${event.message.link} - no valid interests parsed from response`);
+          }
           cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
           debugWriter.addStep6Entry({
             message: event.message,
@@ -560,7 +596,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
   const scheduledEvents: Event[] = [];
   let cacheHits = 0;
 
-  console.log('  Processing cache...');
+  if (config.verboseLogging) {
+    console.log('  Processing cache...');
+  }
   for (const event of events) {
     const cachedDateTime = cache.getScheduledEventCache(event.message.link, config.weeklyTimeslots);
     if (cachedDateTime !== null) {
@@ -600,7 +638,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                 cached: true
               });
             } else {
-              console.log(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
+              if (config.verboseLogging) {
+                console.log(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
+              }
               debugWriter.addStep5Entry({
                 message: event.message,
                 event_type: event.event_type!,
@@ -614,7 +654,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               });
             }
           } else {
-            console.log(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
+            if (config.verboseLogging) {
+              console.log(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
+            }
             debugWriter.addStep5Entry({
               message: event.message,
               event_type: event.event_type!,
@@ -649,12 +691,14 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
     }
   }
 
-  if (cacheHits > 0) {
+  if (config.verboseLogging && cacheHits > 0) {
     console.log(`  Cache hits: ${cacheHits}/${events.length} messages`);
   }
 
   if (uncachedEvents.length === 0) {
-    console.log(`  All messages cached, skipping GPT calls`);
+    if (config.verboseLogging) {
+      console.log(`  All messages cached, skipping GPT calls`);
+    }
     console.log(`  Found ${scheduledEvents.length} messages matching schedule`);
     return scheduledEvents;
   }
@@ -666,7 +710,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    if (config.verboseLogging) {
+      console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    }
 
     const messagesText = chunk.map((event, idx) => {
       const messageDate = new Date(event.message.timestamp);
@@ -709,7 +755,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
 
               // Check if the date is valid
               if (!isValid(eventDate)) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date`);
+                if (config.verboseLogging) {
+                  console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date`);
+                }
                 debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
@@ -730,7 +778,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
 
               // Check if the event is in the future relative to current time
               if (eventDate <= now) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
+                if (config.verboseLogging) {
+                  console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
+                }
                 debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
@@ -748,7 +798,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               // Check if event date is reasonable relative to message date (not more than 2 years in the future)
               const maxFutureDate = new Date(messageDate.getTime() + (2 * 365 * 24 * 60 * 60 * 1000)); // 2 years from message
               if (eventDate > maxFutureDate) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
+                if (config.verboseLogging) {
+                  console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
+                }
                 debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
@@ -792,7 +844,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                   cached: false
                 });
               } else {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
+                if (config.verboseLogging) {
+                  console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
+                }
                 debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
@@ -806,7 +860,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                 });
               }
             } catch (error) {
-              console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
+              if (config.verboseLogging) {
+                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
+              }
               debugWriter.addStep5Entry({
                 message: chunk[messageIdx].message,
                 event_type: chunk[messageIdx].event_type!,
@@ -825,7 +881,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
         // Cache 'unknown' for unprocessed messages
         for (let idx = 0; idx < chunk.length; idx++) {
           if (!processedMessages.has(idx)) {
-            console.log(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
+            if (config.verboseLogging) {
+              console.log(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
+            }
             cache.cacheScheduledEvent(chunk[idx].message.link, 'unknown', config.weeklyTimeslots, false);
             debugWriter.addStep5Entry({
               message: chunk[idx].message,
@@ -843,7 +901,9 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
       } else {
         // No results from GPT, cache as unknown
         for (const event of chunk) {
-          console.log(`    DISCARDED: ${event.message.link} - no date/time found`);
+          if (config.verboseLogging) {
+            console.log(`    DISCARDED: ${event.message.link} - no date/time found`);
+          }
           cache.cacheScheduledEvent(event.message.link, 'unknown', config.weeklyTimeslots, false);
           debugWriter.addStep5Entry({
             message: event.message,

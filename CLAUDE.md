@@ -35,7 +35,12 @@ npm run dev -- \
   --max-group-messages 200 \
   --max-channel-messages 100 \
   --skip-online-events true \
-  --write-debug-files true
+  --write-debug-files true \
+  --verbose-logging false \
+  --gpt-batch-size-event-detection 16 \
+  --gpt-batch-size-event-classification 16 \
+  --gpt-batch-size-schedule-extraction 16 \
+  --gpt-batch-size-event-description 5
 ```
 
 ## Architecture
@@ -84,6 +89,7 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 - Detailed validation for groups, channels, interests, timeslots, and message limits
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
+- `verboseLogging` parameter (default: false) enables detailed processing logs with cache stats, batch numbers, and DISCARDED message links
 - **Configurable GPT batch sizes** (all optional with defaults optimized for balance of speed and accuracy):
   - `gptBatchSizeEventDetection` (default: 16): Controls batch size for step 3 event detection
   - `gptBatchSizeEventClassification` (default: 16): Controls batch size for step 4 event type classification

@@ -45,19 +45,28 @@ export function parseArgs(): Config {
   
   // Fall back to command line arguments
   if (args.length === 0) {
-    console.log(`Usage: 
+    console.log(`Usage:
   Option 1 - YAML config file:
     npm run dev -- --config=config.yaml
-    
+
   Option 2 - Command line arguments:
     npm run dev -- \\
       --groups "group1,group2" \\
       --channels "channel1,channel2" \\
-      --interests "интерес1,интерес2" \\
+      --interests "Interest1,Interest2" \\
       --timeslots "6 14:00,0 14:00" \\
+      [--max-group-messages 200] \\
+      [--max-channel-messages 100] \\
+      [--skip-online-events true] \\
+      [--write-debug-files false] \\
+      [--verbose-logging false] \\
+      [--gpt-batch-size-event-detection 16] \\
+      [--gpt-batch-size-event-classification 16] \\
+      [--gpt-batch-size-schedule-extraction 16] \\
+      [--gpt-batch-size-event-description 5] \\
       [--last-timestamp "2011-08-12T20:17:46.384Z"] \\
       [--max-messages 100]
-      
+
   Option 3 - Default config file (config.yaml or config.yml in project root)`);
     process.exit(1);
   }
@@ -99,6 +108,21 @@ export function parseArgs(): Config {
       case '--skip-online-events':
         config.skipOnlineEvents = value.toLowerCase() === 'true';
         break;
+      case '--verbose-logging':
+        config.verboseLogging = value.toLowerCase() === 'true';
+        break;
+      case '--gpt-batch-size-event-detection':
+        config.gptBatchSizeEventDetection = parseInt(value);
+        break;
+      case '--gpt-batch-size-event-classification':
+        config.gptBatchSizeEventClassification = parseInt(value);
+        break;
+      case '--gpt-batch-size-schedule-extraction':
+        config.gptBatchSizeScheduleExtraction = parseInt(value);
+        break;
+      case '--gpt-batch-size-event-description':
+        config.gptBatchSizeEventDescription = parseInt(value);
+        break;
     }
   }
 
@@ -111,6 +135,7 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedMaxChannelMessages = config.maxChannelMessages !== undefined;
   const providedSkipOnlineEvents = config.skipOnlineEvents !== undefined;
   const providedWriteDebugFiles = config.writeDebugFiles !== undefined;
+  const providedVerboseLogging = config.verboseLogging !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
   const providedGptBatchSizeEventDetection = config.gptBatchSizeEventDetection !== undefined;
   const providedGptBatchSizeEventClassification = config.gptBatchSizeEventClassification !== undefined;
@@ -154,6 +179,11 @@ function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Set default for write debug files
   if (config.writeDebugFiles === undefined) {
     config.writeDebugFiles = false;
+  }
+
+  // Set default for verbose logging
+  if (config.verboseLogging === undefined) {
+    config.verboseLogging = false;
   }
 
   // Set default GPT batch sizes
@@ -329,6 +359,7 @@ DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest t
   console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}${!providedMaxChannelMessages && !config.maxInputMessages ? ' (default)' : ''}`);
   console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}${!providedSkipOnlineEvents ? ' (default)' : ''}`);
   console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
+  console.log(`  verboseLogging: ${finalConfig.verboseLogging}${!providedVerboseLogging ? ' (default)' : ''}`);
   console.log(`  gptBatchSizeEventDetection: ${finalConfig.gptBatchSizeEventDetection}${!providedGptBatchSizeEventDetection ? ' (default)' : ''}`);
   console.log(`  gptBatchSizeEventClassification: ${finalConfig.gptBatchSizeEventClassification}${!providedGptBatchSizeEventClassification ? ' (default)' : ''}`);
   console.log(`  gptBatchSizeScheduleExtraction: ${finalConfig.gptBatchSizeScheduleExtraction}${!providedGptBatchSizeScheduleExtraction ? ' (default)' : ''}`);

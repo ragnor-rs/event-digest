@@ -123,9 +123,11 @@ export class TelegramClient {
     const lastTimestamp = this.cache.getLastMessageTimestamp(cacheKey);
 
     try {
-      console.log(`  Fetching messages from ${sourceType} ${sourceName}...`);
-      if (cachedMessages.length > 0) {
-        console.log(`    Cache contains ${cachedMessages.length} messages`);
+      if (config.verboseLogging) {
+        console.log(`  Fetching messages from ${sourceType} ${sourceName}...`);
+        if (cachedMessages.length > 0) {
+          console.log(`    Cache contains ${cachedMessages.length} messages`);
+        }
       }
 
       const entity = await this.client.getEntity(sourceName);
@@ -154,7 +156,9 @@ export class TelegramClient {
         }
       }
 
-      console.log(`    Fetched ${newMessages.length} new messages`);
+      if (config.verboseLogging) {
+        console.log(`    Fetched ${newMessages.length} new messages`);
+      }
 
       // Combine cached messages with new messages
       const allMessages = [...cachedMessages, ...newMessages];
@@ -167,7 +171,9 @@ export class TelegramClient {
       // Take the most recent 'limit' messages as final result
       const finalMessages = uniqueMessages.slice(-limit);
 
-      console.log(`    Total messages: ${finalMessages.length}`);
+      if (config.verboseLogging) {
+        console.log(`    Total messages: ${finalMessages.length}`);
+      }
 
       // Update cache with all unique messages for future runs
       this.cache.cacheMessages(cacheKey, uniqueMessages);

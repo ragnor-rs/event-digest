@@ -39,12 +39,14 @@ export async function describeEvents(events: Event[], config: Config): Promise<E
     }
   }
 
-  if (cacheHits > 0) {
+  if (config.verboseLogging && cacheHits > 0) {
     console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
-    console.log(`  All events cached, skipping GPT calls`);
+    if (config.verboseLogging) {
+      console.log(`  All events cached, skipping GPT calls`);
+    }
     console.log(`  Created ${describedEvents.length} events`);
     return describedEvents;
   }
@@ -56,7 +58,9 @@ export async function describeEvents(events: Event[], config: Config): Promise<E
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
+    if (config.verboseLogging) {
+      console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
+    }
 
     const eventsText = chunk.map((event, idx) => `${idx + 1}.
 Start time: ${event.start_datetime}
@@ -106,10 +110,12 @@ Link: ${event.message.link}`).join('\n\n');
           // Cache the extracted event description data (without dynamic fields like date_time and interests)
           cache.cacheConvertedEvent(chunk[i].message.link, eventDescriptionData, config.userInterests, false);
 
-          if (title && summary && description) {
-            console.log(`    ✓ Created event: ${title}`);
-          } else {
-            console.log(`    ✗ Failed to extract complete event info for ${chunk[i].message.link}`);
+          if (config.verboseLogging) {
+            if (title && summary && description) {
+              console.log(`    ✓ Created event: ${title}`);
+            } else {
+              console.log(`    ✗ Failed to extract complete event info for ${chunk[i].message.link}`);
+            }
           }
         }
       }
