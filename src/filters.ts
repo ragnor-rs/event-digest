@@ -734,9 +734,14 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
       if (result) {
         const lines = result.split('\n').filter(line => line.includes(':'));
         const processedMessages = new Set<number>();
-        
+
         for (const line of lines) {
-          const [numPart, datePart] = line.split(':');
+          const colonIndex = line.indexOf(':');
+          if (colonIndex === -1) continue;
+
+          const numPart = line.substring(0, colonIndex);
+          const datePart = line.substring(colonIndex + 1);
+
           const messageIdx = parseInt(numPart.trim()) - 1;
           const dateTime = datePart.trim();
           
@@ -757,6 +762,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               if (!isValid(eventDate)) {
                 if (config.verboseLogging) {
                   console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`);
+                  console.log(`    GPT response line: "${line}"`);
                 }
                 debugWriter.addStep5Entry({
                   message: chunk[messageIdx].message,

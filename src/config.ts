@@ -355,21 +355,30 @@ Messages:
 For each message, respond with the message number followed by the datetime in this EXACT format:
 MESSAGE_NUMBER: DD Mon YYYY HH:MM
 
-Examples:
-- "05 Dec 2024 19:30"
-- "18 Jan 2025 14:00"
+CORRECT Examples:
+1: 05 Dec 2024 19:30
+2: 18 Jan 2025 14:00
+3: 07 Oct 2025 20:00
+
+WRONG Examples (DO NOT USE):
+1: 19:30 (missing date!)
+2: Dec 2024 (missing day and time!)
+3: 00 (not a valid datetime!)
+4: 19 (not a valid datetime!)
 
 If you cannot determine the date/time from a message, respond with:
 MESSAGE_NUMBER: unknown
 
 IMPORTANT:
+- ALWAYS include the COMPLETE datetime: DD Mon YYYY HH:MM
 - Always use 24-hour time format (e.g., 14:00, not 2:00 PM)
 - Use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
 - Always include leading zeros for days and hours (05, not 5)
 - Parse relative dates like "сегодня/today" using the current date
 - Parse "завтра/tomorrow" as current date + 1 day
 - For partial times like "18" assume "18:00"
-- Always ensure the event date is in the future relative to message timestamp`;
+- Always ensure the event date is in the future relative to message timestamp
+- NEVER return just a time like "19:00" or just a number like "00" - always include the full date`;
   }
 
   // Set default event description prompt
