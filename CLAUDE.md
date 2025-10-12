@@ -69,17 +69,14 @@ src/
 │   │   ├── telegram-message.ts  # Raw Telegram message data
 │   │   ├── interest-match.ts    # Interest match with confidence score
 │   │   ├── event-description.ts # Structured event information
-│   │   └── index.ts         # Barrel export
-│   ├── interfaces/           # Domain abstraction interfaces
-│   │   ├── ai-client.interface.ts  # IAIClient interface for AI operations
-│   │   ├── cache.interface.ts      # ICache interface for caching
+│   │   ├── event-type.ts    # EventType enum (OFFLINE/ONLINE/HYBRID)
 │   │   └── index.ts         # Barrel export
 │   └── services/             # Business logic services (filtering, matching, etc.)
 │       ├── event-cues-filter.ts      # Step 2: Text-based event filtering
-│       ├── event-detector.ts         # Step 3: GPT event detection
+│       ├── event-detector.ts         # Step 3: GPT event detection (~180 lines)
 │       ├── event-classifier.ts       # Step 4: Event type classification
-│       ├── schedule-matcher.ts       # Step 5: Schedule extraction & matching
-│       ├── interest-matcher.ts       # Step 6: Interest matching with confidence
+│       ├── schedule-matcher.ts       # Step 5: Schedule extraction & matching (~370 lines, longest service)
+│       ├── interest-matcher.ts       # Step 6: Interest matching with confidence (~235 lines, processes individually)
 │       ├── event-describer.ts        # Step 7: Event description generation
 │       └── index.ts         # Barrel export
 ├── application/              # Use case orchestration
@@ -128,17 +125,18 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `EventDescription`: Structured event information (date_time, met_interests, title, short_summary, link)
 - `Event`: Single event type with optional fields populated through pipeline stages:
   - Step 3 adds: `message: TelegramMessage`
-  - Step 4 adds: `event_type?: 'offline' | 'online' | 'hybrid'`
+  - Step 4 adds: `event_type?: EventType` (enum: OFFLINE, ONLINE, HYBRID)
   - Step 5 adds: `start_datetime?: string`
   - Step 6 adds: `interests_matched?: string[]` and `interest_matches?: InterestMatch[]` (with confidence scores)
   - Step 7 adds: `event_description?: EventDescription`
+- `EventType`: Enum defining event types (OFFLINE = 'offline', ONLINE = 'online', HYBRID = 'hybrid')
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
-- `event-detector.ts`: GPT-powered event announcement detection (~140 lines)
+- `event-detector.ts`: GPT-powered event announcement detection (~180 lines)
 - `event-classifier.ts`: Event type classification (offline/online/hybrid) with online event filtering
-- `schedule-matcher.ts`: Schedule extraction and availability matching (~350 lines, longest service)
-- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~250 lines, processes individually for accuracy)
+- `schedule-matcher.ts`: Schedule extraction and availability matching (~370 lines, longest service)
+- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~235 lines, processes individually for accuracy)
 - `event-describer.ts`: Event description generation with creative temperature
 
 **Application Layer** (`application/`):
@@ -278,15 +276,13 @@ Debug files include GPT prompts, responses, cache status, and detailed statistic
 
 The codebase follows **Clean Architecture** and **DDD** principles:
 
-1. **Dependency Rule**: Dependencies point inward (Presentation → Application → Domain, Data → Domain)
-2. **Domain Interfaces**: Domain layer defines abstraction interfaces (`IAIClient`, `ICache`) that infrastructure implements. Domain services depend on concrete implementations directly (pragmatic approach) but interfaces are available for future DI if needed.
-3. **Single Responsibility**: Each module has one clear purpose
-4. **Separation of Concerns**: Business logic, data access, configuration, and presentation are isolated
-5. **No Code Duplication**: Shared logic extracted to utilities and services
-6. **Co-located Constants**: Operation-affecting strings and prompts stay with their usage context (no separate constants.ts files)
-7. **YAGNI Principle**: No repository abstraction (not swapping Telegram for another platform)
+1. **Separation of Concerns**: Business logic (domain), use cases (application), external systems (data), configuration, and presentation are clearly separated
+2. **Single Responsibility**: Each module has one clear purpose
+3. **No Code Duplication**: Shared logic extracted to utilities and services
+4. **Constants Management**: Configuration constants are centralized in `config/constants.ts` with documented rationale. Operation-specific constants (like `GPT_TEMPERATURE_CREATIVE`, `RATE_LIMIT_DELAY`, `DATE_FORMAT`) stay co-located with their usage context for better maintainability
+5. **YAGNI Principle**: No repository abstraction (not swapping Telegram for another platform), no dependency injection containers
 
-**Note on Dependencies:** Domain services currently import concrete implementations (`OpenAIClient`, `Cache`) and configuration types (`Config`) from outer layers. While this is pragmatic for the current use case, interfaces in `domain/interfaces/` are available if stricter dependency inversion is needed in the future.
+**Note on Architecture:** While inspired by Clean Architecture principles, this codebase takes a pragmatic approach. Domain services directly import concrete implementations (`OpenAIClient`, `Cache`) and configuration types (`Config`) from outer layers rather than using interfaces and dependency injection. This avoids over-engineering for the current use case while maintaining clear separation of concerns through well-defined service boundaries.
 
 ## Key File Locations
 
@@ -300,7 +296,6 @@ When working with specific functionality, refer to these files:
 - **Add new configuration options**: Start with `config/types.ts`, then `config/defaults.ts`, then `config/validator.ts`, then `config/args-parser.ts`
 - **Modify GPT prompts**: `config/defaults.ts` (single source of truth)
 - **Add new entity fields**: Relevant file in `domain/entities/`
-- **Modify domain interfaces**: `domain/interfaces/ai-client.interface.ts` or `domain/interfaces/cache.interface.ts`
 - **Change caching logic**: `data/cache.ts`
 - **Modify Telegram fetching**: `data/telegram-client.ts`
 - **Update OpenAI integration**: `data/openai-client.ts`
