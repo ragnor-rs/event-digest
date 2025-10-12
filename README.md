@@ -231,30 +231,30 @@ This codebase follows **Clean Architecture** and **Domain-Driven Design (DDD)** 
 
 ```
 src/
-├── domain/                    # Business logic & domain entities
-│   ├── entities/             # Domain entities (Event, TelegramMessage, etc.)
-│   └── services/             # Business logic services (filtering, matching, etc.)
-├── application/              # Use case orchestration
-│   └── event-pipeline.ts     # 7-step pipeline orchestrator
-├── data/                     # External systems (infrastructure layer)
-│   ├── openai-client.ts     # OpenAI API client
-│   ├── telegram-client.ts   # Telegram API client
-│   └── cache.ts             # Caching system
-├── config/                   # Configuration management
-│   ├── types.ts             # Config interface
-│   ├── defaults.ts          # Default values & prompts
-│   ├── args-parser.ts       # CLI argument parsing
-│   ├── yaml-loader.ts       # YAML configuration loading
-│   └── validator.ts         # Config validation & merging
-├── shared/                   # Shared utilities
-│   ├── date-utils.ts        # Date normalization
-│   ├── logger.ts            # Logging utilities
-│   ├── batch-processor.ts   # Batch processing helpers
-│   └── readline-helper.ts   # Input prompts
-├── presentation/             # Output formatting
-│   ├── event-printer.ts     # Console event output
-│   └── debug-writer.ts      # Debug file writer
-└── index.ts                  # Application bootstrap
+├── domain/                     # Business logic & domain entities
+│   ├── entities/               # Domain entities (Event, TelegramMessage, etc.)
+│   └── services/               # Business logic services (filtering, matching, etc.)
+├── application/                # Use case orchestration
+│   └── event-pipeline.ts       # 7-step pipeline orchestrator
+├── data/                       # External systems (infrastructure layer)
+│   ├── openai-client.ts        # OpenAI API client
+│   ├── telegram-client.ts      # Telegram API client
+│   └── cache.ts                # Caching system
+├── config/                     # Configuration management
+│   ├── types.ts                # Config interface
+│   ├── defaults.ts             # Default values & prompts
+│   ├── args-parser.ts          # CLI argument parsing
+│   ├── yaml-loader.ts          # YAML configuration loading
+│   └── validator.ts            # Config validation & merging
+├── shared/                     # Shared utilities
+│   ├── date-utils.ts           # Date normalization
+│   ├── logger.ts               # Logging utilities
+│   ├── batch-processor.ts      # Batch processing helpers
+│   └── readline-helper.ts      # Input prompts
+├── presentation/               # Output formatting
+│   ├── event-printer.ts        # Console event output
+│   └── debug-writer.ts         # Debug file writer
+└── index.ts                    # Application bootstrap
 ```
 
 ### Key Technologies

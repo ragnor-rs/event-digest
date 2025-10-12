@@ -63,46 +63,46 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 
 ```
 src/
-├── domain/                    # Business logic & domain entities
-│   ├── entities/             # Domain entities (Event, TelegramMessage, etc.)
-│   │   ├── event.ts         # Core Event entity with optional fields
-│   │   ├── telegram-message.ts  # Raw Telegram message data
-│   │   ├── interest-match.ts    # Interest match with confidence score
-│   │   ├── event-description.ts # Structured event information
-│   │   ├── event-type.ts    # EventType enum (OFFLINE/ONLINE/HYBRID)
-│   │   └── index.ts         # Barrel export
-│   └── services/             # Business logic services (filtering, matching, etc.)
-│       ├── event-cues-filter.ts      # Step 2: Text-based event filtering
-│       ├── event-detector.ts         # Step 3: GPT event detection (~180 lines)
-│       ├── event-classifier.ts       # Step 4: Event type classification
-│       ├── schedule-matcher.ts       # Step 5: Schedule extraction & matching (~370 lines, longest service)
-│       ├── interest-matcher.ts       # Step 6: Interest matching with confidence (~235 lines, processes individually)
-│       ├── event-describer.ts        # Step 7: Event description generation
-│       └── index.ts         # Barrel export
-├── application/              # Use case orchestration
-│   ├── event-pipeline.ts    # 7-step pipeline orchestrator
-│   └── index.ts             # Barrel export
-├── data/                     # External systems (infrastructure layer)
-│   ├── openai-client.ts     # OpenAI API client wrapper
-│   ├── telegram-client.ts   # Telegram API client with session management
-│   ├── cache.ts             # Six-tier caching system
-│   └── index.ts             # Barrel export
-├── config/                   # Configuration management
-│   ├── types.ts             # Config interface definition
-│   ├── defaults.ts          # Default values & all GPT prompts
-│   ├── args-parser.ts       # CLI argument parsing & validation
-│   ├── yaml-loader.ts       # YAML configuration file loading
-│   ├── validator.ts         # Config validation & merging logic
-│   └── index.ts             # Barrel export with parseArgs function
-├── shared/                   # Shared utilities
-│   ├── date-utils.ts        # Date normalization (single source of truth)
-│   ├── logger.ts            # Logging utilities (verbose/normal)
-│   ├── batch-processor.ts   # Batch processing & rate limiting
-│   └── readline-helper.ts   # Input prompts for Telegram auth
-├── presentation/             # Output formatting
-│   ├── event-printer.ts     # Console event output formatting
-│   └── debug-writer.ts      # Debug file writer (5 files)
-└── index.ts                  # Application bootstrap
+├── domain/                         # Business logic & domain entities
+│   ├── entities/                   # Domain entities (Event, TelegramMessage, etc.)
+│   │   ├── event.ts                # Core Event entity with optional fields
+│   │   ├── telegram-message.ts     # Raw Telegram message data
+│   │   ├── interest-match.ts       # Interest match with confidence score
+│   │   ├── event-description.ts    # Structured event information
+│   │   ├── event-type.ts           # EventType enum (OFFLINE/ONLINE/HYBRID)
+│   │   └── index.ts                # Barrel export
+│   └── services/                   # Business logic services (filtering, matching, etc.)
+│       ├── event-cues-filter.ts    # Step 2: Text-based event filtering
+│       ├── event-detector.ts       # Step 3: GPT event detection (~180 lines)
+│       ├── event-classifier.ts     # Step 4: Event type classification
+│       ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~370 lines, longest service)
+│       ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~235 lines, processes individually)
+│       ├── event-describer.ts      # Step 7: Event description generation
+│       └── index.ts                # Barrel export
+├── application/                    # Use case orchestration
+│   ├── event-pipeline.ts           # 7-step pipeline orchestrator
+│   └── index.ts                    # Barrel export
+├── data/                           # External systems (infrastructure layer)
+│   ├── openai-client.ts            # OpenAI API client wrapper
+│   ├── telegram-client.ts          # Telegram API client with session management
+│   ├── cache.ts                    # Six-tier caching system
+│   └── index.ts                    # Barrel export
+├── config/                         # Configuration management
+│   ├── types.ts                    # Config interface definition
+│   ├── defaults.ts                 # Default values & all GPT prompts
+│   ├── args-parser.ts              # CLI argument parsing & validation
+│   ├── yaml-loader.ts              # YAML configuration file loading
+│   ├── validator.ts                # Config validation & merging logic
+│   └── index.ts                    # Barrel export with parseArgs function
+├── shared/                         # Shared utilities
+│   ├── date-utils.ts               # Date normalization (single source of truth)
+│   ├── logger.ts                   # Logging utilities (verbose/normal)
+│   ├── batch-processor.ts          # Batch processing & rate limiting
+│   └── readline-helper.ts          # Input prompts for Telegram auth
+├── presentation/                   # Output formatting
+│   ├── event-printer.ts            # Console event output formatting
+│   └── debug-writer.ts             # Debug file writer (5 files)
+└── index.ts                        # Application bootstrap
 ```
 
 ### Core Pipeline Flow
