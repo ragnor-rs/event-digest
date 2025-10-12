@@ -70,6 +70,10 @@ src/
 │   │   ├── interest-match.ts    # Interest match with confidence score
 │   │   ├── event-description.ts # Structured event information
 │   │   └── index.ts         # Barrel export
+│   ├── interfaces/           # Domain abstraction interfaces
+│   │   ├── ai-client.interface.ts  # IAIClient interface for AI operations
+│   │   ├── cache.interface.ts      # ICache interface for caching
+│   │   └── index.ts         # Barrel export
 │   └── services/             # Business logic services (filtering, matching, etc.)
 │       ├── event-cues-filter.ts      # Step 2: Text-based event filtering
 │       ├── event-detector.ts         # Step 3: GPT event detection
@@ -231,6 +235,8 @@ Required environment variables (see `.env.example`):
 - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_PHONE_NUMBER` - Telegram API credentials
 - `OPENAI_API_KEY` - OpenAI API key for GPT-4o-mini
 
+**Environment Variable Validation:** The application validates all required environment variables at startup before initializing clients. Missing variables will cause immediate failure with a clear error message referencing `.env.example`.
+
 The `.telegram-session` file is automatically created and managed for persistent authentication.
 
 ## Cache Management
@@ -250,6 +256,11 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 - Combines cached and newly fetched messages, removing duplicates by message link
 - Significantly reduces Telegram API calls on subsequent runs
 
+**Cache Type Safety:**
+- All cache getter methods return `T | undefined` (not `null`) for missing values
+- `undefined` consistently represents "not found in cache"
+- Cache operations throw errors on save failures rather than silently failing
+
 Cache keys include relevant user preferences to ensure correct invalidation when settings change. Each cache store is maintained in its own file for better organization and independent management.
 
 ## Debug Files
@@ -268,12 +279,14 @@ Debug files include GPT prompts, responses, cache status, and detailed statistic
 The codebase follows **Clean Architecture** and **DDD** principles:
 
 1. **Dependency Rule**: Dependencies point inward (Presentation → Application → Domain, Data → Domain)
-2. **Domain Independence**: Domain layer has zero external dependencies
+2. **Domain Interfaces**: Domain layer defines abstraction interfaces (`IAIClient`, `ICache`) that infrastructure implements. Domain services depend on concrete implementations directly (pragmatic approach) but interfaces are available for future DI if needed.
 3. **Single Responsibility**: Each module has one clear purpose
 4. **Separation of Concerns**: Business logic, data access, configuration, and presentation are isolated
 5. **No Code Duplication**: Shared logic extracted to utilities and services
 6. **Co-located Constants**: Operation-affecting strings and prompts stay with their usage context (no separate constants.ts files)
 7. **YAGNI Principle**: No repository abstraction (not swapping Telegram for another platform)
+
+**Note on Dependencies:** Domain services currently import concrete implementations (`OpenAIClient`, `Cache`) and configuration types (`Config`) from outer layers. While this is pragmatic for the current use case, interfaces in `domain/interfaces/` are available if stricter dependency inversion is needed in the future.
 
 ## Key File Locations
 
@@ -287,12 +300,14 @@ When working with specific functionality, refer to these files:
 - **Add new configuration options**: Start with `config/types.ts`, then `config/defaults.ts`, then `config/validator.ts`, then `config/args-parser.ts`
 - **Modify GPT prompts**: `config/defaults.ts` (single source of truth)
 - **Add new entity fields**: Relevant file in `domain/entities/`
+- **Modify domain interfaces**: `domain/interfaces/ai-client.interface.ts` or `domain/interfaces/cache.interface.ts`
 - **Change caching logic**: `data/cache.ts`
 - **Modify Telegram fetching**: `data/telegram-client.ts`
 - **Update OpenAI integration**: `data/openai-client.ts`
 - **Change pipeline orchestration**: `application/event-pipeline.ts`
 - **Modify output formatting**: `presentation/event-printer.ts`
 - **Change debug file output**: `presentation/debug-writer.ts`
+- **Add environment variable validation**: `src/index.ts` (validateEnvironmentVariables function)
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.

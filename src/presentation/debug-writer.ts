@@ -37,7 +37,7 @@ export interface DebugInterestMatchingEntry {
   gpt_prompt: string;
   gpt_response: string;
   interests_matched: string[];
-  interest_matches?: InterestMatch[];  // New: with confidence scores
+  interest_matches?: InterestMatch[]; // New: with confidence scores
   result: 'matched' | 'discarded';
   cached: boolean;
 }
@@ -106,14 +106,14 @@ class DebugWriter {
       description: 'GPT filtering to identify single event announcements',
       total_entries: this.eventDetectionEntries.length,
       result_counts: {
-        is_event: this.eventDetectionEntries.filter(e => e.isEvent).length,
-        not_event: this.eventDetectionEntries.filter(e => !e.isEvent).length
+        is_event: this.eventDetectionEntries.filter((e) => e.isEvent).length,
+        not_event: this.eventDetectionEntries.filter((e) => !e.isEvent).length,
       },
       cache_stats: {
-        cached: this.eventDetectionEntries.filter(e => e.cached).length,
-        uncached: this.eventDetectionEntries.filter(e => !e.cached).length
+        cached: this.eventDetectionEntries.filter((e) => e.cached).length,
+        uncached: this.eventDetectionEntries.filter((e) => !e.cached).length,
       },
-      results: this.eventDetectionEntries
+      results: this.eventDetectionEntries,
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
@@ -125,16 +125,16 @@ class DebugWriter {
       description: 'Index-based GPT classification of events as offline (0), online (1), or hybrid (2)',
       total_entries: this.typeClassificationEntries.length,
       result_counts: {
-        hybrid: this.typeClassificationEntries.filter(e => e.result === 'hybrid').length,
-        offline: this.typeClassificationEntries.filter(e => e.result === 'offline').length,
-        online: this.typeClassificationEntries.filter(e => e.result === 'online').length,
-        discarded: this.typeClassificationEntries.filter(e => e.result === 'discarded').length
+        hybrid: this.typeClassificationEntries.filter((e) => e.result === 'hybrid').length,
+        offline: this.typeClassificationEntries.filter((e) => e.result === 'offline').length,
+        online: this.typeClassificationEntries.filter((e) => e.result === 'online').length,
+        discarded: this.typeClassificationEntries.filter((e) => e.result === 'discarded').length,
       },
       cache_stats: {
-        cached: this.typeClassificationEntries.filter(e => e.cached).length,
-        uncached: this.typeClassificationEntries.filter(e => !e.cached).length
+        cached: this.typeClassificationEntries.filter((e) => e.cached).length,
+        uncached: this.typeClassificationEntries.filter((e) => !e.cached).length,
       },
-      entries: this.typeClassificationEntries
+      entries: this.typeClassificationEntries,
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
@@ -146,15 +146,15 @@ class DebugWriter {
       description: 'GPT datetime extraction and schedule matching',
       total_entries: this.scheduleFilteringEntries.length,
       result_counts: {
-        scheduled: this.scheduleFilteringEntries.filter(e => e.result === 'scheduled').length,
-        discarded: this.scheduleFilteringEntries.filter(e => e.result === 'discarded').length
+        scheduled: this.scheduleFilteringEntries.filter((e) => e.result === 'scheduled').length,
+        discarded: this.scheduleFilteringEntries.filter((e) => e.result === 'discarded').length,
       },
       discard_reasons: this.getScheduleFilteringDiscardReasons(),
       cache_stats: {
-        cached: this.scheduleFilteringEntries.filter(e => e.cached).length,
-        uncached: this.scheduleFilteringEntries.filter(e => !e.cached).length
+        cached: this.scheduleFilteringEntries.filter((e) => e.cached).length,
+        uncached: this.scheduleFilteringEntries.filter((e) => !e.cached).length,
       },
-      entries: this.scheduleFilteringEntries
+      entries: this.scheduleFilteringEntries,
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
@@ -166,14 +166,14 @@ class DebugWriter {
       description: 'GPT matching of events to user interests',
       total_entries: this.interestMatchingEntries.length,
       result_counts: {
-        matched: this.interestMatchingEntries.filter(e => e.result === 'matched').length,
-        discarded: this.interestMatchingEntries.filter(e => e.result === 'discarded').length
+        matched: this.interestMatchingEntries.filter((e) => e.result === 'matched').length,
+        discarded: this.interestMatchingEntries.filter((e) => e.result === 'discarded').length,
       },
       cache_stats: {
-        cached: this.interestMatchingEntries.filter(e => e.cached).length,
-        uncached: this.interestMatchingEntries.filter(e => !e.cached).length
+        cached: this.interestMatchingEntries.filter((e) => e.cached).length,
+        uncached: this.interestMatchingEntries.filter((e) => !e.cached).length,
       },
-      entries: this.interestMatchingEntries
+      entries: this.interestMatchingEntries,
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
@@ -181,8 +181,8 @@ class DebugWriter {
   private getScheduleFilteringDiscardReasons(): Record<string, number> {
     const reasons: Record<string, number> = {};
     this.scheduleFilteringEntries
-      .filter(e => e.result === 'discarded' && e.discard_reason)
-      .forEach(e => {
+      .filter((e) => e.result === 'discarded' && e.discard_reason)
+      .forEach((e) => {
         const reason = e.discard_reason!;
         reasons[reason] = (reasons[reason] || 0) + 1;
       });
@@ -196,14 +196,14 @@ class DebugWriter {
       description: 'GPT-based event description extraction (title, summary)',
       total_entries: this.eventDescriptionEntries.length,
       result_counts: {
-        successful: this.eventDescriptionEntries.filter(e => e.extraction_success).length,
-        failed: this.eventDescriptionEntries.filter(e => !e.extraction_success).length
+        successful: this.eventDescriptionEntries.filter((e) => e.extraction_success).length,
+        failed: this.eventDescriptionEntries.filter((e) => !e.extraction_success).length,
       },
       cache_stats: {
-        cached: this.eventDescriptionEntries.filter(e => e.cached).length,
-        uncached: this.eventDescriptionEntries.filter(e => !e.cached).length
+        cached: this.eventDescriptionEntries.filter((e) => e.cached).length,
+        uncached: this.eventDescriptionEntries.filter((e) => !e.cached).length,
       },
-      entries: this.eventDescriptionEntries
+      entries: this.eventDescriptionEntries,
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }

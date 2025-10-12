@@ -9,7 +9,7 @@ interface MutableReadline extends readline.Interface {
 export async function promptForPassword(): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
   }) as MutableReadline;
 
   return new Promise((resolve) => {
@@ -33,7 +33,7 @@ export async function promptForPassword(): Promise<string> {
 export async function promptForCode(): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
   }) as MutableReadline;
 
   return new Promise((resolve) => {

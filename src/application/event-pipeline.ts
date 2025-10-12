@@ -10,7 +10,7 @@ import {
   classifyEventTypes,
   filterBySchedule,
   filterByInterests,
-  describeEvents
+  describeEvents,
 } from '../domain/services';
 import {
   debugWriter,
@@ -18,7 +18,7 @@ import {
   DebugTypeClassificationEntry,
   DebugScheduleFilteringEntry,
   DebugInterestMatchingEntry,
-  DebugEventDescriptionEntry
+  DebugEventDescriptionEntry,
 } from '../presentation/debug-writer';
 
 export class EventPipeline {
@@ -72,7 +72,7 @@ export class EventPipeline {
     );
     this.logger.log('');
 
-    debugTypeClassification.forEach(entry => debugWriter.addTypeClassificationEntry(entry));
+    debugTypeClassification.forEach((entry) => debugWriter.addTypeClassificationEntry(entry));
 
     // Step 5: Filter by schedule
     const debugScheduleFiltering: DebugScheduleFilteringEntry[] = [];
@@ -86,7 +86,7 @@ export class EventPipeline {
     );
     this.logger.log('');
 
-    debugScheduleFiltering.forEach(entry => debugWriter.addScheduleFilteringEntry(entry));
+    debugScheduleFiltering.forEach((entry) => debugWriter.addScheduleFilteringEntry(entry));
 
     // Step 6: Match to user interests
     const debugInterestMatching: DebugInterestMatchingEntry[] = [];
@@ -100,7 +100,7 @@ export class EventPipeline {
     );
     this.logger.log('');
 
-    debugInterestMatching.forEach(entry => debugWriter.addInterestMatchingEntry(entry));
+    debugInterestMatching.forEach((entry) => debugWriter.addInterestMatchingEntry(entry));
 
     // Step 7: Generate event descriptions
     const debugEventDescription: DebugEventDescriptionEntry[] = [];
@@ -114,7 +114,7 @@ export class EventPipeline {
     );
     this.logger.log('');
 
-    debugEventDescription.forEach(entry => debugWriter.addEventDescriptionEntry(entry));
+    debugEventDescription.forEach((entry) => debugWriter.addEventDescriptionEntry(entry));
 
     // Write debug files if enabled
     if (this.config.writeDebugFiles) {

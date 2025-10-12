@@ -11,7 +11,7 @@ export function parseArgs(): Config {
   let config: Partial<Config> = {};
 
   // Check for YAML config file first
-  const configArg = args.find(arg => arg.startsWith('--config='));
+  const configArg = args.find((arg) => arg.startsWith('--config='));
   if (configArg) {
     const configPath = configArg.split('=')[1];
     const yamlConfig = loadYamlConfig(configPath);
@@ -20,10 +20,7 @@ export function parseArgs(): Config {
     }
   } else {
     // Check for default config.yaml
-    const defaultConfigPaths = [
-      path.join(process.cwd(), 'config.yaml'),
-      path.join(process.cwd(), 'config.yml')
-    ];
+    const defaultConfigPaths = [path.join(process.cwd(), 'config.yaml'), path.join(process.cwd(), 'config.yml')];
 
     for (const configPath of defaultConfigPaths) {
       const yamlConfig = loadYamlConfig(configPath);

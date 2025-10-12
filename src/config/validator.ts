@@ -92,9 +92,27 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     config.eventDescriptionPrompt = DEFAULT_CONFIG.eventDescriptionPrompt;
   }
 
-  // Validate required fields
-  if (!config.groupsToParse || !config.channelsToParse || !config.userInterests || !config.weeklyTimeslots) {
-    throw new Error('Missing required configuration fields: groupsToParse, channelsToParse, userInterests, weeklyTimeslots');
+  // Validate required fields exist and are non-empty
+  if (!config.groupsToParse || config.groupsToParse.length === 0) {
+    throw new Error('groupsToParse must contain at least one group');
+  }
+  if (!config.channelsToParse || config.channelsToParse.length === 0) {
+    throw new Error('channelsToParse must contain at least one channel');
+  }
+  if (!config.userInterests || config.userInterests.length === 0) {
+    throw new Error('userInterests must contain at least one interest');
+  }
+  if (!config.weeklyTimeslots || config.weeklyTimeslots.length === 0) {
+    throw new Error('weeklyTimeslots must contain at least one timeslot');
+  }
+
+  // Validate timeslot format
+  const timeslotRegex = /^[0-6]\s+\d{2}:\d{2}$/;
+  const invalidSlots = config.weeklyTimeslots.filter((slot) => !timeslotRegex.test(slot));
+  if (invalidSlots.length > 0) {
+    throw new Error(
+      `Invalid timeslot format: ${invalidSlots.join(', ')}. Expected format: "DAY HH:MM" where DAY is 0-6 (e.g., "6 14:00" for Saturday at 2 PM)`
+    );
   }
 
   // Log final configuration
@@ -104,23 +122,49 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(`  channelsToParse: ${finalConfig.channelsToParse.length} specified`);
   console.log(`  userInterests: ${finalConfig.userInterests.length} specified`);
   console.log(`  weeklyTimeslots: ${finalConfig.weeklyTimeslots.length} specified`);
-  console.log(`  maxGroupMessages: ${finalConfig.maxGroupMessages}${!providedMaxGroupMessages && !config.maxInputMessages ? ' (default)' : ''}`);
-  console.log(`  maxChannelMessages: ${finalConfig.maxChannelMessages}${!providedMaxChannelMessages && !config.maxInputMessages ? ' (default)' : ''}`);
+  console.log(
+    `  maxGroupMessages: ${finalConfig.maxGroupMessages}${!providedMaxGroupMessages && !config.maxInputMessages ? ' (default)' : ''}`
+  );
+  console.log(
+    `  maxChannelMessages: ${finalConfig.maxChannelMessages}${!providedMaxChannelMessages && !config.maxInputMessages ? ' (default)' : ''}`
+  );
   console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}${!providedSkipOnlineEvents ? ' (default)' : ''}`);
   console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
   console.log(`  verboseLogging: ${finalConfig.verboseLogging}${!providedVerboseLogging ? ' (default)' : ''}`);
-  console.log(`  minInterestConfidence: ${finalConfig.minInterestConfidence}${!providedMinInterestConfidence ? ' (default)' : ''}`);
-  console.log(`  gptBatchSizeEventDetection: ${finalConfig.gptBatchSizeEventDetection}${!providedGptBatchSizeEventDetection ? ' (default)' : ''}`);
-  console.log(`  gptBatchSizeEventClassification: ${finalConfig.gptBatchSizeEventClassification}${!providedGptBatchSizeEventClassification ? ' (default)' : ''}`);
-  console.log(`  gptBatchSizeScheduleExtraction: ${finalConfig.gptBatchSizeScheduleExtraction}${!providedGptBatchSizeScheduleExtraction ? ' (default)' : ''}`);
-  console.log(`  gptBatchSizeEventDescription: ${finalConfig.gptBatchSizeEventDescription}${!providedGptBatchSizeEventDescription ? ' (default)' : ''}`);
+  console.log(
+    `  minInterestConfidence: ${finalConfig.minInterestConfidence}${!providedMinInterestConfidence ? ' (default)' : ''}`
+  );
+  console.log(
+    `  gptBatchSizeEventDetection: ${finalConfig.gptBatchSizeEventDetection}${!providedGptBatchSizeEventDetection ? ' (default)' : ''}`
+  );
+  console.log(
+    `  gptBatchSizeEventClassification: ${finalConfig.gptBatchSizeEventClassification}${!providedGptBatchSizeEventClassification ? ' (default)' : ''}`
+  );
+  console.log(
+    `  gptBatchSizeScheduleExtraction: ${finalConfig.gptBatchSizeScheduleExtraction}${!providedGptBatchSizeScheduleExtraction ? ' (default)' : ''}`
+  );
+  console.log(
+    `  gptBatchSizeEventDescription: ${finalConfig.gptBatchSizeEventDescription}${!providedGptBatchSizeEventDescription ? ' (default)' : ''}`
+  );
   console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp || 'not set'}`);
-  console.log(`  eventMessageCues: ${Object.values(finalConfig.eventMessageCues).flat().length} cues${!providedEventMessageCues ? ' (default)' : ''}`);
-  console.log(`  eventDetectionPrompt: ${finalConfig.eventDetectionPrompt!.length} chars${!providedEventDetectionPrompt ? ' (default)' : ''}`);
-  console.log(`  interestMatchingPrompt: ${finalConfig.interestMatchingPrompt!.length} chars${!providedInterestMatchingPrompt ? ' (default)' : ''}`);
-  console.log(`  eventTypeClassificationPrompt: ${finalConfig.eventTypeClassificationPrompt!.length} chars${!providedEventTypeClassificationPrompt ? ' (default)' : ''}`);
-  console.log(`  scheduleExtractionPrompt: ${finalConfig.scheduleExtractionPrompt!.length} chars${!providedScheduleExtractionPrompt ? ' (default)' : ''}`);
-  console.log(`  eventDescriptionPrompt: ${finalConfig.eventDescriptionPrompt!.length} chars${!providedEventDescriptionPrompt ? ' (default)' : ''}`);
+  console.log(
+    `  eventMessageCues: ${Object.values(finalConfig.eventMessageCues).flat().length} cues${!providedEventMessageCues ? ' (default)' : ''}`
+  );
+  console.log(
+    `  eventDetectionPrompt: ${finalConfig.eventDetectionPrompt!.length} chars${!providedEventDetectionPrompt ? ' (default)' : ''}`
+  );
+  console.log(
+    `  interestMatchingPrompt: ${finalConfig.interestMatchingPrompt!.length} chars${!providedInterestMatchingPrompt ? ' (default)' : ''}`
+  );
+  console.log(
+    `  eventTypeClassificationPrompt: ${finalConfig.eventTypeClassificationPrompt!.length} chars${!providedEventTypeClassificationPrompt ? ' (default)' : ''}`
+  );
+  console.log(
+    `  scheduleExtractionPrompt: ${finalConfig.scheduleExtractionPrompt!.length} chars${!providedScheduleExtractionPrompt ? ' (default)' : ''}`
+  );
+  console.log(
+    `  eventDescriptionPrompt: ${finalConfig.eventDescriptionPrompt!.length} chars${!providedEventDescriptionPrompt ? ' (default)' : ''}`
+  );
   console.log('');
 
   return finalConfig;

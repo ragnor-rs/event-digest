@@ -18,7 +18,7 @@ export async function detectEventAnnouncements(
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugResults: DebugEntry[],
+  debugEntries: DebugEntry[],
   logger: Logger
 ): Promise<Event[]> {
   logger.log(`Detecting event announcements with GPT from ${messages.length} messages...`);
@@ -43,7 +43,7 @@ export async function detectEventAnnouncements(
       cacheHits++;
       if (cachedResult) {
         events.push({ message });
-        debugResults.push({
+        debugEntries.push({
           messageLink: message.link,
           isEvent: true,
           cached: true,
@@ -52,7 +52,7 @@ export async function detectEventAnnouncements(
         if (config.verboseLogging) {
           console.log(`    DISCARDED: ${message.link} - not an event announcement (cached)`);
         }
-        debugResults.push({
+        debugEntries.push({
           messageLink: message.link,
           isEvent: false,
           cached: true,
@@ -89,7 +89,7 @@ export async function detectEventAnnouncements(
     const result = await openaiClient.callWithDelay(prompt);
 
     if (result && result !== 'none') {
-      const lines = result.split('\n').filter(line => line.trim());
+      const lines = result.split('\n').filter((line) => line.trim());
       const processedIndices = new Set<number>();
 
       for (const line of lines) {
@@ -102,7 +102,7 @@ export async function detectEventAnnouncements(
             cache.cacheEventMessage(chunk[idx].link, true, false);
             processedIndices.add(idx);
 
-            debugResults.push({
+            debugEntries.push({
               messageLink: chunk[idx].link,
               isEvent: true,
               cached: false,
@@ -121,7 +121,7 @@ export async function detectEventAnnouncements(
           }
           cache.cacheEventMessage(chunk[idx].link, false, false);
 
-          debugResults.push({
+          debugEntries.push({
             messageLink: chunk[idx].link,
             isEvent: false,
             cached: false,
@@ -138,7 +138,7 @@ export async function detectEventAnnouncements(
         }
         cache.cacheEventMessage(message.link, false, false);
 
-        debugResults.push({
+        debugEntries.push({
           messageLink: message.link,
           isEvent: false,
           cached: false,

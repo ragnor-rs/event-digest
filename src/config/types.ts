@@ -11,7 +11,7 @@ export interface Config {
   skipOnlineEvents: boolean;
   writeDebugFiles: boolean;
   verboseLogging: boolean;
-  minInterestConfidence: number;  // Minimum confidence threshold for interest matching (0.0-1.0)
+  minInterestConfidence: number; // Minimum confidence threshold for interest matching (0.0-1.0)
   gptBatchSizeEventDetection: number;
   gptBatchSizeEventClassification: number;
   gptBatchSizeScheduleExtraction: number;

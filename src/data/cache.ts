@@ -30,7 +30,7 @@ export class Cache {
       event_type_classification: path.join(this.cacheDir, 'event_type_classification.json'),
       matching_interests: path.join(this.cacheDir, 'matching_interests.json'),
       scheduled_events: path.join(this.cacheDir, 'scheduled_events.json'),
-      events: path.join(this.cacheDir, 'events.json')
+      events: path.join(this.cacheDir, 'events.json'),
     };
     this.cache = this.loadCache();
   }
@@ -47,7 +47,7 @@ export class Cache {
       if (!fs.existsSync(this.cacheDir)) {
         fs.mkdirSync(this.cacheDir, { recursive: true });
       }
-    } catch (error) {
+    } catch {
       console.log('  Failed to create cache directory, starting fresh');
     }
 
@@ -57,7 +57,7 @@ export class Cache {
       event_type_classification: this.loadCacheFile('event_type_classification', {}),
       matching_interests: this.loadCacheFile('matching_interests', {}),
       scheduled_events: this.loadCacheFile('scheduled_events', {}),
-      events: this.loadCacheFile('events', {})
+      events: this.loadCacheFile('events', {}),
     };
   }
 
@@ -68,7 +68,7 @@ export class Cache {
         const data = fs.readFileSync(filePath, 'utf-8');
         return JSON.parse(data);
       }
-    } catch (error) {
+    } catch {
       console.log(`  Cache file ${storeName}.json not found or corrupted, starting fresh`);
     }
     return defaultValue;
@@ -80,6 +80,7 @@ export class Cache {
       fs.writeFileSync(filePath, JSON.stringify(this.cache[storeName], null, 2));
     } catch (error) {
       console.error(`Failed to save ${storeName} cache:`, error);
+      throw new Error(`Cache save failed for ${storeName}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -94,8 +95,8 @@ export class Cache {
   }
 
   // Telegram messages caching (step 1)
-  getCachedMessages(sourceName: string): TelegramMessage[] | null {
-    return this.cache.telegram_messages[sourceName] ?? null;
+  getCachedMessages(sourceName: string): TelegramMessage[] | undefined {
+    return this.cache.telegram_messages[sourceName];
   }
 
   cacheMessages(sourceName: string, messages: TelegramMessage[], autoSave: boolean = true): void {
@@ -105,18 +106,18 @@ export class Cache {
     }
   }
 
-  getLastMessageTimestamp(sourceName: string): string | null {
+  getLastMessageTimestamp(sourceName: string): string | undefined {
     const cachedMessages = this.getCachedMessages(sourceName);
     if (!cachedMessages || cachedMessages.length === 0) {
-      return null;
+      return undefined;
     }
     // Messages are assumed to be sorted by timestamp, return the last one
     return cachedMessages[cachedMessages.length - 1].timestamp;
   }
 
   // Event message detection (step 3)
-  isEventMessageCached(messageLink: string): boolean | null {
-    return this.cache.messages[messageLink] ?? null;
+  isEventMessageCached(messageLink: string): boolean | undefined {
+    return this.cache.messages[messageLink];
   }
 
   cacheEventMessage(messageLink: string, isEvent: boolean, autoSave: boolean = true): void {
@@ -126,14 +127,18 @@ export class Cache {
     }
   }
 
-
   // Interest matching (step 6)
-  getMatchingInterestsCache(messageLink: string, userInterests: string[]): string[] | null {
+  getMatchingInterestsCache(messageLink: string, userInterests: string[]): string[] | undefined {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
-    return this.cache.matching_interests[cacheKey] ?? null;
+    return this.cache.matching_interests[cacheKey];
   }
 
-  cacheMatchingInterests(messageLink: string, interests: string[], userInterests: string[], autoSave: boolean = true): void {
+  cacheMatchingInterests(
+    messageLink: string,
+    interests: string[],
+    userInterests: string[],
+    autoSave: boolean = true
+  ): void {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.matching_interests[cacheKey] = interests;
     if (autoSave) {
@@ -144,22 +149,27 @@ export class Cache {
   private createInterestCacheKey(messageLink: string, userInterests: string[]): string {
     // Normalize interests: lowercase and sort alphabetically
     const normalizedInterests = userInterests
-      .map(interest => interest.toLowerCase().trim())
+      .map((interest) => interest.toLowerCase().trim())
       .sort()
       .join(',');
-    
+
     // Hash the normalized interests for shorter, consistent cache keys
     const preferencesHash = this.hashPreferences(normalizedInterests);
     return `${messageLink}|interests:${preferencesHash}`;
   }
 
   // Schedule filtering (datetime extraction) (step 5)
-  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): string | null {
+  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): string | undefined {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
-    return this.cache.scheduled_events[cacheKey] ?? null;
+    return this.cache.scheduled_events[cacheKey];
   }
 
-  cacheScheduledEvent(messageLink: string, datetime: string, weeklyTimeslots: string[], autoSave: boolean = true): void {
+  cacheScheduledEvent(
+    messageLink: string,
+    datetime: string,
+    weeklyTimeslots: string[],
+    autoSave: boolean = true
+  ): void {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     this.cache.scheduled_events[cacheKey] = datetime;
     if (autoSave) {
@@ -170,22 +180,27 @@ export class Cache {
   private createScheduleCacheKey(messageLink: string, weeklyTimeslots: string[]): string {
     // Normalize timeslots: sort alphabetically for consistent cache keys
     const normalizedTimeslots = weeklyTimeslots
-      .map(slot => slot.trim())
+      .map((slot) => slot.trim())
       .sort()
       .join(',');
-    
+
     // Hash the normalized timeslots for shorter, consistent cache keys
     const preferencesHash = this.hashPreferences(normalizedTimeslots);
     return `${messageLink}|schedule:${preferencesHash}`;
   }
 
   // Event conversion (step 7)
-  getConvertedEventCache(messageLink: string, userInterests: string[]): EventDescription | null {
+  getConvertedEventCache(messageLink: string, userInterests: string[]): EventDescription | undefined {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
-    return this.cache.events[cacheKey] ?? null;
+    return this.cache.events[cacheKey];
   }
 
-  cacheConvertedEvent(messageLink: string, event: EventDescription, userInterests: string[], autoSave: boolean = true): void {
+  cacheConvertedEvent(
+    messageLink: string,
+    event: EventDescription,
+    userInterests: string[],
+    autoSave: boolean = true
+  ): void {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.events[cacheKey] = event;
     if (autoSave) {
@@ -203,7 +218,10 @@ export class Cache {
     events_cached: number;
     total_cached: number;
   } {
-    const telegramMessagesCount = Object.values(this.cache.telegram_messages).reduce((sum, msgs) => sum + msgs.length, 0);
+    const telegramMessagesCount = Object.values(this.cache.telegram_messages).reduce(
+      (sum, msgs) => sum + msgs.length,
+      0
+    );
     return {
       telegram_messages_cached: telegramMessagesCount,
       messages_cached: Object.keys(this.cache.messages).length,
@@ -211,38 +229,33 @@ export class Cache {
       matching_interests_cached: Object.keys(this.cache.matching_interests).length,
       scheduled_events_cached: Object.keys(this.cache.scheduled_events).length,
       events_cached: Object.keys(this.cache.events).length,
-      total_cached: telegramMessagesCount +
-                   Object.keys(this.cache.messages).length +
-                   Object.keys(this.cache.event_type_classification).length +
-                   Object.keys(this.cache.matching_interests).length +
-                   Object.keys(this.cache.scheduled_events).length +
-                   Object.keys(this.cache.events).length
+      total_cached:
+        telegramMessagesCount +
+        Object.keys(this.cache.messages).length +
+        Object.keys(this.cache.event_type_classification).length +
+        Object.keys(this.cache.matching_interests).length +
+        Object.keys(this.cache.scheduled_events).length +
+        Object.keys(this.cache.events).length,
     };
   }
 
-  // Clear old cache entries (optional cleanup)
-  clearOldEntries(daysOld: number = 30): void {
-    const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
-
-    // For simplicity, we're just clearing all cache for now
-    // In a more sophisticated implementation, we'd track timestamps per entry
-    if (Date.now() > cutoffTime) {
-      this.cache = {
-        telegram_messages: {},
-        messages: {},
-        event_type_classification: {},
-        matching_interests: {},
-        scheduled_events: {},
-        events: {}
-      };
-      this.save();
-      console.log('  Cache cleared (older than 30 days)');
-    }
+  // Clear all cache entries (useful for testing or forcing fresh data)
+  clearAllEntries(): void {
+    this.cache = {
+      telegram_messages: {},
+      messages: {},
+      event_type_classification: {},
+      matching_interests: {},
+      scheduled_events: {},
+      events: {},
+    };
+    this.save();
+    console.log('  All cache entries cleared');
   }
 
   // Event type classification (step 4)
-  getEventTypeCache(messageLink: string): 'offline' | 'online' | 'hybrid' | null {
-    return this.cache.event_type_classification[messageLink] ?? null;
+  getEventTypeCache(messageLink: string): 'offline' | 'online' | 'hybrid' | undefined {
+    return this.cache.event_type_classification[messageLink];
   }
 
   cacheEventType(messageLink: string, eventType: 'offline' | 'online' | 'hybrid', autoSave: boolean = true): void {

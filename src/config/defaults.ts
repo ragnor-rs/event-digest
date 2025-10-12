@@ -11,8 +11,55 @@ export const DEFAULT_CONFIG = {
   gptBatchSizeEventDescription: 5,
 
   eventMessageCues: {
-    ru: ["сентябр", "сегодня", "часов", "завтра", "послезавтра", "январ", "феврал", "март", "апрел", "мая", "июн", "июл", "август", "октябр", "ноябр", "декабр", "понедельник", "вторник", "сред", "четверг", "пятниц", "суббот", "воскресень"],
-    en: ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "tonight", "tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    ru: [
+      'сентябр',
+      'сегодня',
+      'часов',
+      'завтра',
+      'послезавтра',
+      'январ',
+      'феврал',
+      'март',
+      'апрел',
+      'мая',
+      'июн',
+      'июл',
+      'август',
+      'октябр',
+      'ноябр',
+      'декабр',
+      'понедельник',
+      'вторник',
+      'сред',
+      'четверг',
+      'пятниц',
+      'суббот',
+      'воскресень',
+    ],
+    en: [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+      'tonight',
+      'tomorrow',
+      'today',
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ],
   },
 
   eventDetectionPrompt: `Analyze these messages and identify which ones are announcements for a SINGLE SPECIFIC EVENT.
@@ -160,5 +207,5 @@ Example:
 1:
 TITLE: JavaScript Meetup
 SUMMARY: Monthly meetup for JS developers to share knowledge and network.
-DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest trends, share projects, and network with fellow developers.`
+DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest trends, share projects, and network with fellow developers.`,
 };

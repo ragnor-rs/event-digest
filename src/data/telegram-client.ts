@@ -2,7 +2,6 @@ import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { TelegramMessage } from '../domain/entities';
 import { Config } from '../config/types';
-import { parse } from 'date-fns';
 import fs from 'fs';
 import path from 'path';
 import { Cache } from './cache';
@@ -17,9 +16,13 @@ export class TelegramClient {
 
   constructor(cache: Cache) {
     this.cache = cache;
-    const apiId = parseInt(process.env.TELEGRAM_API_ID!);
+    const apiIdStr = process.env.TELEGRAM_API_ID!;
+    const apiId = parseInt(apiIdStr);
+    if (isNaN(apiId)) {
+      throw new Error(`TELEGRAM_API_ID must be a valid number, got: "${apiIdStr}"`);
+    }
     const apiHash = process.env.TELEGRAM_API_HASH!;
-    
+
     this.sessionFile = path.join(process.cwd(), '.telegram-session');
     const savedSession = this.loadSession();
     this.session = new StringSession(savedSession);
@@ -38,7 +41,7 @@ export class TelegramClient {
           return sessionData;
         }
       }
-    } catch (error) {
+    } catch {
       console.log('No valid saved session found, will authenticate');
     }
     return '';
@@ -63,7 +66,7 @@ export class TelegramClient {
       phoneCode: promptForCode,
       onError: (err: any) => console.log(err),
     });
-    
+
     // Save session only if it's a new session
     if (this.isNewSession) {
       this.saveSession();
@@ -71,12 +74,16 @@ export class TelegramClient {
     console.log('Connected to Telegram');
   }
 
-  private async fetchMessagesFromSource(sourceName: string, sourceType: 'group' | 'channel', limit: number, config: Config): Promise<TelegramMessage[]> {
+  private async fetchMessagesFromSource(
+    sourceName: string,
+    sourceType: 'group' | 'channel',
+    limit: number,
+    config: Config
+  ): Promise<TelegramMessage[]> {
     const cacheKey = `${sourceType}:${sourceName}`;
 
     // Get cached messages
     const cachedMessages = this.cache.getCachedMessages(cacheKey) || [];
-    const lastTimestamp = this.cache.getLastMessageTimestamp(cacheKey);
 
     try {
       if (config.verboseLogging) {
@@ -98,7 +105,7 @@ export class TelegramClient {
 
       const telegramMessages = await this.client.getMessages(entity, {
         limit: limit,
-        minId: minId
+        minId: minId,
       });
 
       const newMessages: TelegramMessage[] = [];
@@ -107,7 +114,7 @@ export class TelegramClient {
           newMessages.push({
             timestamp: new Date(msg.date * 1000).toISOString(),
             content: msg.message,
-            link: `https://t.me/${sourceName}/${msg.id}`
+            link: `https://t.me/${sourceName}/${msg.id}`,
           });
         }
       }
@@ -120,9 +127,9 @@ export class TelegramClient {
       const allMessages = [...cachedMessages, ...newMessages];
 
       // Remove duplicates by link (new messages override cached)
-      const uniqueMessages = Array.from(
-        new Map(allMessages.map(msg => [msg.link, msg])).values()
-      ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      const uniqueMessages = Array.from(new Map(allMessages.map((msg) => [msg.link, msg])).values()).sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
 
       // Take the most recent 'limit' messages as final result
       const finalMessages = uniqueMessages.slice(-limit);
@@ -159,8 +166,8 @@ export class TelegramClient {
       allMessages.push(...messages);
     }
 
-    const sortedMessages = allMessages.sort((a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    const sortedMessages = allMessages.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
     console.log(`  Fetched ${sortedMessages.length} total messages`);
@@ -171,11 +178,11 @@ export class TelegramClient {
   async disconnect(): Promise<void> {
     try {
       // Give a brief moment for any ongoing operations to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       await this.client.disconnect();
       await this.client.destroy();
       console.log('Disconnected from Telegram');
-    } catch (error) {
+    } catch {
       // Ignore disconnect errors as they're often harmless timeouts from _updateLoop
       console.log('Disconnection completed (ignoring timeout errors)');
     }

@@ -7,7 +7,7 @@ export function createBatches<T>(items: T[], batchSize: number): T[][] {
 }
 
 export async function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export const RATE_LIMIT_DELAY = 1000; // 1 second between API calls

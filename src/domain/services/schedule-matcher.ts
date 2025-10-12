@@ -44,7 +44,7 @@ export async function filterBySchedule(
 
   for (const event of events) {
     const cachedDateTime = cache.getScheduledEventCache(event.message.link, config.weeklyTimeslots);
-    if (cachedDateTime !== null) {
+    if (cachedDateTime !== undefined) {
       cacheHits++;
       if (cachedDateTime !== 'unknown') {
         // Re-validate against current time and schedule
@@ -59,7 +59,7 @@ export async function filterBySchedule(
             const minute = getMinutes(eventDate);
             const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 
-            const matchesSchedule = config.weeklyTimeslots.some(slot => {
+            const matchesSchedule = config.weeklyTimeslots.some((slot) => {
               const [slotDay, slotTime] = slot.split(' ');
               const slotDayNum = parseInt(slotDay);
               return slotDayNum === dayOfWeek && timeStr >= slotTime;
@@ -68,7 +68,7 @@ export async function filterBySchedule(
             if (matchesSchedule) {
               scheduledEvents.push({
                 ...event,
-                start_datetime: normalizedCachedDateTime
+                start_datetime: normalizedCachedDateTime,
               });
               debugEntries.push({
                 message: event.message,
@@ -77,7 +77,7 @@ export async function filterBySchedule(
                 gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
                 extracted_datetime: normalizedCachedDateTime,
                 result: 'scheduled',
-                cached: true
+                cached: true,
               });
             } else {
               if (config.verboseLogging) {
@@ -91,7 +91,7 @@ export async function filterBySchedule(
                 extracted_datetime: normalizedCachedDateTime,
                 result: 'discarded',
                 discard_reason: 'outside desired timeslots',
-                cached: true
+                cached: true,
               });
             }
           } else {
@@ -106,7 +106,7 @@ export async function filterBySchedule(
               extracted_datetime: normalizedCachedDateTime,
               result: 'discarded',
               discard_reason: 'event in the past',
-              cached: true
+              cached: true,
             });
           }
         } catch (error) {
@@ -122,7 +122,7 @@ export async function filterBySchedule(
           extracted_datetime: 'unknown',
           result: 'discarded',
           discard_reason: 'no date/time found',
-          cached: true
+          cached: true,
         });
       }
     } else {
@@ -150,19 +150,21 @@ export async function filterBySchedule(
       console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
     }
 
-    const messagesText = chunk.map((event, idx) => {
-      const messageDate = new Date(event.message.timestamp);
-      return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${event.message.content.replace(/\n/g, ' ')}`;
-    }).join('\n\n');
+    const messagesText = chunk
+      .map((event, idx) => {
+        const messageDate = new Date(event.message.timestamp);
+        return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${event.message.content.replace(/\n/g, ' ')}`;
+      })
+      .join('\n\n');
 
-    const prompt = config.scheduleExtractionPrompt!
-      .replace('{{TODAY_DATE}}', new Date().toDateString())
+    const prompt = config
+      .scheduleExtractionPrompt!.replace('{{TODAY_DATE}}', new Date().toDateString())
       .replace('{{MESSAGES}}', messagesText);
 
     const result = await openaiClient.callWithDelay(prompt);
 
     if (result) {
-      const lines = result.split('\n').filter(line => line.includes(':'));
+      const lines = result.split('\n').filter((line) => line.includes(':'));
       const processedMessages = new Set<number>();
 
       for (const line of lines) {
@@ -191,7 +193,9 @@ export async function filterBySchedule(
             // Check if the date is valid
             if (!isValid(eventDate)) {
               if (config.verboseLogging) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`);
+                console.log(
+                  `    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
+                );
                 console.log(`    GPT response line: "${line}"`);
               }
               debugEntries.push({
@@ -202,7 +206,7 @@ export async function filterBySchedule(
                 extracted_datetime: dateTime,
                 result: 'discarded',
                 discard_reason: 'could not parse date',
-                cached: false
+                cached: false,
               });
               continue;
             }
@@ -224,13 +228,13 @@ export async function filterBySchedule(
                 extracted_datetime: normalizedDateTime,
                 result: 'discarded',
                 discard_reason: 'event in the past',
-                cached: false
+                cached: false,
               });
               continue;
             }
 
             // Check if event date is reasonable relative to message date (not more than 2 years in the future)
-            const maxFutureDate = new Date(messageDate.getTime() + (2 * 365 * 24 * 60 * 60 * 1000)); // 2 years from message
+            const maxFutureDate = new Date(messageDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000); // 2 years from message
             if (eventDate > maxFutureDate) {
               if (config.verboseLogging) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
@@ -243,7 +247,7 @@ export async function filterBySchedule(
                 extracted_datetime: normalizedDateTime,
                 result: 'discarded',
                 discard_reason: 'event too far in future',
-                cached: false
+                cached: false,
               });
               continue;
             }
@@ -254,7 +258,7 @@ export async function filterBySchedule(
 
             const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 
-            const matchesSchedule = config.weeklyTimeslots.some(slot => {
+            const matchesSchedule = config.weeklyTimeslots.some((slot) => {
               const [slotDay, slotTime] = slot.split(' ');
               const slotDayNum = parseInt(slotDay);
               return slotDayNum === dayOfWeek && timeStr >= slotTime;
@@ -263,7 +267,7 @@ export async function filterBySchedule(
             if (matchesSchedule) {
               scheduledEvents.push({
                 ...chunk[messageIdx],
-                start_datetime: normalizedDateTime
+                start_datetime: normalizedDateTime,
               });
               debugEntries.push({
                 message: chunk[messageIdx].message,
@@ -272,7 +276,7 @@ export async function filterBySchedule(
                 gpt_response: result || '',
                 extracted_datetime: normalizedDateTime,
                 result: 'scheduled',
-                cached: false
+                cached: false,
               });
             } else {
               if (config.verboseLogging) {
@@ -286,7 +290,7 @@ export async function filterBySchedule(
                 extracted_datetime: normalizedDateTime,
                 result: 'discarded',
                 discard_reason: 'outside desired timeslots',
-                cached: false
+                cached: false,
               });
             }
           } catch (error) {
@@ -301,7 +305,7 @@ export async function filterBySchedule(
               extracted_datetime: dateTime,
               result: 'discarded',
               discard_reason: 'date parsing error',
-              cached: false
+              cached: false,
             });
           }
         }
@@ -322,7 +326,7 @@ export async function filterBySchedule(
             extracted_datetime: 'unknown',
             result: 'discarded',
             discard_reason: 'no date/time found',
-            cached: false
+            cached: false,
           });
         }
       }
@@ -341,7 +345,7 @@ export async function filterBySchedule(
           extracted_datetime: 'unknown',
           result: 'discarded',
           discard_reason: 'no date/time found',
-          cached: false
+          cached: false,
         });
       }
     }

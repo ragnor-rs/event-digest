@@ -17,7 +17,7 @@ const VALID_OPTIONS = [
   '--gpt-batch-size-event-detection',
   '--gpt-batch-size-event-classification',
   '--gpt-batch-size-schedule-extraction',
-  '--gpt-batch-size-event-description'
+  '--gpt-batch-size-event-description',
 ];
 
 export function parseCommandLineArgs(args: string[]): Partial<Config> {
@@ -35,35 +35,52 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
 
     // Check if option is recognized
     if (!VALID_OPTIONS.includes(key)) {
-      const validOptionsStr = VALID_OPTIONS.filter(opt => opt !== '--config').join('\n  ');
-      throw new Error(`Unrecognized option '${key}'\n\nValid options:\n  ${validOptionsStr}\n\nSee README.md for usage examples.`);
+      const validOptionsStr = VALID_OPTIONS.filter((opt) => opt !== '--config').join('\n  ');
+      throw new Error(
+        `Unrecognized option '${key}'\n\nValid options:\n  ${validOptionsStr}\n\nSee README.md for usage examples.`
+      );
     }
 
     switch (key) {
       case '--groups':
-        config.groupsToParse = value.split(',').map(s => s.trim());
+        config.groupsToParse = value.split(',').map((s) => s.trim());
         break;
       case '--channels':
-        config.channelsToParse = value.split(',').map(s => s.trim());
+        config.channelsToParse = value.split(',').map((s) => s.trim());
         break;
       case '--interests':
-        config.userInterests = value.split(',').map(s => s.trim());
+        config.userInterests = value.split(',').map((s) => s.trim());
         break;
       case '--timeslots':
-        config.weeklyTimeslots = value.split(',').map(s => s.trim());
+        config.weeklyTimeslots = value.split(',').map((s) => s.trim());
         break;
       case '--last-timestamp':
         config.lastGenerationTimestamp = value;
         break;
-      case '--max-messages':
-        config.maxInputMessages = parseInt(value);
+      case '--max-messages': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(`Invalid value for --max-messages: "${value}". Must be a positive integer.`);
+        }
+        config.maxInputMessages = parsed;
         break;
-      case '--max-group-messages':
-        config.maxGroupMessages = parseInt(value);
+      }
+      case '--max-group-messages': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(`Invalid value for --max-group-messages: "${value}". Must be a positive integer.`);
+        }
+        config.maxGroupMessages = parsed;
         break;
-      case '--max-channel-messages':
-        config.maxChannelMessages = parseInt(value);
+      }
+      case '--max-channel-messages': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(`Invalid value for --max-channel-messages: "${value}". Must be a positive integer.`);
+        }
+        config.maxChannelMessages = parsed;
         break;
+      }
       case '--write-debug-files':
         config.writeDebugFiles = value.toLowerCase() === 'true';
         break;
@@ -73,21 +90,54 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--verbose-logging':
         config.verboseLogging = value.toLowerCase() === 'true';
         break;
-      case '--min-interest-confidence':
-        config.minInterestConfidence = parseFloat(value);
+      case '--min-interest-confidence': {
+        const parsed = parseFloat(value);
+        if (isNaN(parsed) || parsed < 0 || parsed > 1) {
+          throw new Error(`Invalid value for --min-interest-confidence: "${value}". Must be between 0.0 and 1.0.`);
+        }
+        config.minInterestConfidence = parsed;
         break;
-      case '--gpt-batch-size-event-detection':
-        config.gptBatchSizeEventDetection = parseInt(value);
+      }
+      case '--gpt-batch-size-event-detection': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(
+            `Invalid value for --gpt-batch-size-event-detection: "${value}". Must be a positive integer.`
+          );
+        }
+        config.gptBatchSizeEventDetection = parsed;
         break;
-      case '--gpt-batch-size-event-classification':
-        config.gptBatchSizeEventClassification = parseInt(value);
+      }
+      case '--gpt-batch-size-event-classification': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(
+            `Invalid value for --gpt-batch-size-event-classification: "${value}". Must be a positive integer.`
+          );
+        }
+        config.gptBatchSizeEventClassification = parsed;
         break;
-      case '--gpt-batch-size-schedule-extraction':
-        config.gptBatchSizeScheduleExtraction = parseInt(value);
+      }
+      case '--gpt-batch-size-schedule-extraction': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(
+            `Invalid value for --gpt-batch-size-schedule-extraction: "${value}". Must be a positive integer.`
+          );
+        }
+        config.gptBatchSizeScheduleExtraction = parsed;
         break;
-      case '--gpt-batch-size-event-description':
-        config.gptBatchSizeEventDescription = parseInt(value);
+      }
+      case '--gpt-batch-size-event-description': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(
+            `Invalid value for --gpt-batch-size-event-description: "${value}". Must be a positive integer.`
+          );
+        }
+        config.gptBatchSizeEventDescription = parsed;
         break;
+      }
     }
   }
 

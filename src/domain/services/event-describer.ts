@@ -40,14 +40,14 @@ export async function describeEvents(
 
   for (const event of events) {
     const cachedEventDescription = cache.getConvertedEventCache(event.message.link, config.userInterests);
-    if (cachedEventDescription !== null) {
+    if (cachedEventDescription !== undefined) {
       cacheHits++;
       // Update cached event description with current data (interests might have changed)
       const updatedEventDescription = {
         ...cachedEventDescription,
         date_time: event.start_datetime!,
         met_interests: event.interests_matched!,
-        link: event.message.link
+        link: event.message.link,
       };
       describedEvents.push({ ...event, event_description: updatedEventDescription });
 
@@ -58,11 +58,11 @@ export async function describeEvents(
           start_datetime: event.start_datetime!,
           interests_matched: event.interests_matched!,
           gpt_prompt: '[CACHED]',
-          gpt_response: `[CACHED: ${cachedEventDescription.title}]`,
-          extracted_title: cachedEventDescription.title,
-          extracted_summary: cachedEventDescription.short_summary,
+          gpt_response: `[CACHED: ${cachedEventDescription.title || 'N/A'}]`,
+          extracted_title: cachedEventDescription.title || 'N/A',
+          extracted_summary: cachedEventDescription.short_summary || 'N/A',
           extraction_success: true,
-          cached: true
+          cached: true,
         });
       }
     } else {
@@ -90,18 +90,22 @@ export async function describeEvents(
       console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
     }
 
-    const eventsText = chunk.map((event, idx) => `${idx + 1}.
+    const eventsText = chunk
+      .map(
+        (event, idx) => `${idx + 1}.
 Start time: ${event.start_datetime}
 Interests: ${event.interests_matched!.join(', ')}
 Content: ${event.message.content.replace(/\n/g, ' ')}
-Link: ${event.message.link}`).join('\n\n');
+Link: ${event.message.link}`
+      )
+      .join('\n\n');
 
     const prompt = config.eventDescriptionPrompt!.replace('{{EVENTS}}', eventsText);
 
     const result = await openaiClient.callWithDelay(prompt, GPT_TEMPERATURE_CREATIVE);
 
     if (result) {
-      const eventBlocks = result.split(/^\d+:/m).filter(block => block.trim());
+      const eventBlocks = result.split(/^\d+:/m).filter((block) => block.trim());
 
       for (let i = 0; i < eventBlocks.length && i < chunk.length; i++) {
         const block = eventBlocks[i];
@@ -117,14 +121,14 @@ Link: ${event.message.link}`).join('\n\n');
 
         const eventDescriptionData = {
           title: title || 'Event',
-          short_summary: summary || 'Event details not extracted properly'
+          short_summary: summary || 'Event details not extracted properly',
         };
 
         const eventDescription = {
           date_time: chunk[i].start_datetime!,
           met_interests: chunk[i].interests_matched!,
           ...eventDescriptionData,
-          link: chunk[i].message.link
+          link: chunk[i].message.link,
         };
 
         describedEvents.push({ ...chunk[i], event_description: eventDescription });
@@ -151,7 +155,7 @@ Link: ${event.message.link}`).join('\n\n');
             extracted_title: title,
             extracted_summary: summary,
             extraction_success: !!(title && summary && description),
-            cached: false
+            cached: false,
           });
         }
       }

@@ -42,18 +42,18 @@ export async function filterByInterests(
 
   for (const event of events) {
     const cachedInterests = cache.getMatchingInterestsCache(event.message.link, config.userInterests);
-    if (cachedInterests !== null) {
+    if (cachedInterests !== undefined) {
       cacheHits++;
       if (cachedInterests.length > 0) {
         // For cached results, we don't have confidence scores, so assume they all passed threshold (1.0)
-        const cachedMatches = cachedInterests.map(interest => ({
+        const cachedMatches = cachedInterests.map((interest) => ({
           interest,
-          confidence: 1.0
+          confidence: 1.0,
         }));
         matchedEvents.push({
           ...event,
           interests_matched: cachedInterests,
-          interest_matches: cachedMatches
+          interest_matches: cachedMatches,
         });
         debugEntries.push({
           start_datetime: event.start_datetime!,
@@ -64,7 +64,7 @@ export async function filterByInterests(
           interests_matched: cachedInterests,
           interest_matches: cachedMatches,
           result: 'matched',
-          cached: true
+          cached: true,
         });
       } else {
         if (config.verboseLogging) {
@@ -79,7 +79,7 @@ export async function filterByInterests(
           interests_matched: [],
           interest_matches: [],
           result: 'discarded',
-          cached: true
+          cached: true,
         });
       }
     } else {
@@ -108,9 +108,7 @@ export async function filterByInterests(
 
     const eventsText = `0: ${event.message.content.replace(/\n/g, ' ')}`;
 
-    const interestsText = config.userInterests.map((interest: string, idx: number) =>
-      `${idx}: ${interest}`
-    ).join('\n');
+    const interestsText = config.userInterests.map((interest: string, idx: number) => `${idx}: ${interest}`).join('\n');
 
     const prompt: string = (config.interestMatchingPrompt || '')
       .replace('{{EVENTS}}', eventsText)
@@ -132,7 +130,7 @@ export async function filterByInterests(
         gpt_response: '[NO RESPONSE - EMPTY]',
         interests_matched: [],
         result: 'discarded',
-        cached: false
+        cached: false,
       });
     } else if (result.toLowerCase() === 'none') {
       // GPT explicitly said "none" - legitimate no match
@@ -148,7 +146,7 @@ export async function filterByInterests(
         gpt_response: 'none',
         interests_matched: [],
         result: 'discarded',
-        cached: false
+        cached: false,
       });
     } else {
       // GPT returned interest indices with confidence scores
@@ -175,9 +173,7 @@ export async function filterByInterests(
 
       // Filter by confidence threshold and validate indices
       const validMatches = interestMatches.filter(
-        (m) => m.confidence >= config.minInterestConfidence &&
-               m.index >= 0 &&
-               m.index < config.userInterests.length
+        (m) => m.confidence >= config.minInterestConfidence && m.index >= 0 && m.index < config.userInterests.length
       );
 
       // Warn about invalid indices
@@ -190,9 +186,7 @@ export async function filterByInterests(
 
       // Warn about low-confidence matches
       const lowConfidenceMatches = interestMatches.filter(
-        (m) => m.confidence < config.minInterestConfidence &&
-               m.index >= 0 &&
-               m.index < config.userInterests.length
+        (m) => m.confidence < config.minInterestConfidence && m.index >= 0 && m.index < config.userInterests.length
       );
       if (config.verboseLogging && lowConfidenceMatches.length > 0) {
         const lowConfDetails = lowConfidenceMatches
@@ -205,14 +199,14 @@ export async function filterByInterests(
       const matchedInterests: string[] = validMatches.map((m) => config.userInterests[m.index]);
       const interestMatchesWithNames: Array<{ interest: string; confidence: number }> = validMatches.map((m) => ({
         interest: config.userInterests[m.index],
-        confidence: m.confidence
+        confidence: m.confidence,
       }));
 
       if (matchedInterests.length > 0) {
         matchedEvents.push({
           ...event,
           interests_matched: matchedInterests,
-          interest_matches: interestMatchesWithNames
+          interest_matches: interestMatchesWithNames,
         });
         cache.cacheMatchingInterests(event.message.link, matchedInterests, config.userInterests, false);
 
@@ -225,14 +219,15 @@ export async function filterByInterests(
           interests_matched: matchedInterests,
           interest_matches: interestMatchesWithNames,
           result: 'matched',
-          cached: false
+          cached: false,
         });
       } else {
         // Parsed result but no valid interests (all filtered out by confidence or invalid indices)
         if (config.verboseLogging) {
-          const reason = interestMatches.length > 0
-            ? 'all matches below confidence threshold or invalid indices'
-            : 'no valid interests parsed from response';
+          const reason =
+            interestMatches.length > 0
+              ? 'all matches below confidence threshold or invalid indices'
+              : 'no valid interests parsed from response';
           console.log(`    DISCARDED: ${event.message.link} - ${reason}`);
         }
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
@@ -245,7 +240,7 @@ export async function filterByInterests(
           interests_matched: [],
           interest_matches: [],
           result: 'discarded',
-          cached: false
+          cached: false,
         });
       }
     }

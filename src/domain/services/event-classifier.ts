@@ -39,7 +39,7 @@ export async function classifyEventTypes(
 
   for (const event of events) {
     const cachedType = cache.getEventTypeCache(event.message.link);
-    if (cachedType !== null) {
+    if (cachedType !== undefined) {
       cacheHits++;
 
       // Check if we should include this event based on skipOnlineEvents
@@ -53,12 +53,12 @@ export async function classifyEventTypes(
           gpt_response: `[CACHED: ${cachedType}]`,
           result: 'discarded',
           substep: '4_classification',
-          cached: true
+          cached: true,
         });
       } else {
         classifiedEvents.push({
           ...event,
-          event_type: cachedType
+          event_type: cachedType,
         });
         debugEntries.push({
           message: event.message,
@@ -66,7 +66,7 @@ export async function classifyEventTypes(
           gpt_response: `[CACHED: ${cachedType}]`,
           result: cachedType,
           substep: '4_classification',
-          cached: true
+          cached: true,
         });
       }
     } else {
@@ -94,14 +94,16 @@ export async function classifyEventTypes(
       console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
     }
 
-    const messagesText = chunk.map((event, idx) => `${idx + 1}. ${event.message.content.replace(/\n/g, ' ')}`).join('\n\n');
+    const messagesText = chunk
+      .map((event, idx) => `${idx + 1}. ${event.message.content.replace(/\n/g, ' ')}`)
+      .join('\n\n');
     const prompt = (config.eventTypeClassificationPrompt || '').replace('{{MESSAGES}}', messagesText);
 
     const result = await openaiClient.callWithDelay(prompt);
     const processedIndices = new Set<number>();
 
     if (result) {
-      const lines = result.split('\n').filter(line => line.trim());
+      const lines = result.split('\n').filter((line) => line.trim());
 
       for (const line of lines) {
         const match = line.trim().match(/^(\d+)\s*:\s*(\d+)$/);
@@ -127,12 +129,12 @@ export async function classifyEventTypes(
                 gpt_response: result,
                 result: 'discarded',
                 substep: '4_classification',
-                cached: false
+                cached: false,
               });
             } else {
               classifiedEvents.push({
                 ...chunk[messageIdx],
-                event_type: eventType
+                event_type: eventType,
               });
               debugEntries.push({
                 message: chunk[messageIdx].message,
@@ -140,7 +142,7 @@ export async function classifyEventTypes(
                 gpt_response: result,
                 result: eventType,
                 substep: '4_classification',
-                cached: false
+                cached: false,
               });
             }
           }
@@ -158,7 +160,7 @@ export async function classifyEventTypes(
         cache.cacheEventType(chunk[idx].message.link, eventType, false);
         classifiedEvents.push({
           ...chunk[idx],
-          event_type: eventType
+          event_type: eventType,
         });
         debugEntries.push({
           message: chunk[idx].message,
@@ -166,7 +168,7 @@ export async function classifyEventTypes(
           gpt_response: result || '[NO RESPONSE]',
           result: eventType,
           substep: '4_classification',
-          cached: false
+          cached: false,
         });
       }
     }
