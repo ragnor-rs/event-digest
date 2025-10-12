@@ -187,7 +187,7 @@ export class TelegramClient {
   }
 
   async fetchMessages(config: Config): Promise<TelegramMessage[]> {
-    console.log('Step 1: Fetching messages...');
+    console.log('Fetching messages from Telegram...');
 
     const allMessages: TelegramMessage[] = [];
 

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TelegramMessage, InterestMatch } from './types';
 
-export interface DebugStep3Entry {
+export interface DebugEventDetectionEntry {
   messageLink: string;
   isEvent: boolean;
   cached: boolean;
@@ -10,7 +10,7 @@ export interface DebugStep3Entry {
   gptResponse?: string;
 }
 
-export interface DebugStep4Entry {
+export interface DebugTypeClassificationEntry {
   message: TelegramMessage;
   gpt_prompt: string;
   gpt_response: string;
@@ -19,7 +19,7 @@ export interface DebugStep4Entry {
   cached: boolean;
 }
 
-export interface DebugStep5Entry {
+export interface DebugScheduleFilteringEntry {
   message: TelegramMessage;
   event_type: string;
   gpt_prompt: string;
@@ -30,7 +30,7 @@ export interface DebugStep5Entry {
   cached: boolean;
 }
 
-export interface DebugStep6Entry {
+export interface DebugInterestMatchingEntry {
   message: TelegramMessage;
   event_type: string;
   start_datetime: string;
@@ -42,7 +42,7 @@ export interface DebugStep6Entry {
   cached: boolean;
 }
 
-export interface DebugStep7Entry {
+export interface DebugEventDescriptionEntry {
   message: TelegramMessage;
   event_type: string;
   start_datetime: string;
@@ -57,11 +57,11 @@ export interface DebugStep7Entry {
 
 class DebugWriter {
   private debugDir = 'debug';
-  private step3Entries: DebugStep3Entry[] = [];
-  private step4Entries: DebugStep4Entry[] = [];
-  private step5Entries: DebugStep5Entry[] = [];
-  private step6Entries: DebugStep6Entry[] = [];
-  private step7Entries: DebugStep7Entry[] = [];
+  private eventDetectionEntries: DebugEventDetectionEntry[] = [];
+  private typeClassificationEntries: DebugTypeClassificationEntry[] = [];
+  private scheduleFilteringEntries: DebugScheduleFilteringEntry[] = [];
+  private interestMatchingEntries: DebugInterestMatchingEntry[] = [];
+  private eventDescriptionEntries: DebugEventDescriptionEntry[] = [];
 
   constructor() {
     // Create debug directory if it doesn't exist
@@ -70,117 +70,117 @@ class DebugWriter {
     }
   }
 
-  writeEventDetection(entries: DebugStep3Entry[]): void {
-    this.step3Entries = entries;
-    this.writeStep3();
+  writeEventDetection(entries: DebugEventDetectionEntry[]): void {
+    this.eventDetectionEntries = entries;
+    this.writeEventDetectionFile();
   }
 
-  addStep4Entry(entry: DebugStep4Entry): void {
-    this.step4Entries.push(entry);
+  addTypeClassificationEntry(entry: DebugTypeClassificationEntry): void {
+    this.typeClassificationEntries.push(entry);
   }
 
-  addStep5Entry(entry: DebugStep5Entry): void {
-    this.step5Entries.push(entry);
+  addScheduleFilteringEntry(entry: DebugScheduleFilteringEntry): void {
+    this.scheduleFilteringEntries.push(entry);
   }
 
-  addStep6Entry(entry: DebugStep6Entry): void {
-    this.step6Entries.push(entry);
+  addInterestMatchingEntry(entry: DebugInterestMatchingEntry): void {
+    this.interestMatchingEntries.push(entry);
   }
 
-  addStep7Entry(entry: DebugStep7Entry): void {
-    this.step7Entries.push(entry);
+  addEventDescriptionEntry(entry: DebugEventDescriptionEntry): void {
+    this.eventDescriptionEntries.push(entry);
   }
 
   writeAll(): void {
-    this.writeStep4();
-    this.writeStep5();
-    this.writeStep6();
-    this.writeStep7();
+    this.writeTypeClassification();
+    this.writeScheduleFiltering();
+    this.writeInterestMatching();
+    this.writeEventDescription();
     console.log(`Debug files written to ${this.debugDir}/ directory`);
   }
 
-  private writeStep3(): void {
+  private writeEventDetectionFile(): void {
     const filename = path.join(this.debugDir, 'event_detection.json');
     const data = {
       step: 'GPT Event Detection',
       description: 'GPT filtering to identify single event announcements',
-      total_entries: this.step3Entries.length,
+      total_entries: this.eventDetectionEntries.length,
       result_counts: {
-        is_event: this.step3Entries.filter(e => e.isEvent).length,
-        not_event: this.step3Entries.filter(e => !e.isEvent).length
+        is_event: this.eventDetectionEntries.filter(e => e.isEvent).length,
+        not_event: this.eventDetectionEntries.filter(e => !e.isEvent).length
       },
       cache_stats: {
-        cached: this.step3Entries.filter(e => e.cached).length,
-        uncached: this.step3Entries.filter(e => !e.cached).length
+        cached: this.eventDetectionEntries.filter(e => e.cached).length,
+        uncached: this.eventDetectionEntries.filter(e => !e.cached).length
       },
-      results: this.step3Entries
+      results: this.eventDetectionEntries
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
-  private writeStep4(): void {
+  private writeTypeClassification(): void {
     const filename = path.join(this.debugDir, 'event_classification.json');
     const data = {
       step: 'Event Type Classification',
       description: 'Index-based GPT classification of events as offline (0), online (1), or hybrid (2)',
-      total_entries: this.step4Entries.length,
+      total_entries: this.typeClassificationEntries.length,
       result_counts: {
-        hybrid: this.step4Entries.filter(e => e.result === 'hybrid').length,
-        offline: this.step4Entries.filter(e => e.result === 'offline').length,
-        online: this.step4Entries.filter(e => e.result === 'online').length,
-        discarded: this.step4Entries.filter(e => e.result === 'discarded').length
+        hybrid: this.typeClassificationEntries.filter(e => e.result === 'hybrid').length,
+        offline: this.typeClassificationEntries.filter(e => e.result === 'offline').length,
+        online: this.typeClassificationEntries.filter(e => e.result === 'online').length,
+        discarded: this.typeClassificationEntries.filter(e => e.result === 'discarded').length
       },
       cache_stats: {
-        cached: this.step4Entries.filter(e => e.cached).length,
-        uncached: this.step4Entries.filter(e => !e.cached).length
+        cached: this.typeClassificationEntries.filter(e => e.cached).length,
+        uncached: this.typeClassificationEntries.filter(e => !e.cached).length
       },
-      entries: this.step4Entries
+      entries: this.typeClassificationEntries
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
-  private writeStep5(): void {
+  private writeScheduleFiltering(): void {
     const filename = path.join(this.debugDir, 'schedule_filtering.json');
     const data = {
       step: 'Schedule Filtering',
       description: 'GPT datetime extraction and schedule matching',
-      total_entries: this.step5Entries.length,
+      total_entries: this.scheduleFilteringEntries.length,
       result_counts: {
-        scheduled: this.step5Entries.filter(e => e.result === 'scheduled').length,
-        discarded: this.step5Entries.filter(e => e.result === 'discarded').length
+        scheduled: this.scheduleFilteringEntries.filter(e => e.result === 'scheduled').length,
+        discarded: this.scheduleFilteringEntries.filter(e => e.result === 'discarded').length
       },
-      discard_reasons: this.getStep5DiscardReasons(),
+      discard_reasons: this.getScheduleFilteringDiscardReasons(),
       cache_stats: {
-        cached: this.step5Entries.filter(e => e.cached).length,
-        uncached: this.step5Entries.filter(e => !e.cached).length
+        cached: this.scheduleFilteringEntries.filter(e => e.cached).length,
+        uncached: this.scheduleFilteringEntries.filter(e => !e.cached).length
       },
-      entries: this.step5Entries
+      entries: this.scheduleFilteringEntries
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
-  private writeStep6(): void {
+  private writeInterestMatching(): void {
     const filename = path.join(this.debugDir, 'interest_matching.json');
     const data = {
       step: 'Interest Matching',
       description: 'GPT matching of events to user interests',
-      total_entries: this.step6Entries.length,
+      total_entries: this.interestMatchingEntries.length,
       result_counts: {
-        matched: this.step6Entries.filter(e => e.result === 'matched').length,
-        discarded: this.step6Entries.filter(e => e.result === 'discarded').length
+        matched: this.interestMatchingEntries.filter(e => e.result === 'matched').length,
+        discarded: this.interestMatchingEntries.filter(e => e.result === 'discarded').length
       },
       cache_stats: {
-        cached: this.step6Entries.filter(e => e.cached).length,
-        uncached: this.step6Entries.filter(e => !e.cached).length
+        cached: this.interestMatchingEntries.filter(e => e.cached).length,
+        uncached: this.interestMatchingEntries.filter(e => !e.cached).length
       },
-      entries: this.step6Entries
+      entries: this.interestMatchingEntries
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
-  private getStep5DiscardReasons(): Record<string, number> {
+  private getScheduleFilteringDiscardReasons(): Record<string, number> {
     const reasons: Record<string, number> = {};
-    this.step5Entries
+    this.scheduleFilteringEntries
       .filter(e => e.result === 'discarded' && e.discard_reason)
       .forEach(e => {
         const reason = e.discard_reason!;
@@ -189,21 +189,21 @@ class DebugWriter {
     return reasons;
   }
 
-  private writeStep7(): void {
+  private writeEventDescription(): void {
     const filename = path.join(this.debugDir, 'event_description.json');
     const data = {
       step: 'Event Description Generation',
       description: 'GPT-based event description extraction (title, summary)',
-      total_entries: this.step7Entries.length,
+      total_entries: this.eventDescriptionEntries.length,
       result_counts: {
-        successful: this.step7Entries.filter(e => e.extraction_success).length,
-        failed: this.step7Entries.filter(e => !e.extraction_success).length
+        successful: this.eventDescriptionEntries.filter(e => e.extraction_success).length,
+        failed: this.eventDescriptionEntries.filter(e => !e.extraction_success).length
       },
       cache_stats: {
-        cached: this.step7Entries.filter(e => e.cached).length,
-        uncached: this.step7Entries.filter(e => !e.cached).length
+        cached: this.eventDescriptionEntries.filter(e => e.cached).length,
+        uncached: this.eventDescriptionEntries.filter(e => !e.cached).length
       },
-      entries: this.step7Entries
+      entries: this.eventDescriptionEntries
     };
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }

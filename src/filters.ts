@@ -16,7 +16,7 @@ const openai = new OpenAI({
 });
 
 export async function filterByEventCues(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
-  console.log(`Step 2: Filtering ${messages.length} messages by event cues...`);
+  console.log(`Filtering ${messages.length} messages by event cues...`);
 
   const eventMessages = messages.filter(msg => {
     const content = msg.content.toLowerCase();
@@ -35,7 +35,7 @@ export async function filterByEventCues(messages: TelegramMessage[], config: Con
 }
 
 export async function detectEventAnnouncements(messages: TelegramMessage[], config: Config): Promise<Event[]> {
-  console.log(`Step 3: Using GPT to detect event announcements from ${messages.length} messages...`);
+  console.log(`Detecting event announcements with GPT from ${messages.length} messages...`);
 
   if (messages.length === 0) {
     console.log(`  No input on this step`);
@@ -206,7 +206,7 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
 }
 
 export async function classifyEventTypes(events: Event[], config: Config): Promise<Event[]> {
-  console.log(`Step 4: Classifying event types for ${events.length} events...`);
+  console.log(`Classifying event types for ${events.length} events...`);
 
   if (events.length === 0) {
     console.log(`  No input on this step`);
@@ -231,7 +231,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
         if (config.verboseLogging) {
           console.log(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
         }
-        debugWriter.addStep4Entry({
+        debugWriter.addTypeClassificationEntry({
           message: event.message,
           gpt_prompt: '[CACHED]',
           gpt_response: `[CACHED: ${cachedType}]`,
@@ -244,7 +244,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
           ...event,
           event_type: cachedType
         });
-        debugWriter.addStep4Entry({
+        debugWriter.addTypeClassificationEntry({
           message: event.message,
           gpt_prompt: '[CACHED]',
           gpt_response: `[CACHED: ${cachedType}]`,
@@ -315,7 +315,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
                 if (config.verboseLogging) {
                   console.log(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
                 }
-                debugWriter.addStep4Entry({
+                debugWriter.addTypeClassificationEntry({
                   message: chunk[messageIdx].message,
                   gpt_prompt: prompt,
                   gpt_response: result,
@@ -328,7 +328,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
                   ...chunk[messageIdx],
                   event_type: eventType
                 });
-                debugWriter.addStep4Entry({
+                debugWriter.addTypeClassificationEntry({
                   message: chunk[messageIdx].message,
                   gpt_prompt: prompt,
                   gpt_response: result,
@@ -354,7 +354,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
             ...chunk[idx],
             event_type: eventType
           });
-          debugWriter.addStep4Entry({
+          debugWriter.addTypeClassificationEntry({
             message: chunk[idx].message,
             gpt_prompt: prompt,
             gpt_response: result || '[NO RESPONSE]',
@@ -384,7 +384,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
 }
 
 export async function filterByInterests(events: Event[], config: Config): Promise<Event[]> {
-  console.log(`Step 6: Filtering ${events.length} events by user interests...`);
+  console.log(`Matching ${events.length} events to user interests...`);
   
   if (events.length === 0) {
     console.log(`  No input on this step`);
@@ -416,7 +416,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           interests_matched: cachedInterests,
           interest_matches: cachedMatches
         });
-        debugWriter.addStep6Entry({
+        debugWriter.addInterestMatchingEntry({
           start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
@@ -431,7 +431,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
         if (config.verboseLogging) {
           console.log(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
         }
-        debugWriter.addStep6Entry({
+        debugWriter.addInterestMatchingEntry({
           start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
@@ -492,7 +492,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           console.log(`    DISCARDED: ${event.message.link} - GPT returned no response`);
         }
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
-        debugWriter.addStep6Entry({
+        debugWriter.addInterestMatchingEntry({
           start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
@@ -508,7 +508,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           console.log(`    DISCARDED: ${event.message.link} - GPT returned "none"`);
         }
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
-        debugWriter.addStep6Entry({
+        debugWriter.addInterestMatchingEntry({
           message: event.message,
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
@@ -584,7 +584,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
           });
           cache.cacheMatchingInterests(event.message.link, matchedInterests, config.userInterests, false);
 
-          debugWriter.addStep6Entry({
+          debugWriter.addInterestMatchingEntry({
             message: event.message,
             event_type: event.event_type!,
             start_datetime: event.start_datetime!,
@@ -604,7 +604,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
             console.log(`    DISCARDED: ${event.message.link} - ${reason}`);
           }
           cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
-          debugWriter.addStep6Entry({
+          debugWriter.addInterestMatchingEntry({
             message: event.message,
             event_type: event.event_type!,
             start_datetime: event.start_datetime!,
@@ -634,7 +634,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
 }
 
 export async function filterBySchedule(events: Event[], config: Config): Promise<Event[]> {
-  console.log(`Step 5: Filtering ${events.length} event announcements by schedule and future dates...`);
+  console.log(`Filtering ${events.length} events by schedule and availability...`);
 
   if (events.length === 0) {
     console.log(`  No input on this step`);
@@ -679,7 +679,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                 ...event,
                 start_datetime: normalizedCachedDateTime
               });
-              debugWriter.addStep5Entry({
+              debugWriter.addScheduleFilteringEntry({
                 message: event.message,
                 event_type: event.event_type!,
                 
@@ -693,7 +693,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               if (config.verboseLogging) {
                 console.log(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
               }
-              debugWriter.addStep5Entry({
+              debugWriter.addScheduleFilteringEntry({
                 message: event.message,
                 event_type: event.event_type!,
                 
@@ -709,7 +709,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
             if (config.verboseLogging) {
               console.log(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
             }
-            debugWriter.addStep5Entry({
+            debugWriter.addScheduleFilteringEntry({
               message: event.message,
               event_type: event.event_type!,
               
@@ -726,7 +726,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
           uncachedEvents.push(event);
         }
       } else {
-        debugWriter.addStep5Entry({
+        debugWriter.addScheduleFilteringEntry({
           message: event.message,
           event_type: event.event_type!,
           
@@ -816,7 +816,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                   console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`);
                   console.log(`    GPT response line: "${line}"`);
                 }
-                debugWriter.addStep5Entry({
+                debugWriter.addScheduleFilteringEntry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
                   
@@ -839,7 +839,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                 if (config.verboseLogging) {
                   console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
                 }
-                debugWriter.addStep5Entry({
+                debugWriter.addScheduleFilteringEntry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
                   
@@ -859,7 +859,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                 if (config.verboseLogging) {
                   console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
                 }
-                debugWriter.addStep5Entry({
+                debugWriter.addScheduleFilteringEntry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
                   
@@ -891,7 +891,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                   ...chunk[messageIdx],
                   start_datetime: normalizedDateTime
                 });
-                debugWriter.addStep5Entry({
+                debugWriter.addScheduleFilteringEntry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
                   
@@ -905,7 +905,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
                 if (config.verboseLogging) {
                   console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
                 }
-                debugWriter.addStep5Entry({
+                debugWriter.addScheduleFilteringEntry({
                   message: chunk[messageIdx].message,
                   event_type: chunk[messageIdx].event_type!,
                   
@@ -921,7 +921,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               if (config.verboseLogging) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
               }
-              debugWriter.addStep5Entry({
+              debugWriter.addScheduleFilteringEntry({
                 message: chunk[messageIdx].message,
                 event_type: chunk[messageIdx].event_type!,
                 
@@ -943,7 +943,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
               console.log(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
             }
             cache.cacheScheduledEvent(chunk[idx].message.link, 'unknown', config.weeklyTimeslots, false);
-            debugWriter.addStep5Entry({
+            debugWriter.addScheduleFilteringEntry({
               message: chunk[idx].message,
               event_type: chunk[idx].event_type!,
               
@@ -963,7 +963,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
             console.log(`    DISCARDED: ${event.message.link} - no date/time found`);
           }
           cache.cacheScheduledEvent(event.message.link, 'unknown', config.weeklyTimeslots, false);
-          debugWriter.addStep5Entry({
+          debugWriter.addScheduleFilteringEntry({
             message: event.message,
             event_type: event.event_type!,
             

@@ -9,7 +9,7 @@ const openai = new OpenAI({
 });
 
 export async function describeEvents(events: Event[], config: Config): Promise<Event[]> {
-  console.log(`Step 7: Converting ${events.length} scheduled events to events...`);
+  console.log(`Generating descriptions for ${events.length} events...`);
 
   if (events.length === 0) {
     console.log(`  No input on this step`);
@@ -37,7 +37,7 @@ export async function describeEvents(events: Event[], config: Config): Promise<E
       describedEvents.push({ ...event, event_description: updatedEventDescription });
 
       if (config.writeDebugFiles) {
-        debugWriter.addStep7Entry({
+        debugWriter.addEventDescriptionEntry({
           message: event.message,
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
@@ -135,7 +135,7 @@ Link: ${event.message.link}`).join('\n\n');
           }
 
           if (config.writeDebugFiles) {
-            debugWriter.addStep7Entry({
+            debugWriter.addEventDescriptionEntry({
               message: chunk[i].message,
               event_type: chunk[i].event_type!,
               start_datetime: chunk[i].start_datetime!,
