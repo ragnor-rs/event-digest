@@ -6,7 +6,7 @@ import { Cache } from '../../data/cache';
 import { OpenAIClient } from '../../data/openai-client';
 import { DebugScheduleFilteringEntry } from '../../presentation/debug-writer';
 import { createBatches } from '../../shared/batch-processor';
-import { normalizeDateTime, MAX_FUTURE_YEARS } from '../../shared/date-utils';
+import { normalizeDateTime, MAX_FUTURE_YEARS, DATE_FORMAT } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
 import { Event } from '../entities';
 
@@ -58,7 +58,7 @@ function processCachedEvent(
 ): Event | null {
   try {
     const normalizedCachedDateTime = normalizeDateTime(cachedDateTime);
-    const eventDate = parse(normalizedCachedDateTime, 'dd MMM yyyy HH:mm', new Date());
+    const eventDate = parse(normalizedCachedDateTime, DATE_FORMAT, new Date());
 
     const validation = isValidEventDateTime(eventDate, new Date());
     if (!validation.valid) {
@@ -126,7 +126,7 @@ function processExtractedDateTime(
   try {
     // Use normalized date for all processing
     const normalizedDateTime = normalizeDateTime(dateTime);
-    const eventDate = parse(normalizedDateTime, 'dd MMM yyyy HH:mm', new Date());
+    const eventDate = parse(normalizedDateTime, DATE_FORMAT, new Date());
 
     // Check if the date is valid
     if (!isValid(eventDate)) {

@@ -1,6 +1,7 @@
 import { parse } from 'date-fns';
 
 import { Event } from '../domain/entities';
+import { DATE_FORMAT } from '../shared/date-utils';
 
 export function printEvents(events: Event[]): void {
   console.log('=== EVENT DIGEST ===');
@@ -48,8 +49,8 @@ export function printEvents(events: Event[]): void {
   // Sort events by date in chronological order
   const sortedEvents = validEvents.sort((a, b) => {
     try {
-      const dateA = parse(a.event_description!.date_time, 'dd MMM yyyy HH:mm', new Date());
-      const dateB = parse(b.event_description!.date_time, 'dd MMM yyyy HH:mm', new Date());
+      const dateA = parse(a.event_description!.date_time, DATE_FORMAT, new Date());
+      const dateB = parse(b.event_description!.date_time, DATE_FORMAT, new Date());
       return dateA.getTime() - dateB.getTime();
     } catch (error) {
       console.error(

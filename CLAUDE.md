@@ -145,7 +145,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection, coordinates all domain services, manages debug file writing
 
 **Data Layer** (`data/`):
-- `openai-client.ts`: OpenAI GPT API wrapper with rate limiting (1-second delays), exposes GPT_MODEL, GPT_TEMPERATURE, GPT_TEMPERATURE_CREATIVE constants
+- `openai-client.ts`: OpenAI GPT API wrapper with rate limiting (1-second delays), exposes GPT_TEMPERATURE_CREATIVE constant
 - `telegram-client.ts`: Telegram API client with session management, uses readline-helper for authentication prompts
 - `cache.ts`: Six-tier caching system for messages and GPT results with preference-aware keys
 

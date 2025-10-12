@@ -17,7 +17,6 @@ import * as readline from 'readline';
 interface MutableReadline extends readline.Interface {
   stdoutMuted?: boolean;
   output?: NodeJS.WriteStream;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _writeToOutput?: (stringToWrite: string) => void;
 }
 
