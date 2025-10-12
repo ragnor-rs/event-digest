@@ -1,5 +1,6 @@
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 
+import { DATETIME_UNKNOWN } from '../../config/constants';
 import { Config } from '../../config/types';
 import { Cache } from '../../data/cache';
 import { OpenAIClient } from '../../data/openai-client';
@@ -8,6 +9,206 @@ import { createBatches } from '../../shared/batch-processor';
 import { normalizeDateTime, MAX_FUTURE_YEARS } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
 import { Event } from '../entities';
+
+/**
+ * Validates if an event datetime matches user's availability schedule
+ */
+function matchesTimeslot(eventDate: Date, weeklyTimeslots: string[]): boolean {
+  const dayOfWeek = getDay(eventDate);
+  const hour = getHours(eventDate);
+  const minute = getMinutes(eventDate);
+  const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+  return weeklyTimeslots.some((slot) => {
+    const [slotDay, slotTime] = slot.split(' ');
+    const slotDayNum = parseInt(slotDay);
+    return slotDayNum === dayOfWeek && timeStr >= slotTime;
+  });
+}
+
+/**
+ * Validates if a datetime is in the future and within reasonable bounds
+ */
+function isValidEventDateTime(eventDate: Date, messageDate: Date): { valid: boolean; reason?: string } {
+  const now = new Date();
+
+  // Check if the event is in the future relative to current time
+  if (eventDate <= now) {
+    return { valid: false, reason: 'event in the past' };
+  }
+
+  // Check if event date is reasonable relative to message date
+  const maxFutureDate = new Date(messageDate.getTime() + MAX_FUTURE_YEARS * 365 * 24 * 60 * 60 * 1000);
+  if (eventDate > maxFutureDate) {
+    return { valid: false, reason: 'event too far in future' };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Processes a single cached event entry and validates it against current schedule
+ */
+function processCachedEvent(
+  event: Event,
+  cachedDateTime: string,
+  config: Config,
+  logger: Logger,
+  debugEntries: DebugScheduleFilteringEntry[]
+): Event | null {
+  try {
+    const normalizedCachedDateTime = normalizeDateTime(cachedDateTime);
+    const eventDate = parse(normalizedCachedDateTime, 'dd MMM yyyy HH:mm', new Date());
+
+    const validation = isValidEventDateTime(eventDate, new Date());
+    if (!validation.valid) {
+      logger.verbose(`    DISCARDED: ${event.message.link} - ${validation.reason} (cached)`);
+      debugEntries.push({
+        message: event.message,
+        event_type: event.event_type!,
+        gpt_prompt: '[CACHED]',
+        gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        extracted_datetime: normalizedCachedDateTime,
+        result: 'discarded',
+        discard_reason: validation.reason,
+        cached: true,
+      });
+      return null;
+    }
+
+    if (matchesTimeslot(eventDate, config.weeklyTimeslots)) {
+      debugEntries.push({
+        message: event.message,
+        event_type: event.event_type!,
+        gpt_prompt: '[CACHED]',
+        gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        extracted_datetime: normalizedCachedDateTime,
+        result: 'scheduled',
+        cached: true,
+      });
+      return { ...event, start_datetime: normalizedCachedDateTime };
+    } else {
+      logger.verbose(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
+      debugEntries.push({
+        message: event.message,
+        event_type: event.event_type!,
+        gpt_prompt: '[CACHED]',
+        gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        extracted_datetime: normalizedCachedDateTime,
+        result: 'discarded',
+        discard_reason: 'outside desired timeslots',
+        cached: true,
+      });
+      return null;
+    }
+  } catch (error) {
+    logger.verbose(
+      `    WARNING: Failed to parse cached datetime "${cachedDateTime}" for ${event.message.link}: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return null; // Will be reprocessed
+  }
+}
+
+/**
+ * Processes a freshly extracted datetime for an event and validates it
+ */
+function processExtractedDateTime(
+  event: Event,
+  dateTime: string,
+  prompt: string,
+  result: string,
+  config: Config,
+  cache: Cache,
+  logger: Logger,
+  debugEntries: DebugScheduleFilteringEntry[],
+  scheduledEvents: Event[]
+): void {
+  try {
+    // Use normalized date for all processing
+    const normalizedDateTime = normalizeDateTime(dateTime);
+    const eventDate = parse(normalizedDateTime, 'dd MMM yyyy HH:mm', new Date());
+
+    // Check if the date is valid
+    if (!isValid(eventDate)) {
+      logger.verbose(
+        `    DISCARDED: ${event.message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
+      );
+      debugEntries.push({
+        message: event.message,
+        event_type: event.event_type!,
+        gpt_prompt: prompt,
+        gpt_response: result || '',
+        extracted_datetime: dateTime,
+        result: 'discarded',
+        discard_reason: 'could not parse date',
+        cached: false,
+      });
+      return;
+    }
+
+    // Validate event date
+    const messageDate = new Date(event.message.timestamp);
+    const validation = isValidEventDateTime(eventDate, messageDate);
+    if (!validation.valid) {
+      logger.verbose(`    DISCARDED: ${event.message.link} - ${validation.reason}`);
+      debugEntries.push({
+        message: event.message,
+        event_type: event.event_type!,
+        gpt_prompt: prompt,
+        gpt_response: result || '',
+        extracted_datetime: normalizedDateTime,
+        result: 'discarded',
+        discard_reason: validation.reason,
+        cached: false,
+      });
+      return;
+    }
+
+    // Check if matches schedule
+    if (matchesTimeslot(eventDate, config.weeklyTimeslots)) {
+      scheduledEvents.push({
+        ...event,
+        start_datetime: normalizedDateTime,
+      });
+      debugEntries.push({
+        message: event.message,
+        event_type: event.event_type!,
+        gpt_prompt: prompt,
+        gpt_response: result || '',
+        extracted_datetime: normalizedDateTime,
+        result: 'scheduled',
+        cached: false,
+      });
+    } else {
+      logger.verbose(`    DISCARDED: ${event.message.link} - outside desired timeslots`);
+      debugEntries.push({
+        message: event.message,
+        event_type: event.event_type!,
+        gpt_prompt: prompt,
+        gpt_response: result || '',
+        extracted_datetime: normalizedDateTime,
+        result: 'discarded',
+        discard_reason: 'outside desired timeslots',
+        cached: false,
+      });
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logger.verbose(
+      `    DISCARDED: ${event.message.link} - date parsing error for "${dateTime}" (normalized: "${normalizeDateTime(dateTime)}"): ${errorMsg}`
+    );
+    debugEntries.push({
+      message: event.message,
+      event_type: event.event_type!,
+      gpt_prompt: prompt,
+      gpt_response: result || '',
+      extracted_datetime: dateTime,
+      result: 'discarded',
+      discard_reason: `date parsing error: ${errorMsg}`,
+      cached: false,
+    });
+  }
+}
 
 export async function filterBySchedule(
   events: Event[],
@@ -35,69 +236,13 @@ export async function filterBySchedule(
     const cachedDateTime = cache.getScheduledEventCache(event.message.link, config.weeklyTimeslots);
     if (cachedDateTime !== undefined) {
       cacheHits++;
-      if (cachedDateTime !== 'unknown') {
+      if (cachedDateTime !== DATETIME_UNKNOWN) {
         // Re-validate against current time and schedule
-        try {
-          const normalizedCachedDateTime = normalizeDateTime(cachedDateTime);
-          const eventDate = parse(normalizedCachedDateTime, 'dd MMM yyyy HH:mm', new Date());
-
-          const now = new Date();
-          if (eventDate > now) {
-            const dayOfWeek = getDay(eventDate);
-            const hour = getHours(eventDate);
-            const minute = getMinutes(eventDate);
-            const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-            const matchesSchedule = config.weeklyTimeslots.some((slot) => {
-              const [slotDay, slotTime] = slot.split(' ');
-              const slotDayNum = parseInt(slotDay);
-              return slotDayNum === dayOfWeek && timeStr >= slotTime;
-            });
-
-            if (matchesSchedule) {
-              scheduledEvents.push({
-                ...event,
-                start_datetime: normalizedCachedDateTime,
-              });
-              debugEntries.push({
-                message: event.message,
-                event_type: event.event_type!,
-                gpt_prompt: '[CACHED]',
-                gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
-                extracted_datetime: normalizedCachedDateTime,
-                result: 'scheduled',
-                cached: true,
-              });
-            } else {
-              logger.verbose(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
-              debugEntries.push({
-                message: event.message,
-                event_type: event.event_type!,
-                gpt_prompt: '[CACHED]',
-                gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
-                extracted_datetime: normalizedCachedDateTime,
-                result: 'discarded',
-                discard_reason: 'outside desired timeslots',
-                cached: true,
-              });
-            }
-          } else {
-            logger.verbose(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
-            debugEntries.push({
-              message: event.message,
-              event_type: event.event_type!,
-              gpt_prompt: '[CACHED]',
-              gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
-              extracted_datetime: normalizedCachedDateTime,
-              result: 'discarded',
-              discard_reason: 'event in the past',
-              cached: true,
-            });
-          }
-        } catch (error) {
-          logger.verbose(
-            `    WARNING: Failed to parse cached datetime "${cachedDateTime}" for ${event.message.link}: ${error instanceof Error ? error.message : String(error)}`
-          );
+        const processedEvent = processCachedEvent(event, cachedDateTime, config, logger, debugEntries);
+        if (processedEvent) {
+          scheduledEvents.push(processedEvent);
+        } else if (!debugEntries.some((e) => e.message.link === event.message.link)) {
+          // Failed to parse - will be reprocessed
           uncachedEvents.push(event);
         }
       } else {
@@ -106,7 +251,7 @@ export async function filterBySchedule(
           event_type: event.event_type!,
           gpt_prompt: '[CACHED]',
           gpt_response: '[CACHED: unknown datetime]',
-          extracted_datetime: 'unknown',
+          extracted_datetime: DATETIME_UNKNOWN,
           result: 'discarded',
           discard_reason: 'no date/time found',
           cached: true,
@@ -167,123 +312,18 @@ export async function filterBySchedule(
           processedMessages.add(messageIdx);
         }
 
-        if (messageIdx >= 0 && messageIdx < chunk.length && dateTime !== 'unknown') {
-          try {
-            // Use normalized date for all processing
-            const normalizedDateTime = normalizeDateTime(dateTime);
-            const eventDate = parse(normalizedDateTime, 'dd MMM yyyy HH:mm', new Date());
-
-            // Check if the date is valid
-            if (!isValid(eventDate)) {
-              logger.verbose(
-                `    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
-              );
-              logger.verbose(`    GPT response line: "${line}"`);
-              debugEntries.push({
-                message: chunk[messageIdx].message,
-                event_type: chunk[messageIdx].event_type!,
-                gpt_prompt: prompt,
-                gpt_response: result || '',
-                extracted_datetime: dateTime,
-                result: 'discarded',
-                discard_reason: 'could not parse date',
-                cached: false,
-              });
-              continue;
-            }
-
-            // Validate event date against message timestamp
-            const messageDate = new Date(chunk[messageIdx].message.timestamp);
-            const now = new Date();
-
-            // Check if the event is in the future relative to current time
-            if (eventDate <= now) {
-              logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
-              debugEntries.push({
-                message: chunk[messageIdx].message,
-                event_type: chunk[messageIdx].event_type!,
-                gpt_prompt: prompt,
-                gpt_response: result || '',
-                extracted_datetime: normalizedDateTime,
-                result: 'discarded',
-                discard_reason: 'event in the past',
-                cached: false,
-              });
-              continue;
-            }
-
-            // Check if event date is reasonable relative to message date
-            const maxFutureDate = new Date(messageDate.getTime() + MAX_FUTURE_YEARS * 365 * 24 * 60 * 60 * 1000);
-            if (eventDate > maxFutureDate) {
-              logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
-              debugEntries.push({
-                message: chunk[messageIdx].message,
-                event_type: chunk[messageIdx].event_type!,
-                gpt_prompt: prompt,
-                gpt_response: result || '',
-                extracted_datetime: normalizedDateTime,
-                result: 'discarded',
-                discard_reason: 'event too far in future',
-                cached: false,
-              });
-              continue;
-            }
-
-            const dayOfWeek = getDay(eventDate);
-            const hour = getHours(eventDate);
-            const minute = getMinutes(eventDate);
-
-            const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-            const matchesSchedule = config.weeklyTimeslots.some((slot) => {
-              const [slotDay, slotTime] = slot.split(' ');
-              const slotDayNum = parseInt(slotDay);
-              return slotDayNum === dayOfWeek && timeStr >= slotTime;
-            });
-
-            if (matchesSchedule) {
-              scheduledEvents.push({
-                ...chunk[messageIdx],
-                start_datetime: normalizedDateTime,
-              });
-              debugEntries.push({
-                message: chunk[messageIdx].message,
-                event_type: chunk[messageIdx].event_type!,
-                gpt_prompt: prompt,
-                gpt_response: result || '',
-                extracted_datetime: normalizedDateTime,
-                result: 'scheduled',
-                cached: false,
-              });
-            } else {
-              logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
-              debugEntries.push({
-                message: chunk[messageIdx].message,
-                event_type: chunk[messageIdx].event_type!,
-                gpt_prompt: prompt,
-                gpt_response: result || '',
-                extracted_datetime: normalizedDateTime,
-                result: 'discarded',
-                discard_reason: 'outside desired timeslots',
-                cached: false,
-              });
-            }
-          } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.verbose(
-              `    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error for "${dateTime}" (normalized: "${normalizeDateTime(dateTime)}"): ${errorMsg}`
-            );
-            debugEntries.push({
-              message: chunk[messageIdx].message,
-              event_type: chunk[messageIdx].event_type!,
-              gpt_prompt: prompt,
-              gpt_response: result || '',
-              extracted_datetime: dateTime,
-              result: 'discarded',
-              discard_reason: `date parsing error: ${errorMsg}`,
-              cached: false,
-            });
-          }
+        if (messageIdx >= 0 && messageIdx < chunk.length && dateTime !== DATETIME_UNKNOWN) {
+          processExtractedDateTime(
+            chunk[messageIdx],
+            dateTime,
+            prompt,
+            result,
+            config,
+            cache,
+            logger,
+            debugEntries,
+            scheduledEvents
+          );
         }
       }
 
@@ -291,13 +331,13 @@ export async function filterBySchedule(
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedMessages.has(idx)) {
           logger.verbose(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
-          cache.cacheScheduledEvent(chunk[idx].message.link, 'unknown', config.weeklyTimeslots, false);
+          cache.cacheScheduledEvent(chunk[idx].message.link, DATETIME_UNKNOWN, config.weeklyTimeslots, false);
           debugEntries.push({
             message: chunk[idx].message,
             event_type: chunk[idx].event_type!,
             gpt_prompt: prompt,
             gpt_response: result || '',
-            extracted_datetime: 'unknown',
+            extracted_datetime: DATETIME_UNKNOWN,
             result: 'discarded',
             discard_reason: 'no date/time found',
             cached: false,
@@ -308,13 +348,13 @@ export async function filterBySchedule(
       // No results from GPT, cache as unknown
       for (const event of chunk) {
         logger.verbose(`    DISCARDED: ${event.message.link} - no date/time found`);
-        cache.cacheScheduledEvent(event.message.link, 'unknown', config.weeklyTimeslots, false);
+        cache.cacheScheduledEvent(event.message.link, DATETIME_UNKNOWN, config.weeklyTimeslots, false);
         debugEntries.push({
           message: event.message,
           event_type: event.event_type!,
           gpt_prompt: prompt,
           gpt_response: result || '[NO RESPONSE]',
-          extracted_datetime: 'unknown',
+          extracted_datetime: DATETIME_UNKNOWN,
           result: 'discarded',
           discard_reason: 'no date/time found',
           cached: false,

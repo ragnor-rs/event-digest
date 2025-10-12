@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { TelegramMessage, EventDescription } from '../domain/entities';
+import { TelegramMessage, EventDescription, EventType } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
 export class Cache {
@@ -19,7 +19,7 @@ export class Cache {
   private cache: {
     telegram_messages: Record<string, TelegramMessage[]>; // source name -> telegram messages (step 1)
     messages: Record<string, boolean>; // message link -> is event (step 3)
-    event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
+    event_type_classification: Record<string, EventType>; // message link -> event type (step 4)
     matching_interests: Record<string, string[]>; // message link -> matched interests (step 6)
     scheduled_events: Record<string, string>; // message link -> extracted datetime (step 5)
     events: Record<string, EventDescription>; // message link -> event description object (step 7)
@@ -42,7 +42,7 @@ export class Cache {
   private loadCache(): {
     telegram_messages: Record<string, TelegramMessage[]>;
     messages: Record<string, boolean>;
-    event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>;
+    event_type_classification: Record<string, EventType>;
     matching_interests: Record<string, string[]>;
     scheduled_events: Record<string, string>;
     events: Record<string, EventDescription>;
@@ -137,7 +137,12 @@ export class Cache {
   cacheMessages(sourceName: string, messages: TelegramMessage[], autoSave: boolean = true): void {
     this.cache.telegram_messages[sourceName] = messages;
     if (autoSave) {
-      this.saveCacheFile('telegram_messages');
+      try {
+        this.saveCacheFile('telegram_messages');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
     }
   }
 
@@ -147,7 +152,8 @@ export class Cache {
       return undefined;
     }
     // Messages are assumed to be sorted by timestamp, return the last one
-    return cachedMessages[cachedMessages.length - 1].timestamp;
+    const lastMessage = cachedMessages[cachedMessages.length - 1];
+    return lastMessage?.timestamp;
   }
 
   // Event message detection (step 3)
@@ -158,7 +164,12 @@ export class Cache {
   cacheEventMessage(messageLink: string, isEvent: boolean, autoSave: boolean = true): void {
     this.cache.messages[messageLink] = isEvent;
     if (autoSave) {
-      this.saveCacheFile('messages');
+      try {
+        this.saveCacheFile('messages');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
     }
   }
 
@@ -177,7 +188,12 @@ export class Cache {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.matching_interests[cacheKey] = interests;
     if (autoSave) {
-      this.saveCacheFile('matching_interests');
+      try {
+        this.saveCacheFile('matching_interests');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
     }
   }
 
@@ -208,7 +224,12 @@ export class Cache {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     this.cache.scheduled_events[cacheKey] = datetime;
     if (autoSave) {
-      this.saveCacheFile('scheduled_events');
+      try {
+        this.saveCacheFile('scheduled_events');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
     }
   }
 
@@ -239,7 +260,12 @@ export class Cache {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.events[cacheKey] = event;
     if (autoSave) {
-      this.saveCacheFile('events');
+      try {
+        this.saveCacheFile('events');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
     }
   }
 
@@ -289,29 +315,44 @@ export class Cache {
   }
 
   // Event type classification (step 4)
-  getEventTypeCache(messageLink: string): 'offline' | 'online' | 'hybrid' | undefined {
+  getEventTypeCache(messageLink: string): EventType | undefined {
     return this.cache.event_type_classification[messageLink];
   }
 
-  cacheEventType(messageLink: string, eventType: 'offline' | 'online' | 'hybrid', autoSave: boolean = true): void {
+  cacheEventType(messageLink: string, eventType: EventType, autoSave: boolean = true): void {
     this.cache.event_type_classification[messageLink] = eventType;
     if (autoSave) {
-      this.saveCacheFile('event_type_classification');
+      try {
+        this.saveCacheFile('event_type_classification');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
     }
   }
 
   // Clear event announcements cache specifically
   clearAnnouncementsCache(): void {
     this.cache.event_type_classification = {};
-    this.saveCacheFile('event_type_classification');
-    this.logger.log('  Event announcements cache cleared');
+    try {
+      this.saveCacheFile('event_type_classification');
+      this.logger.log('  Event announcements cache cleared');
+    } catch (error) {
+      this.logger.error('Failed to clear event announcements cache', error);
+      throw error;
+    }
   }
 
   // Clear matching interests cache specifically
   clearInterestingAnnouncementsCache(): void {
     this.cache.matching_interests = {};
-    this.saveCacheFile('matching_interests');
-    this.logger.log('  Matching interests cache cleared');
+    try {
+      this.saveCacheFile('matching_interests');
+      this.logger.log('  Matching interests cache cleared');
+    } catch (error) {
+      this.logger.error('Failed to clear matching interests cache', error);
+      throw error;
+    }
   }
 
   // Create hash for preferences (interests/timeslots) for shorter cache keys

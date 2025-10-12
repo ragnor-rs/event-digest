@@ -4,7 +4,7 @@ import { OpenAIClient } from '../../data/openai-client';
 import { DebugTypeClassificationEntry } from '../../presentation/debug-writer';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-import { Event } from '../entities';
+import { Event, EventType } from '../entities';
 
 export async function classifyEventTypes(
   events: Event[],
@@ -33,7 +33,7 @@ export async function classifyEventTypes(
       cacheHits++;
 
       // Check if we should include this event based on skipOnlineEvents
-      if (cachedType === 'online' && config.skipOnlineEvents) {
+      if (cachedType === EventType.ONLINE && config.skipOnlineEvents) {
         logger.verbose(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
         debugEntries.push({
           message: event.message,
@@ -124,14 +124,15 @@ export async function classifyEventTypes(
             continue;
           }
 
-          const eventType = classificationIdx === 0 ? 'offline' : classificationIdx === 1 ? 'online' : 'hybrid';
+          const eventType =
+            classificationIdx === 0 ? EventType.OFFLINE : classificationIdx === 1 ? EventType.ONLINE : EventType.HYBRID;
 
           // Cache the result
           cache.cacheEventType(chunk[messageIdx].message.link, eventType, false);
           processedIndices.add(messageIdx);
 
           // Check if we should include this event
-          if (eventType === 'online' && config.skipOnlineEvents) {
+          if (eventType === EventType.ONLINE && config.skipOnlineEvents) {
             logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
             debugEntries.push({
               message: chunk[messageIdx].message,
@@ -184,7 +185,7 @@ export async function classifyEventTypes(
     for (let idx = 0; idx < chunk.length; idx++) {
       if (!processedIndices.has(idx)) {
         logger.verbose(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
-        const eventType = 'offline';
+        const eventType = EventType.OFFLINE;
         cache.cacheEventType(chunk[idx].message.link, eventType, false);
         classifiedEvents.push({
           ...chunk[idx],

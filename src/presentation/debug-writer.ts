@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { TelegramMessage, InterestMatch } from '../domain/entities';
+import { TelegramMessage, InterestMatch, EventType } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
 export interface DebugEventDetectionEntry {
@@ -16,7 +16,7 @@ export interface DebugTypeClassificationEntry {
   message: TelegramMessage;
   gpt_prompt: string;
   gpt_response: string;
-  result: 'hybrid' | 'offline' | 'online' | 'discarded';
+  result: EventType | 'discarded';
   substep: '4_classification';
   cached: boolean;
 }
@@ -134,9 +134,9 @@ class DebugWriter {
       description: 'Index-based GPT classification of events as offline (0), online (1), or hybrid (2)',
       total_entries: this.typeClassificationEntries.length,
       result_counts: {
-        hybrid: this.typeClassificationEntries.filter((e) => e.result === 'hybrid').length,
-        offline: this.typeClassificationEntries.filter((e) => e.result === 'offline').length,
-        online: this.typeClassificationEntries.filter((e) => e.result === 'online').length,
+        hybrid: this.typeClassificationEntries.filter((e) => e.result === EventType.HYBRID).length,
+        offline: this.typeClassificationEntries.filter((e) => e.result === EventType.OFFLINE).length,
+        online: this.typeClassificationEntries.filter((e) => e.result === EventType.ONLINE).length,
         discarded: this.typeClassificationEntries.filter((e) => e.result === 'discarded').length,
       },
       cache_stats: {

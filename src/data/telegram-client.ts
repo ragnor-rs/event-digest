@@ -22,12 +22,21 @@ export class TelegramClient {
   constructor(cache: Cache, logger: Logger) {
     this.cache = cache;
     this.logger = logger;
-    const apiIdStr = process.env.TELEGRAM_API_ID!;
+
+    const apiIdStr = process.env.TELEGRAM_API_ID;
+    if (!apiIdStr) {
+      throw new Error('TELEGRAM_API_ID environment variable is not set');
+    }
+
     const apiId = parseInt(apiIdStr);
     if (isNaN(apiId)) {
       throw new Error(`TELEGRAM_API_ID must be a valid number, got: "${apiIdStr}"`);
     }
-    const apiHash = process.env.TELEGRAM_API_HASH!;
+
+    const apiHash = process.env.TELEGRAM_API_HASH;
+    if (!apiHash) {
+      throw new Error('TELEGRAM_API_HASH environment variable is not set');
+    }
 
     this.sessionFile = path.join(process.cwd(), '.telegram-session');
     const savedSession = this.loadSession();
@@ -66,8 +75,13 @@ export class TelegramClient {
   }
 
   async connect(): Promise<void> {
+    const phoneNumber = process.env.TELEGRAM_PHONE_NUMBER;
+    if (!phoneNumber) {
+      throw new Error('TELEGRAM_PHONE_NUMBER environment variable is not set');
+    }
+
     await this.client.start({
-      phoneNumber: async () => process.env.TELEGRAM_PHONE_NUMBER!,
+      phoneNumber: async () => phoneNumber,
       password: promptForPassword,
       phoneCode: promptForCode,
       onError: (err: unknown) => {
@@ -157,8 +171,19 @@ export class TelegramClient {
       return finalMessages;
     } catch (error) {
       this.logger.error(`Error fetching from ${sourceType} ${sourceName}`, error);
-      // Return cached messages if fetch fails
-      return cachedMessages;
+
+      // If we have cached messages, return them with a warning
+      if (cachedMessages.length > 0) {
+        this.logger.log(`  Returning ${cachedMessages.length} cached messages due to fetch error`);
+        return cachedMessages.slice(-limit);
+      }
+
+      // If no cached messages and fetch failed, throw error
+      throw new Error(
+        `Failed to fetch messages from ${sourceType} ${sourceName} and no cached messages available: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 

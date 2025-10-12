@@ -91,16 +91,20 @@ Link: ${event.message.link}`
     if (result) {
       const eventBlocks = result.split(/^\d+:/m).filter((block) => block.trim());
 
+      // Create a map of event indices to blocks for safer access
+      const blockMap = new Map<number, string>();
+      eventBlocks.forEach((block, idx) => {
+        if (idx < chunk.length) {
+          blockMap.set(idx, block);
+        }
+      });
+
       // Process each event in the chunk
       for (let eventIdx = 0; eventIdx < chunk.length; eventIdx++) {
         const event = chunk[eventIdx];
 
-        // Try to find the corresponding block by matching event number
-        let block: string | undefined;
-        if (eventIdx < eventBlocks.length) {
-          // Assume blocks are in order
-          block = eventBlocks[eventIdx];
-        }
+        // Get the corresponding block from the map
+        const block = blockMap.get(eventIdx);
 
         if (!block) {
           // GPT didn't return a response for this event

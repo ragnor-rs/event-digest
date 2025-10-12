@@ -30,3 +30,15 @@ export const OPENAI_MAX_RETRIES = 3;
  * 2000ms (2 seconds) is a reasonable starting point for rate limit recovery.
  */
 export const OPENAI_INITIAL_BACKOFF_MS = 2000;
+
+/**
+ * Sentinel value indicating unknown or missing datetime information
+ * Used in schedule extraction when no valid datetime could be determined
+ */
+export const DATETIME_UNKNOWN = 'unknown';
+
+/**
+ * Sentinel value indicating no data or missing information
+ * Used as a general-purpose marker for absent or unavailable data
+ */
+export const VALUE_NONE = 'none';

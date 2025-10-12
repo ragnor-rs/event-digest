@@ -2,6 +2,10 @@ import { GROUP_MESSAGE_MULTIPLIER } from './constants';
 import { DEFAULT_CONFIG } from './defaults';
 import { Config } from './types';
 
+/**
+ * Validates and completes the configuration with defaults
+ * Outputs configuration summary to console (before Logger is initialized)
+ */
 export function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Track which values were provided vs defaulted
   const providedMaxGroupMessages = config.maxGroupMessages !== undefined;
