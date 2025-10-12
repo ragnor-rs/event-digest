@@ -1,7 +1,6 @@
+import { GROUP_MESSAGE_MULTIPLIER } from './constants';
 import { DEFAULT_CONFIG } from './defaults';
 import { Config } from './types';
-
-const GROUP_MESSAGE_MULTIPLIER = 1.5; // Groups need more messages due to noise
 
 export function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Track which values were provided vs defaulted

@@ -91,8 +91,49 @@ Link: ${event.message.link}`
     if (result) {
       const eventBlocks = result.split(/^\d+:/m).filter((block) => block.trim());
 
-      for (let i = 0; i < eventBlocks.length && i < chunk.length; i++) {
-        const block = eventBlocks[i];
+      // Process each event in the chunk
+      for (let eventIdx = 0; eventIdx < chunk.length; eventIdx++) {
+        const event = chunk[eventIdx];
+
+        // Try to find the corresponding block by matching event number
+        let block: string | undefined;
+        if (eventIdx < eventBlocks.length) {
+          // Assume blocks are in order
+          block = eventBlocks[eventIdx];
+        }
+
+        if (!block) {
+          // GPT didn't return a response for this event
+          logger.verbose(`    ✗ No GPT response for event ${eventIdx + 1}: ${event.message.link}`);
+
+          // Create fallback event description
+          const fallbackDescription = {
+            date_time: event.start_datetime!,
+            met_interests: event.interests_matched!,
+            title: 'Event',
+            short_summary: 'Event details not available',
+            link: event.message.link,
+          };
+
+          describedEvents.push({ ...event, event_description: fallbackDescription });
+          cache.cacheConvertedEvent(event.message.link, fallbackDescription, config.userInterests, false);
+
+          if (config.writeDebugFiles) {
+            debugEntries.push({
+              message: event.message,
+              event_type: event.event_type!,
+              start_datetime: event.start_datetime!,
+              interests_matched: event.interests_matched!,
+              gpt_prompt: prompt,
+              gpt_response: '[NO RESPONSE]',
+              extracted_title: 'Event',
+              extracted_summary: 'Event details not available',
+              extraction_success: false,
+              cached: false,
+            });
+          }
+          continue;
+        }
 
         // Find TITLE, SUMMARY, DESCRIPTION using more robust matching
         const titleMatch = block.match(/\bTITLE:\s*(.+?)(?=\n|$)/i);
@@ -109,29 +150,29 @@ Link: ${event.message.link}`
         };
 
         const eventDescription = {
-          date_time: chunk[i].start_datetime!,
-          met_interests: chunk[i].interests_matched!,
+          date_time: event.start_datetime!,
+          met_interests: event.interests_matched!,
           ...eventDescriptionData,
-          link: chunk[i].message.link,
+          link: event.message.link,
         };
 
-        describedEvents.push({ ...chunk[i], event_description: eventDescription });
+        describedEvents.push({ ...event, event_description: eventDescription });
 
         // Cache the full event description
-        cache.cacheConvertedEvent(chunk[i].message.link, eventDescription, config.userInterests, false);
+        cache.cacheConvertedEvent(event.message.link, eventDescription, config.userInterests, false);
 
         if (title && summary && description) {
           logger.verbose(`    ✓ Created event: ${title}`);
         } else {
-          logger.verbose(`    ✗ Failed to extract complete event info for ${chunk[i].message.link}`);
+          logger.verbose(`    ✗ Failed to extract complete event info for ${event.message.link}`);
         }
 
         if (config.writeDebugFiles) {
           debugEntries.push({
-            message: chunk[i].message,
-            event_type: chunk[i].event_type!,
-            start_datetime: chunk[i].start_datetime!,
-            interests_matched: chunk[i].interests_matched!,
+            message: event.message,
+            event_type: event.event_type!,
+            start_datetime: event.start_datetime!,
+            interests_matched: event.interests_matched!,
             gpt_prompt: prompt,
             gpt_response: result,
             extracted_title: title,

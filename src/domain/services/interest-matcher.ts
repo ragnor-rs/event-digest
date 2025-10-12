@@ -148,27 +148,32 @@ export async function filterByInterests(
         }
       }
 
-      // Filter by confidence threshold and validate indices
-      const validMatches = interestMatches.filter(
-        (m) => m.confidence >= config.minInterestConfidence && m.index >= 0 && m.index < config.userInterests.length
-      );
+      // Process matches in a single pass (more efficient than multiple filters)
+      const validMatches: typeof interestMatches = [];
+      const invalidIndices: number[] = [];
+      const lowConfidenceMatches: Array<{ interest: string; confidence: number }> = [];
 
-      // Warn about invalid indices
-      const invalidIndices = interestMatches
-        .filter((m) => m.index < 0 || m.index >= config.userInterests.length)
-        .map((m) => m.index);
+      for (const match of interestMatches) {
+        const isValidIndex = match.index >= 0 && match.index < config.userInterests.length;
+
+        if (!isValidIndex) {
+          invalidIndices.push(match.index);
+        } else if (match.confidence < config.minInterestConfidence) {
+          lowConfidenceMatches.push({
+            interest: config.userInterests[match.index],
+            confidence: match.confidence,
+          });
+        } else {
+          validMatches.push(match);
+        }
+      }
+
+      // Log warnings
       if (invalidIndices.length > 0) {
         logger.verbose(`    WARNING: GPT returned invalid interest indices: ${invalidIndices.join(', ')}`);
       }
-
-      // Warn about low-confidence matches
-      const lowConfidenceMatches = interestMatches.filter(
-        (m) => m.confidence < config.minInterestConfidence && m.index >= 0 && m.index < config.userInterests.length
-      );
       if (lowConfidenceMatches.length > 0) {
-        const lowConfDetails = lowConfidenceMatches
-          .map((m) => `${config.userInterests[m.index]}(${m.confidence.toFixed(2)})`)
-          .join(', ');
+        const lowConfDetails = lowConfidenceMatches.map((m) => `${m.interest}(${m.confidence.toFixed(2)})`).join(', ');
         logger.verbose(`    Filtered out low-confidence matches: ${lowConfDetails}`);
       }
 

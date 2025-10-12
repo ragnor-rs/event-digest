@@ -79,10 +79,25 @@ export class Cache {
   }
 
   private saveCacheFile(storeName: keyof typeof this.cacheFiles): void {
+    const filePath = this.cacheFiles[storeName];
+    const tempFilePath = filePath + '.tmp';
+
     try {
-      const filePath = this.cacheFiles[storeName];
-      fs.writeFileSync(filePath, JSON.stringify(this.cache[storeName], null, 2));
+      // Write to temporary file first
+      fs.writeFileSync(tempFilePath, JSON.stringify(this.cache[storeName], null, 2));
+
+      // Atomic rename (overwrites destination if it exists)
+      fs.renameSync(tempFilePath, filePath);
     } catch (error) {
+      // Clean up temp file if it exists
+      try {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+
       this.logger.error(`Failed to save ${storeName} cache`, error);
       throw new Error(`Cache save failed for ${storeName}: ${error instanceof Error ? error.message : String(error)}`);
     }

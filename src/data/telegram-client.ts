@@ -5,12 +5,11 @@ import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 
 import { Cache } from './cache';
+import { TELEGRAM_DISCONNECT_DELAY_MS } from '../config/constants';
 import { Config } from '../config/types';
 import { TelegramMessage } from '../domain/entities';
 import { Logger } from '../shared/logger';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
-
-const DISCONNECT_DELAY_MS = 100;
 
 export class TelegramClient {
   private client: GramJSClient;
@@ -128,19 +127,26 @@ export class TelegramClient {
 
       this.logger.verbose(`    Fetched ${newMessages.length} new messages`);
 
-      // Combine cached messages with new messages
-      const allMessages = [...cachedMessages, ...newMessages];
+      // Combine cached messages with new messages efficiently
+      // Use Set for O(1) lookup instead of creating intermediate arrays
+      const cachedLinks = new Set(cachedMessages.map((m) => m.link));
+      const allMessages = [...cachedMessages];
 
-      // Remove duplicates by link (new messages override cached) and pre-compute timestamps for sorting
-      const messageMap = new Map(allMessages.map((msg) => [msg.link, msg]));
-      const uniqueMessagesWithTime = Array.from(messageMap.values()).map((msg) => ({
-        msg,
-        time: new Date(msg.timestamp).getTime(),
-      }));
+      // Only add truly new messages (not in cache)
+      for (const msg of newMessages) {
+        if (!cachedLinks.has(msg.link)) {
+          allMessages.push(msg);
+        }
+      }
 
-      // Sort using pre-computed timestamps
-      uniqueMessagesWithTime.sort((a, b) => a.time - b.time);
-      const uniqueMessages = uniqueMessagesWithTime.map((item) => item.msg);
+      // Sort by timestamp (convert once per message, not repeatedly)
+      allMessages.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        return timeA - timeB;
+      });
+
+      const uniqueMessages = allMessages;
 
       // Take the most recent 'limit' messages as final result
       const finalMessages = uniqueMessages.slice(-limit);
@@ -187,7 +193,7 @@ export class TelegramClient {
   async disconnect(): Promise<void> {
     try {
       // Give a brief moment for any ongoing operations to complete
-      await new Promise((resolve) => setTimeout(resolve, DISCONNECT_DELAY_MS));
+      await new Promise((resolve) => setTimeout(resolve, TELEGRAM_DISCONNECT_DELAY_MS));
       await this.client.disconnect();
       await this.client.destroy();
       this.logger.log('Disconnected from Telegram');

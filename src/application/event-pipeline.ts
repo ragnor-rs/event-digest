@@ -31,99 +31,110 @@ export class EventPipeline {
   ) {}
 
   async execute(): Promise<Event[]> {
-    this.logger.log('Starting Event Digest CLI...\n');
+    try {
+      this.logger.log('Starting Event Digest CLI...\n');
 
-    // Step 1: Fetch messages from Telegram
-    await this.telegramClient.connect();
-    this.logger.log('');
-
-    const allMessages = await this.telegramClient.fetchMessages(this.config);
-    this.logger.log('');
-
-    // Step 2: Filter by event cues
-    const eventCueMessages = await filterByEventCues(allMessages, this.config, this.logger);
-    this.logger.log('');
-
-    // Step 3: Detect event announcements with GPT
-    const debugEventDetection: DebugEventDetectionEntry[] = [];
-    const events = await detectEventAnnouncements(
-      eventCueMessages,
-      this.config,
-      this.openaiClient,
-      this.cache,
-      debugEventDetection,
-      this.logger
-    );
-    this.logger.log('');
-
-    if (this.config.writeDebugFiles) {
-      debugWriter.writeEventDetection(debugEventDetection);
-    }
-
-    // Step 4: Classify event types (offline/online/hybrid)
-    const debugTypeClassification: DebugTypeClassificationEntry[] = [];
-    const classifiedEvents = await classifyEventTypes(
-      events,
-      this.config,
-      this.openaiClient,
-      this.cache,
-      debugTypeClassification,
-      this.logger
-    );
-    this.logger.log('');
-
-    debugTypeClassification.forEach((entry) => debugWriter.addTypeClassificationEntry(entry));
-
-    // Step 5: Filter by schedule
-    const debugScheduleFiltering: DebugScheduleFilteringEntry[] = [];
-    const scheduledEvents = await filterBySchedule(
-      classifiedEvents,
-      this.config,
-      this.openaiClient,
-      this.cache,
-      debugScheduleFiltering,
-      this.logger
-    );
-    this.logger.log('');
-
-    debugScheduleFiltering.forEach((entry) => debugWriter.addScheduleFilteringEntry(entry));
-
-    // Step 6: Match to user interests
-    const debugInterestMatching: DebugInterestMatchingEntry[] = [];
-    const matchedEvents = await filterByInterests(
-      scheduledEvents,
-      this.config,
-      this.openaiClient,
-      this.cache,
-      debugInterestMatching,
-      this.logger
-    );
-    this.logger.log('');
-
-    debugInterestMatching.forEach((entry) => debugWriter.addInterestMatchingEntry(entry));
-
-    // Step 7: Generate event descriptions
-    const debugEventDescription: DebugEventDescriptionEntry[] = [];
-    const describedEvents = await describeEvents(
-      matchedEvents,
-      this.config,
-      this.openaiClient,
-      this.cache,
-      debugEventDescription,
-      this.logger
-    );
-    this.logger.log('');
-
-    debugEventDescription.forEach((entry) => debugWriter.addEventDescriptionEntry(entry));
-
-    // Write debug files if enabled
-    if (this.config.writeDebugFiles) {
-      debugWriter.writeAll();
+      // Step 1: Fetch messages from Telegram
+      await this.telegramClient.connect();
       this.logger.log('');
+
+      const allMessages = await this.telegramClient.fetchMessages(this.config);
+      this.logger.log('');
+
+      // Step 2: Filter by event cues
+      const eventCueMessages = await filterByEventCues(allMessages, this.config, this.logger);
+      this.logger.log('');
+
+      // Step 3: Detect event announcements with GPT
+      const debugEventDetection: DebugEventDetectionEntry[] = [];
+      const events = await detectEventAnnouncements(
+        eventCueMessages,
+        this.config,
+        this.openaiClient,
+        this.cache,
+        debugEventDetection,
+        this.logger
+      );
+      this.logger.log('');
+
+      if (this.config.writeDebugFiles) {
+        debugWriter.writeEventDetection(debugEventDetection);
+      }
+
+      // Step 4: Classify event types (offline/online/hybrid)
+      const debugTypeClassification: DebugTypeClassificationEntry[] = [];
+      const classifiedEvents = await classifyEventTypes(
+        events,
+        this.config,
+        this.openaiClient,
+        this.cache,
+        debugTypeClassification,
+        this.logger
+      );
+      this.logger.log('');
+
+      debugTypeClassification.forEach((entry) => debugWriter.addTypeClassificationEntry(entry));
+
+      // Step 5: Filter by schedule
+      const debugScheduleFiltering: DebugScheduleFilteringEntry[] = [];
+      const scheduledEvents = await filterBySchedule(
+        classifiedEvents,
+        this.config,
+        this.openaiClient,
+        this.cache,
+        debugScheduleFiltering,
+        this.logger
+      );
+      this.logger.log('');
+
+      debugScheduleFiltering.forEach((entry) => debugWriter.addScheduleFilteringEntry(entry));
+
+      // Step 6: Match to user interests
+      const debugInterestMatching: DebugInterestMatchingEntry[] = [];
+      const matchedEvents = await filterByInterests(
+        scheduledEvents,
+        this.config,
+        this.openaiClient,
+        this.cache,
+        debugInterestMatching,
+        this.logger
+      );
+      this.logger.log('');
+
+      debugInterestMatching.forEach((entry) => debugWriter.addInterestMatchingEntry(entry));
+
+      // Step 7: Generate event descriptions
+      const debugEventDescription: DebugEventDescriptionEntry[] = [];
+      const describedEvents = await describeEvents(
+        matchedEvents,
+        this.config,
+        this.openaiClient,
+        this.cache,
+        debugEventDescription,
+        this.logger
+      );
+      this.logger.log('');
+
+      debugEventDescription.forEach((entry) => debugWriter.addEventDescriptionEntry(entry));
+
+      // Write debug files if enabled
+      if (this.config.writeDebugFiles) {
+        debugWriter.writeAll();
+        this.logger.log('');
+      }
+
+      return describedEvents;
+    } catch (error) {
+      this.logger.error('Pipeline execution failed:', error);
+      throw error;
+    } finally {
+      // Always ensure Telegram client is disconnected and cache is saved
+      try {
+        await this.cache.save();
+        await this.telegramClient.disconnect();
+      } catch (cleanupError) {
+        this.logger.error('Cleanup failed:', cleanupError);
+      }
     }
-
-    await this.telegramClient.disconnect();
-
-    return describedEvents;
   }
 }

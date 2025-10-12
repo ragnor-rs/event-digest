@@ -78,6 +78,8 @@ export async function detectEventAnnouncements(
     if (result && result !== 'none') {
       const lines = result.split('\n').filter((line) => line.trim());
       const processedIndices = new Set<number>();
+      const malformedLines: string[] = [];
+      const outOfRangeIndices: number[] = [];
 
       for (const line of lines) {
         const match = line.trim().match(/^(\d+)$/);
@@ -96,8 +98,22 @@ export async function detectEventAnnouncements(
               prompt,
               gptResponse: result,
             });
+          } else {
+            outOfRangeIndices.push(parseInt(match[1]));
           }
+        } else if (line.trim() !== '') {
+          malformedLines.push(line);
         }
+      }
+
+      // Log warnings for unexpected GPT output
+      if (outOfRangeIndices.length > 0) {
+        logger.verbose(`    WARNING: GPT returned out-of-range indices: ${outOfRangeIndices.join(', ')}`);
+      }
+      if (malformedLines.length > 0) {
+        logger.verbose(
+          `    WARNING: GPT returned unexpected format in lines: ${malformedLines.slice(0, 3).join(', ')}${malformedLines.length > 3 ? '...' : ''}`
+        );
       }
 
       // Cache negative results for unprocessed messages
