@@ -15,7 +15,6 @@ export class TelegramClient {
   private client: GramJSClient;
   private session: StringSession;
   private sessionFile: string;
-  private isNewSession: boolean;
   private cache: Cache;
   private logger: Logger;
 
@@ -41,7 +40,6 @@ export class TelegramClient {
     this.sessionFile = path.join(process.cwd(), '.telegram-session');
     const savedSession = this.loadSession();
     this.session = new StringSession(savedSession);
-    this.isNewSession = !savedSession;
     this.client = new GramJSClient(this.session, apiId, apiHash, {
       connectionRetries: 5,
     });
@@ -142,13 +140,7 @@ export class TelegramClient {
       // Combine cached messages with new messages efficiently
       // Use Set for O(1) lookup to avoid duplicates
       const seenLinks = new Set(cachedMessages.map((m) => m.link));
-      const uniqueNewMessages = newMessages.filter((msg) => {
-        if (seenLinks.has(msg.link)) {
-          return false;
-        }
-        seenLinks.add(msg.link);
-        return true;
-      });
+      const uniqueNewMessages = newMessages.filter((msg) => !seenLinks.has(msg.link));
 
       // Combine arrays efficiently
       const allMessages = cachedMessages.concat(uniqueNewMessages);
@@ -158,15 +150,13 @@ export class TelegramClient {
         return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
       });
 
-      const uniqueMessages = allMessages;
-
       // Take the most recent 'limit' messages as final result
-      const finalMessages = uniqueMessages.slice(-limit);
+      const finalMessages = allMessages.slice(-limit);
 
       this.logger.verbose(`    Total messages: ${finalMessages.length}`);
 
       // Update cache with all unique messages for future runs
-      this.cache.cacheMessages(cacheKey, uniqueMessages);
+      this.cache.cacheMessages(cacheKey, allMessages);
 
       return finalMessages;
     } catch (error) {

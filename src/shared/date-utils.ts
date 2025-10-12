@@ -5,5 +5,4 @@ export function normalizeDateTime(dateTime: string): string {
   return dateTime.match(/^\d{2} \w{3} \d{4} \d{2}$/) ? dateTime + ':00' : dateTime;
 }
 
-export const DATE_FORMAT = 'dd MMM yyyy HH:mm';
 export const MAX_FUTURE_YEARS = 2;

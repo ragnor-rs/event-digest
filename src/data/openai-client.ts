@@ -4,8 +4,8 @@ import { OPENAI_MAX_RETRIES, OPENAI_INITIAL_BACKOFF_MS } from '../config/constan
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
 import { Logger } from '../shared/logger';
 
-export const GPT_MODEL = 'gpt-4o-mini';
-export const GPT_TEMPERATURE = 0.0;
+const GPT_MODEL = 'gpt-4o-mini';
+const GPT_TEMPERATURE = 0.0;
 export const GPT_TEMPERATURE_CREATIVE = 0.3;
 
 export class OpenAIClient {

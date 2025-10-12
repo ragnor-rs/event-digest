@@ -301,20 +301,6 @@ export class Cache {
     };
   }
 
-  // Clear all cache entries (useful for testing or forcing fresh data)
-  clearAllEntries(): void {
-    this.cache = {
-      telegram_messages: {},
-      messages: {},
-      event_type_classification: {},
-      matching_interests: {},
-      scheduled_events: {},
-      events: {},
-    };
-    this.save();
-    this.logger.log('  All cache entries cleared');
-  }
-
   // Event type classification (step 4)
   getEventTypeCache(messageLink: string): EventType | undefined {
     return this.cache.event_type_classification[messageLink];
@@ -329,30 +315,6 @@ export class Cache {
         // Error already logged in saveCacheFile, re-throw to notify caller
         throw error;
       }
-    }
-  }
-
-  // Clear event announcements cache specifically
-  clearAnnouncementsCache(): void {
-    this.cache.event_type_classification = {};
-    try {
-      this.saveCacheFile('event_type_classification');
-      this.logger.log('  Event announcements cache cleared');
-    } catch (error) {
-      this.logger.error('Failed to clear event announcements cache', error);
-      throw error;
-    }
-  }
-
-  // Clear matching interests cache specifically
-  clearInterestingAnnouncementsCache(): void {
-    this.cache.matching_interests = {};
-    try {
-      this.saveCacheFile('matching_interests');
-      this.logger.log('  Matching interests cache cleared');
-    } catch (error) {
-      this.logger.error('Failed to clear matching interests cache', error);
-      throw error;
     }
   }
 
