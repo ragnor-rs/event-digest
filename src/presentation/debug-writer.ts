@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { TelegramMessage, InterestMatch } from './types';
+import { TelegramMessage, InterestMatch } from '../domain/entities';
 
 export interface DebugEventDetectionEntry {
   messageLink: string;

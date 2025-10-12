@@ -1,10 +1,12 @@
 import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
-import { TelegramMessage, Config } from './types';
+import { TelegramMessage } from '../domain/entities';
+import { Config } from '../config/types';
 import { parse } from 'date-fns';
 import fs from 'fs';
 import path from 'path';
 import { Cache } from './cache';
+import { promptForPassword, promptForCode } from '../shared/readline-helper';
 
 export class TelegramClient {
   private client: GramJSClient;
@@ -57,54 +59,8 @@ export class TelegramClient {
   async connect(): Promise<void> {
     await this.client.start({
       phoneNumber: async () => process.env.TELEGRAM_PHONE_NUMBER!,
-      password: async () => {
-        const readline = require('readline');
-        const rl = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout
-        });
-        
-        return new Promise((resolve) => {
-          rl.stdoutMuted = true;
-          rl.question('Password? ', (answer: string) => {
-            rl.stdoutMuted = false;
-            rl.output.write('\n');
-            rl.close();
-            resolve(answer);
-          });
-          rl._writeToOutput = (stringToWrite: string) => {
-            if (rl.stdoutMuted && stringToWrite !== 'Password? ') {
-              rl.output.write('*');
-            } else {
-              rl.output.write(stringToWrite);
-            }
-          };
-        });
-      },
-      phoneCode: async () => {
-        const readline = require('readline');
-        const rl = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout
-        });
-        
-        return new Promise((resolve) => {
-          rl.stdoutMuted = true;
-          rl.question('Verification Code? ', (answer: string) => {
-            rl.stdoutMuted = false;
-            rl.output.write('\n');
-            rl.close();
-            resolve(answer);
-          });
-          rl._writeToOutput = (stringToWrite: string) => {
-            if (rl.stdoutMuted && stringToWrite !== 'Verification Code? ') {
-              rl.output.write('*');
-            } else {
-              rl.output.write(stringToWrite);
-            }
-          };
-        });
-      },
+      password: promptForPassword,
+      phoneCode: promptForCode,
       onError: (err: any) => console.log(err),
     });
     

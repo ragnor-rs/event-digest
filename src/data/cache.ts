@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { TelegramMessage } from './types';
+import { TelegramMessage } from '../domain/entities';
 
 interface CacheEntry {
   result: any;
