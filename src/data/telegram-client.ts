@@ -98,7 +98,7 @@ export class TelegramClient {
     sourceType: 'group' | 'channel',
     limit: number
   ): Promise<TelegramMessage[]> {
-    const cacheKey = `${sourceType}:${sourceName}`;
+    const cacheKey = `${sourceType}:${sourceName}:${limit}`;
 
     // Get cached messages
     const cachedMessages = this.cache.getCachedMessages(cacheKey) || [];
