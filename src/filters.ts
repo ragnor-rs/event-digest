@@ -122,7 +122,7 @@ export async function detectEventAnnouncements(messages: TelegramMessage[], conf
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
+        temperature: 0.0,
       });
 
       const result = response.choices[0].message.content?.trim();
@@ -288,7 +288,7 @@ export async function classifyEventTypes(events: Event[], config: Config): Promi
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
+        temperature: 0.0,
       });
 
       const result = response.choices[0].message.content?.trim();
@@ -481,7 +481,7 @@ export async function filterByInterests(events: Event[], config: Config): Promis
       const response: any = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
+        temperature: 0.0,
       });
 
       const result: string | undefined = response.choices[0].message.content?.trim();
@@ -779,7 +779,7 @@ export async function filterBySchedule(events: Event[], config: Config): Promise
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
+        temperature: 0.0,
       });
 
       const result = response.choices[0].message.content?.trim();
