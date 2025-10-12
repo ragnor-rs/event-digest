@@ -11,7 +11,16 @@ export class Logger {
     }
   }
 
-  error(message: string, error?: any): void {
-    console.error(message, error || '');
+  error(message: string, error?: unknown): void {
+    if (error instanceof Error) {
+      console.error(message, error.message);
+      if (error.stack) {
+        console.error(error.stack);
+      }
+    } else if (error !== undefined) {
+      console.error(message, String(error));
+    } else {
+      console.error(message);
+    }
   }
 }

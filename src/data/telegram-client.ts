@@ -10,6 +10,8 @@ import { TelegramMessage } from '../domain/entities';
 import { Logger } from '../shared/logger';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
 
+const DISCONNECT_DELAY_MS = 100;
+
 export class TelegramClient {
   private client: GramJSClient;
   private session: StringSession;
@@ -69,7 +71,10 @@ export class TelegramClient {
       phoneNumber: async () => process.env.TELEGRAM_PHONE_NUMBER!,
       password: promptForPassword,
       phoneCode: promptForCode,
-      onError: (err: any) => this.logger.log(String(err)),
+      onError: (err: unknown) => {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.logger.error('Telegram authentication error:', errorMessage);
+      },
     });
 
     // Save session only if it's a new session
@@ -126,10 +131,16 @@ export class TelegramClient {
       // Combine cached messages with new messages
       const allMessages = [...cachedMessages, ...newMessages];
 
-      // Remove duplicates by link (new messages override cached)
-      const uniqueMessages = Array.from(new Map(allMessages.map((msg) => [msg.link, msg])).values()).sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
+      // Remove duplicates by link (new messages override cached) and pre-compute timestamps for sorting
+      const messageMap = new Map(allMessages.map((msg) => [msg.link, msg]));
+      const uniqueMessagesWithTime = Array.from(messageMap.values()).map((msg) => ({
+        msg,
+        time: new Date(msg.timestamp).getTime(),
+      }));
+
+      // Sort using pre-computed timestamps
+      uniqueMessagesWithTime.sort((a, b) => a.time - b.time);
+      const uniqueMessages = uniqueMessagesWithTime.map((item) => item.msg);
 
       // Take the most recent 'limit' messages as final result
       const finalMessages = uniqueMessages.slice(-limit);
@@ -176,7 +187,7 @@ export class TelegramClient {
   async disconnect(): Promise<void> {
     try {
       // Give a brief moment for any ongoing operations to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, DISCONNECT_DELAY_MS));
       await this.client.disconnect();
       await this.client.destroy();
       this.logger.log('Disconnected from Telegram');

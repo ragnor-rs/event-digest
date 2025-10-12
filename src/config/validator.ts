@@ -1,6 +1,8 @@
 import { DEFAULT_CONFIG } from './defaults';
 import { Config } from './types';
 
+const GROUP_MESSAGE_MULTIPLIER = 1.5; // Groups need more messages due to noise
+
 export function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Track which values were provided vs defaulted
   const providedMaxGroupMessages = config.maxGroupMessages !== undefined;
@@ -24,7 +26,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   if (config.maxGroupMessages === undefined && config.maxChannelMessages === undefined) {
     // If neither is specified, use legacy maxInputMessages or defaults
     const legacyLimit = config.maxInputMessages || DEFAULT_CONFIG.maxGroupMessages;
-    config.maxGroupMessages = Math.floor(legacyLimit * 1.5); // Groups need more messages due to noise
+    config.maxGroupMessages = Math.floor(legacyLimit * GROUP_MESSAGE_MULTIPLIER);
     config.maxChannelMessages = legacyLimit;
   } else {
     // Set individual defaults if only one is specified

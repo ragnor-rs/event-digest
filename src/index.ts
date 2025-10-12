@@ -38,11 +38,7 @@ async function main() {
     logger.log('');
   } catch (error) {
     const logger = new Logger(false);
-    if (error instanceof Error) {
-      logger.error('Error', error);
-    } else {
-      logger.error('Error', error);
-    }
+    logger.error('Fatal error:', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }

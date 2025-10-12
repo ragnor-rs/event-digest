@@ -94,8 +94,10 @@ export async function filterBySchedule(
               cached: true,
             });
           }
-        } catch {
-          // If cached data is invalid, re-process
+        } catch (error) {
+          logger.verbose(
+            `    WARNING: Failed to parse cached datetime for ${event.message.link}: ${error instanceof Error ? error.message : String(error)}`
+          );
           uncachedEvents.push(event);
         }
       } else {
@@ -266,8 +268,10 @@ export async function filterBySchedule(
                 cached: false,
               });
             }
-          } catch {
-            logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
+          } catch (error) {
+            logger.verbose(
+              `    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error: ${error instanceof Error ? error.message : String(error)}`
+            );
             debugEntries.push({
               message: chunk[messageIdx].message,
               event_type: chunk[messageIdx].event_type!,
