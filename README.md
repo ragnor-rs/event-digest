@@ -9,16 +9,19 @@ This tool fetches messages from specified Telegram groups and channels, then use
 ## Features
 
 - **YAML Configuration**: Easy-to-manage configuration files with organized settings
+- **Clean Architecture**: Domain-Driven Design with clear separation of concerns
 - **Smart Event Detection**: Uses GPT to identify genuine event announcements vs general messages
 - **Event Type Classification**: Classifies events as offline, online, or hybrid with intelligent location detection
 - **High-Accuracy Interest Matching**: Comprehensive GPT guidelines with mandatory matching rules and validation to prevent hallucinated interests
+- **Confidence Scoring**: Configurable threshold (default 0.75) ensures only high-quality interest matches
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
-- **Intelligent Caching**: Reduces API costs by caching both Telegram messages and GPT results with preference-aware cache keys
+- **Intelligent Caching**: Six-tier caching system reduces API costs by caching both Telegram messages and GPT results with preference-aware keys
 - **Incremental Message Fetching**: Uses minId parameter to fetch only messages with ID greater than last cached message ID
 - **Multi-Language Support**: Handles events in different languages with configurable cues
 - **Debug Mode**: Optional detailed debug files for troubleshooting and analysis
+- **Configurable Batch Processing**: Tune GPT batch sizes for optimal speed/accuracy balance
 
 ## Prerequisites
 
@@ -99,6 +102,11 @@ writeDebugFiles: false
 # batch numbers, DISCARDED messages with links, and event creation status
 verboseLogging: false
 
+# Minimum confidence threshold for interest matching (default: 0.75)
+# GPT assigns 0.0-1.0 confidence scores to each interest match
+# Only matches with confidence ≥ this threshold are included
+minInterestConfidence: 0.75
+
 # GPT batch sizes for processing (optional)
 # Controls how many items are processed in each GPT API call
 # Larger batches are faster but may reduce accuracy
@@ -141,6 +149,7 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files false \
   --verbose-logging false \
+  --min-interest-confidence 0.75 \
   --gpt-batch-size-event-detection 16 \
   --gpt-batch-size-event-classification 16 \
   --gpt-batch-size-schedule-extraction 16 \
@@ -208,13 +217,54 @@ The tool will save your Telegram session to `.telegram-session` file for future 
 
 The tool processes messages through a 7-step pipeline:
 
-1. **Fetch Messages** - Retrieves recent messages from specified Telegram sources
-2. **Event Cue Filter** - Filters messages containing date/event keywords
-3. **AI Event Detection** - Uses GPT to identify genuine event announcements, creates Event objects with message field
-4. **Event Type Classification** - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field
-5. **Schedule Filtering** - Filters by your available time slots and future dates, adds start_datetime field
-6. **Interest Matching** - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interests_matched field
-7. **Event Description** - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field
+1. **Fetch Messages** (`data/telegram-client.ts`) - Retrieves recent messages from specified Telegram sources
+2. **Event Cue Filter** (`domain/services/event-cues-filter.ts`) - Filters messages containing date/event keywords
+3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates Event objects with message field
+4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field
+5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field
+6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interests_matched and interest_matches fields (with confidence scores)
+7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field
+
+## Architecture
+
+This codebase follows **Clean Architecture** and **Domain-Driven Design (DDD)** principles:
+
+```
+src/
+├── domain/                    # Business logic & domain entities
+│   ├── entities/             # Domain entities (Event, TelegramMessage, etc.)
+│   └── services/             # Business logic services (filtering, matching, etc.)
+├── application/              # Use case orchestration
+│   └── event-pipeline.ts     # 7-step pipeline orchestrator
+├── data/                     # External systems (infrastructure layer)
+│   ├── openai-client.ts     # OpenAI API client
+│   ├── telegram-client.ts   # Telegram API client
+│   └── cache.ts             # Caching system
+├── config/                   # Configuration management
+│   ├── types.ts             # Config interface
+│   ├── defaults.ts          # Default values & prompts
+│   ├── args-parser.ts       # CLI argument parsing
+│   ├── yaml-loader.ts       # YAML configuration loading
+│   └── validator.ts         # Config validation & merging
+├── shared/                   # Shared utilities
+│   ├── date-utils.ts        # Date normalization
+│   ├── logger.ts            # Logging utilities
+│   ├── batch-processor.ts   # Batch processing helpers
+│   └── readline-helper.ts   # Input prompts
+├── presentation/             # Output formatting
+│   ├── event-printer.ts     # Console event output
+│   └── debug-writer.ts      # Debug file writer
+└── index.ts                  # Application bootstrap
+```
+
+### Key Technologies
+
+- **TypeScript** with strict type checking
+- **GramJS** for Telegram API integration
+- **OpenAI GPT-4o-mini** for intelligent filtering
+- **date-fns** for date parsing and manipulation
+- **js-yaml** for YAML configuration support
+- **Comprehensive caching** to minimize API costs
 
 ## Output Format
 
@@ -243,21 +293,14 @@ npm run start
 npm run dev
 ```
 
-## Architecture
-
-- **TypeScript** with strict type checking
-- **GramJS** for Telegram API integration
-- **OpenAI GPT-4o-mini** for intelligent filtering
-- **Comprehensive caching** to minimize API costs
-- **Robust error handling** and session management
-
 ## Cost Optimization
 
 - Uses GPT-4o-mini (50-100x cheaper than GPT-4)
-- Intelligent caching prevents redundant API calls
+- Intelligent six-tier caching prevents redundant API calls
 - Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 5)
 - Individual processing for interest matching to ensure accurate validation
 - Preference-aware cache invalidation
+- Incremental message fetching reduces Telegram API calls
 
 ## Debug Mode
 
@@ -295,6 +338,9 @@ This tool processes messages through multiple AI filtering steps. When modifying
 - Validate date parsing with various GPT response formats
 - Test authentication flow and session persistence
 - Verify GPT response validation prevents hallucinated interests
+- Follow Clean Architecture and DDD principles
+- Keep domain logic separate from infrastructure concerns
+- Co-locate constants with their usage (no separate constants files)
 
 ## License
 
