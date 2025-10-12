@@ -28,7 +28,7 @@ async function main() {
 
     const logger = new Logger(config.verboseLogging);
     const cache = new Cache(logger);
-    const openaiClient = new OpenAIClient();
+    const openaiClient = new OpenAIClient(logger);
     const telegramClient = new TelegramClient(cache, logger);
 
     const pipeline = new EventPipeline(config, openaiClient, cache, telegramClient, logger);

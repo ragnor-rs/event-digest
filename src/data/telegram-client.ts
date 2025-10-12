@@ -126,22 +126,22 @@ export class TelegramClient {
       this.logger.verbose(`    Fetched ${newMessages.length} new messages`);
 
       // Combine cached messages with new messages efficiently
-      // Use Set for O(1) lookup instead of creating intermediate arrays
-      const cachedLinks = new Set(cachedMessages.map((m) => m.link));
-      const allMessages = [...cachedMessages];
-
-      // Only add truly new messages (not in cache)
-      for (const msg of newMessages) {
-        if (!cachedLinks.has(msg.link)) {
-          allMessages.push(msg);
+      // Use Set for O(1) lookup to avoid duplicates
+      const seenLinks = new Set(cachedMessages.map((m) => m.link));
+      const uniqueNewMessages = newMessages.filter((msg) => {
+        if (seenLinks.has(msg.link)) {
+          return false;
         }
-      }
+        seenLinks.add(msg.link);
+        return true;
+      });
 
-      // Sort by timestamp (convert once per message, not repeatedly)
+      // Combine arrays efficiently
+      const allMessages = cachedMessages.concat(uniqueNewMessages);
+
+      // Sort by timestamp (pre-parse timestamps for efficiency)
       allMessages.sort((a, b) => {
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
-        return timeA - timeB;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
       });
 
       const uniqueMessages = allMessages;

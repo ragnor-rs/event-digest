@@ -96,7 +96,7 @@ export async function filterBySchedule(
           }
         } catch (error) {
           logger.verbose(
-            `    WARNING: Failed to parse cached datetime for ${event.message.link}: ${error instanceof Error ? error.message : String(error)}`
+            `    WARNING: Failed to parse cached datetime "${cachedDateTime}" for ${event.message.link}: ${error instanceof Error ? error.message : String(error)}`
           );
           uncachedEvents.push(event);
         }
@@ -269,8 +269,9 @@ export async function filterBySchedule(
               });
             }
           } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
             logger.verbose(
-              `    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error: ${error instanceof Error ? error.message : String(error)}`
+              `    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error for "${dateTime}" (normalized: "${normalizeDateTime(dateTime)}"): ${errorMsg}`
             );
             debugEntries.push({
               message: chunk[messageIdx].message,
@@ -279,7 +280,7 @@ export async function filterBySchedule(
               gpt_response: result || '',
               extracted_datetime: dateTime,
               result: 'discarded',
-              discard_reason: 'date parsing error',
+              discard_reason: `date parsing error: ${errorMsg}`,
               cached: false,
             });
           }

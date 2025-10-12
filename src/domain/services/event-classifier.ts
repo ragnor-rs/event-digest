@@ -88,49 +88,95 @@ export async function classifyEventTypes(
 
     if (result) {
       const lines = result.split('\n').filter((line) => line.trim());
+      const malformedLines: string[] = [];
+      const outOfRangeIndices: number[] = [];
+      const invalidClassifications: Array<{ index: number; value: number }> = [];
+      const duplicateIndices: number[] = [];
 
       for (const line of lines) {
         const match = line.trim().match(/^(\d+)\s*:\s*(\d+)$/);
         if (match) {
-          const messageIdx = parseInt(match[1]) - 1;
+          const messageNum = parseInt(match[1]);
           const classificationIdx = parseInt(match[2]);
+          const messageIdx = messageNum - 1;
 
-          if (messageIdx >= 0 && messageIdx < chunk.length && classificationIdx >= 0 && classificationIdx <= 2) {
-            const eventType = classificationIdx === 0 ? 'offline' : classificationIdx === 1 ? 'online' : 'hybrid';
-
-            // Cache the result
-            cache.cacheEventType(chunk[messageIdx].message.link, eventType, false);
-            processedIndices.add(messageIdx);
-
-            // Check if we should include this event
-            if (eventType === 'online' && config.skipOnlineEvents) {
-              logger.verbose(
-                `    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`
-              );
-              debugEntries.push({
-                message: chunk[messageIdx].message,
-                gpt_prompt: prompt,
-                gpt_response: result,
-                result: 'discarded',
-                substep: '4_classification',
-                cached: false,
-              });
-            } else {
-              classifiedEvents.push({
-                ...chunk[messageIdx],
-                event_type: eventType,
-              });
-              debugEntries.push({
-                message: chunk[messageIdx].message,
-                gpt_prompt: prompt,
-                gpt_response: result,
-                result: eventType,
-                substep: '4_classification',
-                cached: false,
-              });
-            }
+          // Validate message index
+          if (!Number.isInteger(messageNum) || messageNum < 1) {
+            malformedLines.push(line);
+            continue;
           }
+
+          // Validate index is in range
+          if (messageIdx < 0 || messageIdx >= chunk.length) {
+            outOfRangeIndices.push(messageNum);
+            continue;
+          }
+
+          // Validate classification value (0=offline, 1=online, 2=hybrid)
+          if (!Number.isInteger(classificationIdx) || classificationIdx < 0 || classificationIdx > 2) {
+            invalidClassifications.push({ index: messageNum, value: classificationIdx });
+            continue;
+          }
+
+          // Validate no duplicate indices
+          if (processedIndices.has(messageIdx)) {
+            duplicateIndices.push(messageNum);
+            continue;
+          }
+
+          const eventType = classificationIdx === 0 ? 'offline' : classificationIdx === 1 ? 'online' : 'hybrid';
+
+          // Cache the result
+          cache.cacheEventType(chunk[messageIdx].message.link, eventType, false);
+          processedIndices.add(messageIdx);
+
+          // Check if we should include this event
+          if (eventType === 'online' && config.skipOnlineEvents) {
+            logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
+            debugEntries.push({
+              message: chunk[messageIdx].message,
+              gpt_prompt: prompt,
+              gpt_response: result,
+              result: 'discarded',
+              substep: '4_classification',
+              cached: false,
+            });
+          } else {
+            classifiedEvents.push({
+              ...chunk[messageIdx],
+              event_type: eventType,
+            });
+            debugEntries.push({
+              message: chunk[messageIdx].message,
+              gpt_prompt: prompt,
+              gpt_response: result,
+              result: eventType,
+              substep: '4_classification',
+              cached: false,
+            });
+          }
+        } else if (line.trim() !== '') {
+          malformedLines.push(line);
         }
+      }
+
+      // Log warnings for unexpected GPT output
+      if (outOfRangeIndices.length > 0) {
+        logger.verbose(
+          `    WARNING: GPT returned out-of-range indices (valid range: 1-${chunk.length}): ${outOfRangeIndices.join(', ')}`
+        );
+      }
+      if (invalidClassifications.length > 0) {
+        const details = invalidClassifications.map((c) => `${c.index}:${c.value}`).join(', ');
+        logger.verbose(`    WARNING: GPT returned invalid classification values (valid: 0-2): ${details}`);
+      }
+      if (duplicateIndices.length > 0) {
+        logger.verbose(`    WARNING: GPT returned duplicate indices: ${duplicateIndices.join(', ')}`);
+      }
+      if (malformedLines.length > 0) {
+        logger.verbose(
+          `    WARNING: GPT returned unexpected format in lines: ${malformedLines.slice(0, 3).join(', ')}${malformedLines.length > 3 ? ` (and ${malformedLines.length - 3} more)` : ''}`
+        );
       }
     }
 

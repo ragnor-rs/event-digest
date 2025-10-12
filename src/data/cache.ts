@@ -51,8 +51,8 @@ export class Cache {
       if (!fs.existsSync(this.cacheDir)) {
         fs.mkdirSync(this.cacheDir, { recursive: true });
       }
-    } catch {
-      this.logger.log('  Failed to create cache directory, starting fresh');
+    } catch (error) {
+      this.logger.error('Failed to create cache directory, starting with in-memory cache only', error);
     }
 
     return {
@@ -72,8 +72,8 @@ export class Cache {
         const data = fs.readFileSync(filePath, 'utf-8');
         return JSON.parse(data);
       }
-    } catch {
-      this.logger.log(`  Cache file ${storeName}.json not found or corrupted, starting fresh`);
+    } catch (error) {
+      this.logger.error(`Failed to load cache file ${storeName}.json (starting fresh)`, error);
     }
     return defaultValue;
   }

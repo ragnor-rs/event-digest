@@ -32,6 +32,9 @@ export class EventPipeline {
 
   async execute(): Promise<Event[]> {
     try {
+      // Set logger for debug writer
+      debugWriter.setLogger(this.logger);
+
       this.logger.log('Starting Event Digest CLI...\n');
 
       // Step 1: Fetch messages from Telegram
@@ -132,7 +135,7 @@ export class EventPipeline {
       const cleanupErrors: Error[] = [];
 
       try {
-        await this.cache.save();
+        this.cache.save();
       } catch (error) {
         cleanupErrors.push(new Error(`Cache save failed: ${error instanceof Error ? error.message : String(error)}`));
       }

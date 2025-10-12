@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 
+import { OPENAI_MAX_RETRIES, OPENAI_INITIAL_BACKOFF_MS } from '../config/constants';
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
+import { Logger } from '../shared/logger';
 
 export const GPT_MODEL = 'gpt-4o-mini';
 export const GPT_TEMPERATURE = 0.0;
@@ -8,10 +10,10 @@ export const GPT_TEMPERATURE_CREATIVE = 0.3;
 
 export class OpenAIClient {
   private client: OpenAI;
-  private readonly MAX_RETRIES = 3;
-  private readonly INITIAL_BACKOFF_MS = 2000;
+  private logger: Logger;
 
-  constructor() {
+  constructor(logger: Logger) {
+    this.logger = logger;
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error('OPENAI_API_KEY environment variable is required');
@@ -34,7 +36,7 @@ export class OpenAIClient {
   async callWithDelay(prompt: string, temperature: number = GPT_TEMPERATURE): Promise<string | undefined> {
     let lastError: unknown;
 
-    for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= OPENAI_MAX_RETRIES; attempt++) {
       try {
         const result = await this.call(prompt, temperature);
         await delay(RATE_LIMIT_DELAY);
@@ -45,11 +47,11 @@ export class OpenAIClient {
         // Check if error is a rate limit error
         if (this.isRateLimitError(error)) {
           // Calculate exponential backoff: 2s, 4s, 8s
-          const backoffMs = this.INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+          const backoffMs = OPENAI_INITIAL_BACKOFF_MS * Math.pow(2, attempt);
 
-          if (attempt < this.MAX_RETRIES) {
-            console.error(
-              `Rate limit exceeded. Retrying in ${backoffMs / 1000}s... (attempt ${attempt + 1}/${this.MAX_RETRIES})`
+          if (attempt < OPENAI_MAX_RETRIES) {
+            this.logger.log(
+              `  Rate limit exceeded. Retrying in ${backoffMs / 1000}s... (attempt ${attempt + 1}/${OPENAI_MAX_RETRIES})`
             );
             await delay(backoffMs);
             continue;

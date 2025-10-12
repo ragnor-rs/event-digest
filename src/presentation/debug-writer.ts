@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { TelegramMessage, InterestMatch } from '../domain/entities';
+import { Logger } from '../shared/logger';
 
 export interface DebugEventDetectionEntry {
   messageLink: string;
@@ -63,12 +64,17 @@ class DebugWriter {
   private scheduleFilteringEntries: DebugScheduleFilteringEntry[] = [];
   private interestMatchingEntries: DebugInterestMatchingEntry[] = [];
   private eventDescriptionEntries: DebugEventDescriptionEntry[] = [];
+  private logger?: Logger;
 
   constructor() {
     // Create debug directory if it doesn't exist
     if (!fs.existsSync(this.debugDir)) {
       fs.mkdirSync(this.debugDir, { recursive: true });
     }
+  }
+
+  setLogger(logger: Logger): void {
+    this.logger = logger;
   }
 
   writeEventDetection(entries: DebugEventDetectionEntry[]): void {
@@ -97,7 +103,9 @@ class DebugWriter {
     this.writeScheduleFiltering();
     this.writeInterestMatching();
     this.writeEventDescription();
-    console.log(`Debug files written to ${this.debugDir}/ directory`);
+    if (this.logger) {
+      this.logger.log(`Debug files written to ${this.debugDir}/ directory`);
+    }
   }
 
   private writeEventDetectionFile(): void {
