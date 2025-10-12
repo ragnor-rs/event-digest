@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, refactoring]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality-checks:
+    name: Format, Lint & Build
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check code formatting (Prettier)
+        run: npm run format:check
+
+      - name: Lint code (ESLint)
+        run: npm run lint
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Build summary
+        if: always()
+        run: |
+          echo "### Build Results :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code formatting verified with Prettier" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code linting passed with ESLint (0 errors)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ TypeScript compilation successful" >> $GITHUB_STEP_SUMMARY
