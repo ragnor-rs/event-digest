@@ -1,57 +1,44 @@
 import dotenv from 'dotenv';
+
 dotenv.config();
 
+import { EventPipeline } from './application';
 import { parseArgs } from './config';
-import { TelegramClient } from './telegram';
-import { filterByEventCues, detectEventAnnouncements, classifyEventTypes, filterByInterests, filterBySchedule } from './filters';
-import { describeEvents, printEvents } from './events';
-import { Cache } from './cache';
-import { debugWriter } from './debug';
+import { OpenAIClient, Cache, TelegramClient } from './data';
+import { printEvents } from './presentation';
+import { Logger } from './shared/logger';
+
+function validateEnvironmentVariables(): void {
+  const requiredVars = ['OPENAI_API_KEY', 'TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_PHONE_NUMBER'];
+
+  const missingVars = requiredVars.filter((varName) => !process.env[varName]);
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missingVars.join(', ')}\n` +
+        'Please create a .env file with these variables. See .env.example for reference.'
+    );
+  }
+}
 
 async function main() {
   try {
-    console.log('Starting Event Digest CLI...\n');
-
+    validateEnvironmentVariables();
     const config = parseArgs();
-    const cache = new Cache();
 
-    const telegramClient = new TelegramClient(cache);
-    await telegramClient.connect();
-    console.log('');
+    const logger = new Logger(config.verboseLogging);
+    const cache = new Cache(logger);
+    const openaiClient = new OpenAIClient(logger);
+    const telegramClient = new TelegramClient(cache, logger);
 
-    const allMessages = await telegramClient.fetchMessages(config);
-    console.log('');
+    const pipeline = new EventPipeline(config, openaiClient, cache, telegramClient, logger);
+    const events = await pipeline.execute();
 
-    const eventCueMessages = await filterByEventCues(allMessages, config);
-    console.log('');
-
-    const events = await detectEventAnnouncements(eventCueMessages, config);
-    console.log('');
-
-    const classifiedEvents = await classifyEventTypes(events, config);
-    console.log('');
-
-    const scheduledEvents = await filterBySchedule(classifiedEvents, config);
-    console.log('');
-
-    const matchedEvents = await filterByInterests(scheduledEvents, config);
-    console.log('');
-
-    const describedEvents = await describeEvents(matchedEvents, config);
-    console.log('');
-
-    printEvents(describedEvents);
-    console.log('');
-
-    // Write debug files if enabled
-    if (config.writeDebugFiles) {
-      debugWriter.writeAll();
-      console.log('');
-    }
-
-    await telegramClient.disconnect();
+    printEvents(events);
+    logger.log('');
   } catch (error) {
-    console.error('Error:', error);
+    const logger = new Logger(false);
+    logger.error('Fatal error:', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }
