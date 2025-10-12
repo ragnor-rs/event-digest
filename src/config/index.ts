@@ -1,8 +1,9 @@
 import path from 'path';
-import { Config } from './types';
-import { loadYamlConfig } from './yaml-loader';
+
 import { parseCommandLineArgs } from './args-parser';
+import { Config } from './types';
 import { validateAndCompleteConfig } from './validator';
+import { loadYamlConfig } from './yaml-loader';
 
 export function parseArgs(): Config {
   const args = process.argv.slice(2);

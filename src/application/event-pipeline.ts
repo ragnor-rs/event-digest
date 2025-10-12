@@ -1,9 +1,8 @@
 import { Config } from '../config/types';
-import { Event } from '../domain/entities';
-import { OpenAIClient } from '../data/openai-client';
 import { Cache } from '../data/cache';
+import { OpenAIClient } from '../data/openai-client';
 import { TelegramClient } from '../data/telegram-client';
-import { Logger } from '../shared/logger';
+import { Event } from '../domain/entities';
 import {
   filterByEventCues,
   detectEventAnnouncements,
@@ -20,6 +19,7 @@ import {
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
 } from '../presentation/debug-writer';
+import { Logger } from '../shared/logger';
 
 export class EventPipeline {
   constructor(

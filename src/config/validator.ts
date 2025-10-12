@@ -1,5 +1,5 @@
-import { Config } from './types';
 import { DEFAULT_CONFIG } from './defaults';
+import { Config } from './types';
 
 export function validateAndCompleteConfig(config: Partial<Config>): Config {
   // Track which values were provided vs defaulted

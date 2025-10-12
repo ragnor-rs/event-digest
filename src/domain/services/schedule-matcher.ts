@@ -1,29 +1,20 @@
-import { Event } from '../entities';
-import { Config } from '../../config/types';
-import { OpenAIClient } from '../../data/openai-client';
-import { Cache } from '../../data/cache';
-import { createBatches } from '../../shared/batch-processor';
-import { normalizeDateTime } from '../../shared/date-utils';
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
-import { Logger } from '../../shared/logger';
 
-interface DebugEntry {
-  message: any;
-  event_type: string;
-  gpt_prompt: string;
-  gpt_response: string;
-  extracted_datetime: string;
-  result: 'scheduled' | 'discarded';
-  discard_reason?: string;
-  cached: boolean;
-}
+import { Config } from '../../config/types';
+import { Cache } from '../../data/cache';
+import { OpenAIClient } from '../../data/openai-client';
+import { DebugScheduleFilteringEntry } from '../../presentation/debug-writer';
+import { createBatches } from '../../shared/batch-processor';
+import { normalizeDateTime, MAX_FUTURE_YEARS } from '../../shared/date-utils';
+import { Logger } from '../../shared/logger';
+import { Event } from '../entities';
 
 export async function filterBySchedule(
   events: Event[],
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[],
+  debugEntries: DebugScheduleFilteringEntry[],
   logger: Logger
 ): Promise<Event[]> {
   logger.log(`Filtering ${events.length} events by schedule and availability...`);
@@ -109,7 +100,7 @@ export async function filterBySchedule(
               cached: true,
             });
           }
-        } catch (error) {
+        } catch {
           // If cached data is invalid, re-process
           uncachedEvents.push(event);
         }
@@ -233,8 +224,8 @@ export async function filterBySchedule(
               continue;
             }
 
-            // Check if event date is reasonable relative to message date (not more than 2 years in the future)
-            const maxFutureDate = new Date(messageDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000); // 2 years from message
+            // Check if event date is reasonable relative to message date
+            const maxFutureDate = new Date(messageDate.getTime() + MAX_FUTURE_YEARS * 365 * 24 * 60 * 60 * 1000);
             if (eventDate > maxFutureDate) {
               if (config.verboseLogging) {
                 console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
@@ -293,7 +284,7 @@ export async function filterBySchedule(
                 cached: false,
               });
             }
-          } catch (error) {
+          } catch {
             if (config.verboseLogging) {
               console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
             }

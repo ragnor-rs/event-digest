@@ -1,25 +1,17 @@
-import { Event } from '../entities';
 import { Config } from '../../config/types';
-import { OpenAIClient } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
+import { OpenAIClient } from '../../data/openai-client';
+import { DebugTypeClassificationEntry } from '../../presentation/debug-writer';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-
-interface DebugEntry {
-  message: any;
-  gpt_prompt: string;
-  gpt_response: string;
-  result: 'hybrid' | 'offline' | 'online' | 'discarded';
-  substep: '4_classification';
-  cached: boolean;
-}
+import { Event } from '../entities';
 
 export async function classifyEventTypes(
   events: Event[],
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[],
+  debugEntries: DebugTypeClassificationEntry[],
   logger: Logger
 ): Promise<Event[]> {
   logger.log(`Classifying event types for ${events.length} events...`);

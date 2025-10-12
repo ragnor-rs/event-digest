@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
 
 export const GPT_MODEL = 'gpt-4o-mini';
@@ -15,18 +16,13 @@ export class OpenAIClient {
   }
 
   async call(prompt: string, temperature: number = GPT_TEMPERATURE): Promise<string | undefined> {
-    try {
-      const response = await this.client.chat.completions.create({
-        model: GPT_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-      });
+    const response = await this.client.chat.completions.create({
+      model: GPT_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature,
+    });
 
-      return response.choices[0].message.content?.trim();
-    } catch (error) {
-      console.error('Error with OpenAI:', error);
-      return undefined;
-    }
+    return response.choices[0].message.content?.trim();
   }
 
   async callWithDelay(prompt: string, temperature: number = GPT_TEMPERATURE): Promise<string | undefined> {

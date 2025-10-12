@@ -1,24 +1,17 @@
-import { TelegramMessage, Event } from '../entities';
 import { Config } from '../../config/types';
-import { OpenAIClient } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
+import { OpenAIClient } from '../../data/openai-client';
+import { DebugEventDetectionEntry } from '../../presentation/debug-writer';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-
-interface DebugEntry {
-  messageLink: string;
-  isEvent: boolean;
-  cached: boolean;
-  prompt?: string;
-  gptResponse?: string;
-}
+import { TelegramMessage, Event } from '../entities';
 
 export async function detectEventAnnouncements(
   messages: TelegramMessage[],
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[],
+  debugEntries: DebugEventDetectionEntry[],
   logger: Logger
 ): Promise<Event[]> {
   logger.log(`Detecting event announcements with GPT from ${messages.length} messages...`);
@@ -39,7 +32,7 @@ export async function detectEventAnnouncements(
 
   for (const message of messages) {
     const cachedResult = cache.isEventMessageCached(message.link);
-    if (cachedResult !== null) {
+    if (cachedResult !== undefined) {
       cacheHits++;
       if (cachedResult) {
         events.push({ message });

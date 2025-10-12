@@ -1,5 +1,6 @@
-import { Event } from '../domain/entities';
 import { parse } from 'date-fns';
+
+import { Event } from '../domain/entities';
 
 export function printEvents(events: Event[]): void {
   console.log('=== EVENT DIGEST ===');

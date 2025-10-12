@@ -1,10 +1,12 @@
-import { TelegramClient as GramJSClient } from 'telegram';
-import { StringSession } from 'telegram/sessions';
-import { TelegramMessage } from '../domain/entities';
-import { Config } from '../config/types';
 import fs from 'fs';
 import path from 'path';
+
+import { TelegramClient as GramJSClient } from 'telegram';
+import { StringSession } from 'telegram/sessions';
+
 import { Cache } from './cache';
+import { Config } from '../config/types';
+import { TelegramMessage } from '../domain/entities';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
 
 export class TelegramClient {

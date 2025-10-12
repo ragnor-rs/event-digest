@@ -1,6 +1,6 @@
-import { TelegramMessage } from '../entities';
 import { Config } from '../../config/types';
 import { Logger } from '../../shared/logger';
+import { TelegramMessage } from '../entities';
 
 export async function filterByEventCues(
   messages: TelegramMessage[],

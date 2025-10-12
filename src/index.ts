@@ -1,9 +1,10 @@
 import dotenv from 'dotenv';
+
 dotenv.config();
 
+import { EventPipeline } from './application';
 import { parseArgs } from './config';
 import { OpenAIClient, Cache, TelegramClient } from './data';
-import { EventPipeline } from './application';
 import { printEvents } from './presentation';
 import { Logger } from './shared/logger';
 

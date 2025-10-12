@@ -1,27 +1,16 @@
-import { Event, InterestMatch } from '../entities';
 import { Config } from '../../config/types';
-import { OpenAIClient } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
+import { OpenAIClient } from '../../data/openai-client';
+import { DebugInterestMatchingEntry } from '../../presentation/debug-writer';
 import { Logger } from '../../shared/logger';
-
-interface DebugEntry {
-  message: any;
-  event_type: string;
-  start_datetime: string;
-  gpt_prompt: string;
-  gpt_response: string;
-  interests_matched: string[];
-  interest_matches?: InterestMatch[];
-  result: 'matched' | 'discarded';
-  cached: boolean;
-}
+import { Event } from '../entities';
 
 export async function filterByInterests(
   events: Event[],
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[],
+  debugEntries: DebugInterestMatchingEntry[],
   logger: Logger
 ): Promise<Event[]> {
   logger.log(`Matching ${events.length} events to user interests...`);

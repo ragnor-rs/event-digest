@@ -1,29 +1,17 @@
-import { Event } from '../entities';
 import { Config } from '../../config/types';
-import { OpenAIClient, GPT_TEMPERATURE_CREATIVE } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
+import { OpenAIClient, GPT_TEMPERATURE_CREATIVE } from '../../data/openai-client';
+import { DebugEventDescriptionEntry } from '../../presentation/debug-writer';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-
-interface DebugEntry {
-  message: any;
-  event_type: string;
-  start_datetime: string;
-  interests_matched: string[];
-  gpt_prompt: string;
-  gpt_response: string;
-  extracted_title: string;
-  extracted_summary: string;
-  extraction_success: boolean;
-  cached: boolean;
-}
+import { Event } from '../entities';
 
 export async function describeEvents(
   events: Event[],
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[],
+  debugEntries: DebugEventDescriptionEntry[],
   logger: Logger
 ): Promise<Event[]> {
   logger.log(`Generating descriptions for ${events.length} events...`);

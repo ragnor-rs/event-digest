@@ -1,8 +1,10 @@
-import { Config } from './types';
-import * as yaml from 'js-yaml';
 import fs from 'fs';
 
-export function loadYamlConfig(filePath: string): Partial<Config> | null {
+import * as yaml from 'js-yaml';
+
+import { Config } from './types';
+
+export function loadYamlConfig(filePath: string): Partial<Config> | undefined {
   try {
     if (fs.existsSync(filePath)) {
       const yamlContent = fs.readFileSync(filePath, 'utf-8');
@@ -12,6 +14,9 @@ export function loadYamlConfig(filePath: string): Partial<Config> | null {
     }
   } catch (error) {
     console.error(`Error loading YAML config from ${filePath}:`, error);
+    throw new Error(
+      `Failed to load YAML config from ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
-  return null;
+  return undefined;
 }
