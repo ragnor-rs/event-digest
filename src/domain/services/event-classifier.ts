@@ -3,6 +3,7 @@ import { Config } from '../../config/types';
 import { OpenAIClient } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
 import { createBatches } from '../../shared/batch-processor';
+import { Logger } from '../../shared/logger';
 
 interface DebugEntry {
   message: any;
@@ -18,12 +19,13 @@ export async function classifyEventTypes(
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[]
+  debugEntries: DebugEntry[],
+  logger: Logger
 ): Promise<Event[]> {
-  console.log(`Classifying event types for ${events.length} events...`);
+  logger.log(`Classifying event types for ${events.length} events...`);
 
   if (events.length === 0) {
-    console.log(`  No input on this step`);
+    logger.log(`  No input on this step`);
     return [];
   }
 
@@ -80,7 +82,7 @@ export async function classifyEventTypes(
     if (config.verboseLogging) {
       console.log(`  All events cached, skipping GPT calls`);
     }
-    console.log(`  Created ${classifiedEvents.length} classified events`);
+    logger.log(`  Created ${classifiedEvents.length} classified events`);
     return classifiedEvents;
   }
 
@@ -172,6 +174,6 @@ export async function classifyEventTypes(
     cache.save();
   }
 
-  console.log(`  Created ${classifiedEvents.length} classified events`);
+  logger.log(`  Created ${classifiedEvents.length} classified events`);
   return classifiedEvents;
 }

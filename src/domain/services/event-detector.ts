@@ -3,6 +3,7 @@ import { Config } from '../../config/types';
 import { OpenAIClient } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
 import { createBatches } from '../../shared/batch-processor';
+import { Logger } from '../../shared/logger';
 
 interface DebugEntry {
   messageLink: string;
@@ -17,12 +18,13 @@ export async function detectEventAnnouncements(
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugResults: DebugEntry[]
+  debugResults: DebugEntry[],
+  logger: Logger
 ): Promise<Event[]> {
-  console.log(`Detecting event announcements with GPT from ${messages.length} messages...`);
+  logger.log(`Detecting event announcements with GPT from ${messages.length} messages...`);
 
   if (messages.length === 0) {
-    console.log(`  No input on this step`);
+    logger.log(`  No input on this step`);
     return [];
   }
 
@@ -69,7 +71,7 @@ export async function detectEventAnnouncements(
     if (config.verboseLogging) {
       console.log(`  All messages cached, skipping GPT calls`);
     }
-    console.log(`  GPT identified ${events.length} event messages`);
+    logger.log(`  GPT identified ${events.length} event messages`);
     return events;
   }
 
@@ -77,7 +79,7 @@ export async function detectEventAnnouncements(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    logger.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
 
     const prompt = config.eventDetectionPrompt!.replace(
       '{{MESSAGES}}',
@@ -150,6 +152,6 @@ export async function detectEventAnnouncements(
     cache.save();
   }
 
-  console.log(`  GPT identified ${events.length} event messages`);
+  logger.log(`  GPT identified ${events.length} event messages`);
   return events;
 }

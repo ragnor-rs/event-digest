@@ -94,9 +94,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
 
   // Validate required fields
   if (!config.groupsToParse || !config.channelsToParse || !config.userInterests || !config.weeklyTimeslots) {
-    console.error('Missing required configuration fields:');
-    console.error('Required: groupsToParse, channelsToParse, userInterests, weeklyTimeslots');
-    process.exit(1);
+    throw new Error('Missing required configuration fields: groupsToParse, channelsToParse, userInterests, weeklyTimeslots');
   }
 
   // Log final configuration

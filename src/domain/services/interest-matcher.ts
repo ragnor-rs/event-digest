@@ -2,6 +2,7 @@ import { Event, InterestMatch } from '../entities';
 import { Config } from '../../config/types';
 import { OpenAIClient } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
+import { Logger } from '../../shared/logger';
 
 interface DebugEntry {
   message: any;
@@ -20,12 +21,13 @@ export async function filterByInterests(
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[]
+  debugEntries: DebugEntry[],
+  logger: Logger
 ): Promise<Event[]> {
-  console.log(`Matching ${events.length} events to user interests...`);
+  logger.log(`Matching ${events.length} events to user interests...`);
 
   if (events.length === 0) {
-    console.log(`  No input on this step`);
+    logger.log(`  No input on this step`);
     return [];
   }
 
@@ -93,7 +95,7 @@ export async function filterByInterests(
     if (config.verboseLogging) {
       console.log(`  All events cached, skipping GPT calls`);
     }
-    console.log(`  Found ${matchedEvents.length} events matching user interests`);
+    logger.log(`  Found ${matchedEvents.length} events matching user interests`);
     return matchedEvents;
   }
 
@@ -252,7 +254,7 @@ export async function filterByInterests(
     cache.save();
   }
 
-  console.log(`  Found ${matchedEvents.length} events matching user interests`);
+  logger.log(`  Found ${matchedEvents.length} events matching user interests`);
 
   return matchedEvents;
 }

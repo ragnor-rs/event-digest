@@ -40,7 +40,9 @@ export function parseArgs(): Config {
 
   // If no config source provided, show usage
   if (Object.keys(config).length === 0 && args.length === 0) {
-    console.log(`Usage:
+    throw new Error(`No configuration provided.
+
+Usage:
   Option 1 - YAML config file:
     npm run dev -- --config=config.yaml
 
@@ -66,7 +68,6 @@ export function parseArgs(): Config {
 
   Option 4 - Mix YAML and CLI (CLI arguments override YAML values):
     npm run dev -- --verbose-logging true`);
-    process.exit(1);
   }
 
   return validateAndCompleteConfig(config);

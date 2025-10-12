@@ -5,6 +5,7 @@ import { Cache } from '../../data/cache';
 import { createBatches } from '../../shared/batch-processor';
 import { normalizeDateTime } from '../../shared/date-utils';
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
+import { Logger } from '../../shared/logger';
 
 interface DebugEntry {
   message: any;
@@ -22,12 +23,13 @@ export async function filterBySchedule(
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[]
+  debugEntries: DebugEntry[],
+  logger: Logger
 ): Promise<Event[]> {
-  console.log(`Filtering ${events.length} events by schedule and availability...`);
+  logger.log(`Filtering ${events.length} events by schedule and availability...`);
 
   if (events.length === 0) {
-    console.log(`  No input on this step`);
+    logger.log(`  No input on this step`);
     return [];
   }
 
@@ -136,7 +138,7 @@ export async function filterBySchedule(
     if (config.verboseLogging) {
       console.log(`  All messages cached, skipping GPT calls`);
     }
-    console.log(`  Found ${scheduledEvents.length} messages matching schedule`);
+    logger.log(`  Found ${scheduledEvents.length} messages matching schedule`);
     return scheduledEvents;
   }
 
@@ -348,6 +350,6 @@ export async function filterBySchedule(
     cache.save();
   }
 
-  console.log(`  Found ${scheduledEvents.length} messages matching schedule`);
+  logger.log(`  Found ${scheduledEvents.length} messages matching schedule`);
   return scheduledEvents;
 }

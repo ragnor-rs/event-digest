@@ -35,13 +35,8 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
 
     // Check if option is recognized
     if (!VALID_OPTIONS.includes(key)) {
-      console.error(`\nError: Unrecognized option '${key}'`);
-      console.error('\nValid options:');
-      VALID_OPTIONS.filter(opt => opt !== '--config').forEach(opt => {
-        console.error(`  ${opt}`);
-      });
-      console.error('\nSee README.md for usage examples.');
-      process.exit(1);
+      const validOptionsStr = VALID_OPTIONS.filter(opt => opt !== '--config').join('\n  ');
+      throw new Error(`Unrecognized option '${key}'\n\nValid options:\n  ${validOptionsStr}\n\nSee README.md for usage examples.`);
     }
 
     switch (key) {

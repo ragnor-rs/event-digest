@@ -1,8 +1,9 @@
 import { TelegramMessage } from '../entities';
 import { Config } from '../../config/types';
+import { Logger } from '../../shared/logger';
 
-export async function filterByEventCues(messages: TelegramMessage[], config: Config): Promise<TelegramMessage[]> {
-  console.log(`Filtering ${messages.length} messages by event cues...`);
+export async function filterByEventCues(messages: TelegramMessage[], config: Config, logger: Logger): Promise<TelegramMessage[]> {
+  logger.log(`Filtering ${messages.length} messages by event cues...`);
 
   const eventMessages = messages.filter(msg => {
     const content = msg.content.toLowerCase();
@@ -16,6 +17,6 @@ export async function filterByEventCues(messages: TelegramMessage[], config: Con
     return false;
   });
 
-  console.log(`  Found ${eventMessages.length} messages with event cues`);
+  logger.log(`  Found ${eventMessages.length} messages with event cues`);
   return eventMessages;
 }

@@ -3,6 +3,7 @@ import { Config } from '../../config/types';
 import { OpenAIClient, GPT_TEMPERATURE_CREATIVE } from '../../data/openai-client';
 import { Cache } from '../../data/cache';
 import { createBatches } from '../../shared/batch-processor';
+import { Logger } from '../../shared/logger';
 
 interface DebugEntry {
   message: any;
@@ -22,12 +23,13 @@ export async function describeEvents(
   config: Config,
   openaiClient: OpenAIClient,
   cache: Cache,
-  debugEntries: DebugEntry[]
+  debugEntries: DebugEntry[],
+  logger: Logger
 ): Promise<Event[]> {
-  console.log(`Generating descriptions for ${events.length} events...`);
+  logger.log(`Generating descriptions for ${events.length} events...`);
 
   if (events.length === 0) {
-    console.log(`  No input on this step`);
+    logger.log(`  No input on this step`);
     return [];
   }
 
@@ -76,7 +78,7 @@ export async function describeEvents(
     if (config.verboseLogging) {
       console.log(`  All events cached, skipping GPT calls`);
     }
-    console.log(`  Created ${describedEvents.length} events`);
+    logger.log(`  Created ${describedEvents.length} events`);
     return describedEvents;
   }
 
@@ -127,8 +129,8 @@ Link: ${event.message.link}`).join('\n\n');
 
         describedEvents.push({ ...chunk[i], event_description: eventDescription });
 
-        // Cache the extracted event description data (without dynamic fields like date_time and interests)
-        cache.cacheConvertedEvent(chunk[i].message.link, eventDescriptionData, config.userInterests, false);
+        // Cache the full event description
+        cache.cacheConvertedEvent(chunk[i].message.link, eventDescription, config.userInterests, false);
 
         if (config.verboseLogging) {
           if (title && summary && description) {
@@ -159,6 +161,6 @@ Link: ${event.message.link}`).join('\n\n');
     cache.save();
   }
 
-  console.log(`  Created ${describedEvents.length} events`);
+  logger.log(`  Created ${describedEvents.length} events`);
   return describedEvents;
 }

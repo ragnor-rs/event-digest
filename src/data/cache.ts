@@ -1,12 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { TelegramMessage } from '../domain/entities';
-
-interface CacheEntry {
-  result: any;
-  timestamp: number;
-}
+import { TelegramMessage, EventDescription } from '../domain/entities';
 
 export class Cache {
   private cacheDir: string;
@@ -24,7 +19,7 @@ export class Cache {
     event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>; // message link -> event type (step 4)
     matching_interests: Record<string, string[]>; // message link -> matched interests (step 6)
     scheduled_events: Record<string, string>; // message link -> extracted datetime (step 5)
-    events: Record<string, any>; // message link -> event object (step 7)
+    events: Record<string, EventDescription>; // message link -> event description object (step 7)
   };
 
   constructor() {
@@ -46,7 +41,7 @@ export class Cache {
     event_type_classification: Record<string, 'offline' | 'online' | 'hybrid'>;
     matching_interests: Record<string, string[]>;
     scheduled_events: Record<string, string>;
-    events: Record<string, any>;
+    events: Record<string, EventDescription>;
   } {
     try {
       if (!fs.existsSync(this.cacheDir)) {
@@ -185,12 +180,12 @@ export class Cache {
   }
 
   // Event conversion (step 7)
-  getConvertedEventCache(messageLink: string, userInterests: string[]): any | null {
+  getConvertedEventCache(messageLink: string, userInterests: string[]): EventDescription | null {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     return this.cache.events[cacheKey] ?? null;
   }
 
-  cacheConvertedEvent(messageLink: string, event: any, userInterests: string[], autoSave: boolean = true): void {
+  cacheConvertedEvent(messageLink: string, event: EventDescription, userInterests: string[], autoSave: boolean = true): void {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     this.cache.events[cacheKey] = event;
     if (autoSave) {
