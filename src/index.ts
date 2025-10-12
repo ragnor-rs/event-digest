@@ -27,9 +27,9 @@ async function main() {
     const config = parseArgs();
 
     const logger = new Logger(config.verboseLogging);
-    const cache = new Cache();
+    const cache = new Cache(logger);
     const openaiClient = new OpenAIClient();
-    const telegramClient = new TelegramClient(cache);
+    const telegramClient = new TelegramClient(cache, logger);
 
     const pipeline = new EventPipeline(config, openaiClient, cache, telegramClient, logger);
     const events = await pipeline.execute();
@@ -37,10 +37,11 @@ async function main() {
     printEvents(events);
     logger.log('');
   } catch (error) {
+    const logger = new Logger(false);
     if (error instanceof Error) {
-      console.error('Error:', error.message);
+      logger.error('Error', error);
     } else {
-      console.error('Error:', error);
+      logger.error('Error', error);
     }
     process.exit(1);
   }

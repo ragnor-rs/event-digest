@@ -21,9 +21,7 @@ export async function detectEventAnnouncements(
     return [];
   }
 
-  if (config.verboseLogging) {
-    console.log(`  Processing cache...`);
-  }
+  logger.verbose(`  Processing cache...`);
 
   // Check cache first
   const uncachedMessages: TelegramMessage[] = [];
@@ -42,9 +40,7 @@ export async function detectEventAnnouncements(
           cached: true,
         });
       } else {
-        if (config.verboseLogging) {
-          console.log(`    DISCARDED: ${message.link} - not an event announcement (cached)`);
-        }
+        logger.verbose(`    DISCARDED: ${message.link} - not an event announcement (cached)`);
         debugEntries.push({
           messageLink: message.link,
           isEvent: false,
@@ -56,14 +52,12 @@ export async function detectEventAnnouncements(
     }
   }
 
-  if (config.verboseLogging && cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${messages.length} messages`);
+  if (cacheHits > 0) {
+    logger.verbose(`  Cache hits: ${cacheHits}/${messages.length} messages`);
   }
 
   if (uncachedMessages.length === 0) {
-    if (config.verboseLogging) {
-      console.log(`  All messages cached, skipping GPT calls`);
-    }
+    logger.verbose(`  All messages cached, skipping GPT calls`);
     logger.log(`  GPT identified ${events.length} event messages`);
     return events;
   }
@@ -109,9 +103,7 @@ export async function detectEventAnnouncements(
       // Cache negative results for unprocessed messages
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedIndices.has(idx)) {
-          if (config.verboseLogging) {
-            console.log(`    DISCARDED: ${chunk[idx].link} - not an event announcement`);
-          }
+          logger.verbose(`    DISCARDED: ${chunk[idx].link} - not an event announcement`);
           cache.cacheEventMessage(chunk[idx].link, false, false);
 
           debugEntries.push({
@@ -126,9 +118,7 @@ export async function detectEventAnnouncements(
     } else {
       // All messages in chunk are not events
       for (const message of chunk) {
-        if (config.verboseLogging) {
-          console.log(`    DISCARDED: ${message.link} - not an event announcement`);
-        }
+        logger.verbose(`    DISCARDED: ${message.link} - not an event announcement`);
         cache.cacheEventMessage(message.link, false, false);
 
         debugEntries.push({

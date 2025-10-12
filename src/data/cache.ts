@@ -3,8 +3,10 @@ import fs from 'fs';
 import path from 'path';
 
 import { TelegramMessage, EventDescription } from '../domain/entities';
+import { Logger } from '../shared/logger';
 
 export class Cache {
+  private logger: Logger;
   private cacheDir: string;
   private cacheFiles: {
     telegram_messages: string;
@@ -23,7 +25,8 @@ export class Cache {
     events: Record<string, EventDescription>; // message link -> event description object (step 7)
   };
 
-  constructor() {
+  constructor(logger: Logger) {
+    this.logger = logger;
     this.cacheDir = path.join(process.cwd(), '.cache');
     this.cacheFiles = {
       telegram_messages: path.join(this.cacheDir, 'telegram_messages.json'),
@@ -49,7 +52,7 @@ export class Cache {
         fs.mkdirSync(this.cacheDir, { recursive: true });
       }
     } catch {
-      console.log('  Failed to create cache directory, starting fresh');
+      this.logger.log('  Failed to create cache directory, starting fresh');
     }
 
     return {
@@ -70,7 +73,7 @@ export class Cache {
         return JSON.parse(data);
       }
     } catch {
-      console.log(`  Cache file ${storeName}.json not found or corrupted, starting fresh`);
+      this.logger.log(`  Cache file ${storeName}.json not found or corrupted, starting fresh`);
     }
     return defaultValue;
   }
@@ -80,7 +83,7 @@ export class Cache {
       const filePath = this.cacheFiles[storeName];
       fs.writeFileSync(filePath, JSON.stringify(this.cache[storeName], null, 2));
     } catch (error) {
-      console.error(`Failed to save ${storeName} cache:`, error);
+      this.logger.error(`Failed to save ${storeName} cache`, error);
       throw new Error(`Cache save failed for ${storeName}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -251,7 +254,7 @@ export class Cache {
       events: {},
     };
     this.save();
-    console.log('  All cache entries cleared');
+    this.logger.log('  All cache entries cleared');
   }
 
   // Event type classification (step 4)
@@ -270,14 +273,14 @@ export class Cache {
   clearAnnouncementsCache(): void {
     this.cache.event_type_classification = {};
     this.saveCacheFile('event_type_classification');
-    console.log('  Event announcements cache cleared');
+    this.logger.log('  Event announcements cache cleared');
   }
 
   // Clear matching interests cache specifically
   clearInterestingAnnouncementsCache(): void {
     this.cache.matching_interests = {};
     this.saveCacheFile('matching_interests');
-    console.log('  Matching interests cache cleared');
+    this.logger.log('  Matching interests cache cleared');
   }
 
   // Create hash for preferences (interests/timeslots) for shorter cache keys

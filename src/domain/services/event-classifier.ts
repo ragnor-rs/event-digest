@@ -25,9 +25,7 @@ export async function classifyEventTypes(
   const uncachedEvents: Event[] = [];
   let cacheHits = 0;
 
-  if (config.verboseLogging) {
-    console.log('  Processing cache...');
-  }
+  logger.verbose('  Processing cache...');
 
   for (const event of events) {
     const cachedType = cache.getEventTypeCache(event.message.link);
@@ -36,9 +34,7 @@ export async function classifyEventTypes(
 
       // Check if we should include this event based on skipOnlineEvents
       if (cachedType === 'online' && config.skipOnlineEvents) {
-        if (config.verboseLogging) {
-          console.log(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
-        }
+        logger.verbose(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
         debugEntries.push({
           message: event.message,
           gpt_prompt: '[CACHED]',
@@ -66,14 +62,12 @@ export async function classifyEventTypes(
     }
   }
 
-  if (config.verboseLogging && cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
+  if (cacheHits > 0) {
+    logger.verbose(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
-    if (config.verboseLogging) {
-      console.log(`  All events cached, skipping GPT calls`);
-    }
+    logger.verbose(`  All events cached, skipping GPT calls`);
     logger.log(`  Created ${classifiedEvents.length} classified events`);
     return classifiedEvents;
   }
@@ -82,9 +76,7 @@ export async function classifyEventTypes(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    if (config.verboseLogging) {
-      console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
-    }
+    logger.verbose(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
 
     const messagesText = chunk
       .map((event, idx) => `${idx + 1}. ${event.message.content.replace(/\n/g, ' ')}`)
@@ -112,9 +104,9 @@ export async function classifyEventTypes(
 
             // Check if we should include this event
             if (eventType === 'online' && config.skipOnlineEvents) {
-              if (config.verboseLogging) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
-              }
+              logger.verbose(
+                `    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`
+              );
               debugEntries.push({
                 message: chunk[messageIdx].message,
                 gpt_prompt: prompt,
@@ -145,9 +137,7 @@ export async function classifyEventTypes(
     // Handle unprocessed events (shouldn't happen, but just in case)
     for (let idx = 0; idx < chunk.length; idx++) {
       if (!processedIndices.has(idx)) {
-        if (config.verboseLogging) {
-          console.log(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
-        }
+        logger.verbose(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
         const eventType = 'offline';
         cache.cacheEventType(chunk[idx].message.link, eventType, false);
         classifiedEvents.push({

@@ -29,9 +29,7 @@ export async function filterBySchedule(
   const scheduledEvents: Event[] = [];
   let cacheHits = 0;
 
-  if (config.verboseLogging) {
-    console.log('  Processing cache...');
-  }
+  logger.verbose('  Processing cache...');
 
   for (const event of events) {
     const cachedDateTime = cache.getScheduledEventCache(event.message.link, config.weeklyTimeslots);
@@ -71,9 +69,7 @@ export async function filterBySchedule(
                 cached: true,
               });
             } else {
-              if (config.verboseLogging) {
-                console.log(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
-              }
+              logger.verbose(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
               debugEntries.push({
                 message: event.message,
                 event_type: event.event_type!,
@@ -86,9 +82,7 @@ export async function filterBySchedule(
               });
             }
           } else {
-            if (config.verboseLogging) {
-              console.log(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
-            }
+            logger.verbose(`    DISCARDED: ${event.message.link} - event in the past (cached)`);
             debugEntries.push({
               message: event.message,
               event_type: event.event_type!,
@@ -121,14 +115,12 @@ export async function filterBySchedule(
     }
   }
 
-  if (config.verboseLogging && cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${events.length} messages`);
+  if (cacheHits > 0) {
+    logger.verbose(`  Cache hits: ${cacheHits}/${events.length} messages`);
   }
 
   if (uncachedEvents.length === 0) {
-    if (config.verboseLogging) {
-      console.log(`  All messages cached, skipping GPT calls`);
-    }
+    logger.verbose(`  All messages cached, skipping GPT calls`);
     logger.log(`  Found ${scheduledEvents.length} messages matching schedule`);
     return scheduledEvents;
   }
@@ -137,9 +129,7 @@ export async function filterBySchedule(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    if (config.verboseLogging) {
-      console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
-    }
+    logger.verbose(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
 
     const messagesText = chunk
       .map((event, idx) => {
@@ -183,12 +173,10 @@ export async function filterBySchedule(
 
             // Check if the date is valid
             if (!isValid(eventDate)) {
-              if (config.verboseLogging) {
-                console.log(
-                  `    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
-                );
-                console.log(`    GPT response line: "${line}"`);
-              }
+              logger.verbose(
+                `    DISCARDED: ${chunk[messageIdx].message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
+              );
+              logger.verbose(`    GPT response line: "${line}"`);
               debugEntries.push({
                 message: chunk[messageIdx].message,
                 event_type: chunk[messageIdx].event_type!,
@@ -208,9 +196,7 @@ export async function filterBySchedule(
 
             // Check if the event is in the future relative to current time
             if (eventDate <= now) {
-              if (config.verboseLogging) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
-              }
+              logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - event in the past`);
               debugEntries.push({
                 message: chunk[messageIdx].message,
                 event_type: chunk[messageIdx].event_type!,
@@ -227,9 +213,7 @@ export async function filterBySchedule(
             // Check if event date is reasonable relative to message date
             const maxFutureDate = new Date(messageDate.getTime() + MAX_FUTURE_YEARS * 365 * 24 * 60 * 60 * 1000);
             if (eventDate > maxFutureDate) {
-              if (config.verboseLogging) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
-              }
+              logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - event too far in future`);
               debugEntries.push({
                 message: chunk[messageIdx].message,
                 event_type: chunk[messageIdx].event_type!,
@@ -270,9 +254,7 @@ export async function filterBySchedule(
                 cached: false,
               });
             } else {
-              if (config.verboseLogging) {
-                console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
-              }
+              logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - outside desired timeslots`);
               debugEntries.push({
                 message: chunk[messageIdx].message,
                 event_type: chunk[messageIdx].event_type!,
@@ -285,9 +267,7 @@ export async function filterBySchedule(
               });
             }
           } catch {
-            if (config.verboseLogging) {
-              console.log(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
-            }
+            logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} - date parsing error`);
             debugEntries.push({
               message: chunk[messageIdx].message,
               event_type: chunk[messageIdx].event_type!,
@@ -305,9 +285,7 @@ export async function filterBySchedule(
       // Cache 'unknown' for unprocessed messages
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedMessages.has(idx)) {
-          if (config.verboseLogging) {
-            console.log(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
-          }
+          logger.verbose(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
           cache.cacheScheduledEvent(chunk[idx].message.link, 'unknown', config.weeklyTimeslots, false);
           debugEntries.push({
             message: chunk[idx].message,
@@ -324,9 +302,7 @@ export async function filterBySchedule(
     } else {
       // No results from GPT, cache as unknown
       for (const event of chunk) {
-        if (config.verboseLogging) {
-          console.log(`    DISCARDED: ${event.message.link} - no date/time found`);
-        }
+        logger.verbose(`    DISCARDED: ${event.message.link} - no date/time found`);
         cache.cacheScheduledEvent(event.message.link, 'unknown', config.weeklyTimeslots, false);
         debugEntries.push({
           message: event.message,

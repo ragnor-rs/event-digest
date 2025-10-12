@@ -25,9 +25,7 @@ export async function filterByInterests(
   const matchedEvents: Event[] = [];
   let cacheHits = 0;
 
-  if (config.verboseLogging) {
-    console.log('  Processing cache...');
-  }
+  logger.verbose('  Processing cache...');
 
   for (const event of events) {
     const cachedInterests = cache.getMatchingInterestsCache(event.message.link, config.userInterests);
@@ -56,9 +54,7 @@ export async function filterByInterests(
           cached: true,
         });
       } else {
-        if (config.verboseLogging) {
-          console.log(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
-        }
+        logger.verbose(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
         debugEntries.push({
           start_datetime: event.start_datetime!,
           message: event.message,
@@ -76,14 +72,12 @@ export async function filterByInterests(
     }
   }
 
-  if (config.verboseLogging && cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
+  if (cacheHits > 0) {
+    logger.verbose(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
-    if (config.verboseLogging) {
-      console.log(`  All events cached, skipping GPT calls`);
-    }
+    logger.verbose(`  All events cached, skipping GPT calls`);
     logger.log(`  Found ${matchedEvents.length} events matching user interests`);
     return matchedEvents;
   }
@@ -91,9 +85,7 @@ export async function filterByInterests(
   // Process each event individually
   for (let i = 0; i < uncachedEvents.length; i++) {
     const event: Event = uncachedEvents[i];
-    if (config.verboseLogging) {
-      console.log(`  Processing event ${i + 1}/${uncachedEvents.length}...`);
-    }
+    logger.verbose(`  Processing event ${i + 1}/${uncachedEvents.length}...`);
 
     const eventsText = `0: ${event.message.content.replace(/\n/g, ' ')}`;
 
@@ -107,9 +99,7 @@ export async function filterByInterests(
 
     if (!result) {
       // GPT returned undefined/empty - technical issue
-      if (config.verboseLogging) {
-        console.log(`    DISCARDED: ${event.message.link} - GPT returned no response`);
-      }
+      logger.verbose(`    DISCARDED: ${event.message.link} - GPT returned no response`);
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
         start_datetime: event.start_datetime!,
@@ -123,9 +113,7 @@ export async function filterByInterests(
       });
     } else if (result.toLowerCase() === 'none') {
       // GPT explicitly said "none" - legitimate no match
-      if (config.verboseLogging) {
-        console.log(`    DISCARDED: ${event.message.link} - GPT returned "none"`);
-      }
+      logger.verbose(`    DISCARDED: ${event.message.link} - GPT returned "none"`);
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
         message: event.message,
@@ -169,19 +157,19 @@ export async function filterByInterests(
       const invalidIndices = interestMatches
         .filter((m) => m.index < 0 || m.index >= config.userInterests.length)
         .map((m) => m.index);
-      if (config.verboseLogging && invalidIndices.length > 0) {
-        console.log(`    WARNING: GPT returned invalid interest indices: ${invalidIndices.join(', ')}`);
+      if (invalidIndices.length > 0) {
+        logger.verbose(`    WARNING: GPT returned invalid interest indices: ${invalidIndices.join(', ')}`);
       }
 
       // Warn about low-confidence matches
       const lowConfidenceMatches = interestMatches.filter(
         (m) => m.confidence < config.minInterestConfidence && m.index >= 0 && m.index < config.userInterests.length
       );
-      if (config.verboseLogging && lowConfidenceMatches.length > 0) {
+      if (lowConfidenceMatches.length > 0) {
         const lowConfDetails = lowConfidenceMatches
           .map((m) => `${config.userInterests[m.index]}(${m.confidence.toFixed(2)})`)
           .join(', ');
-        console.log(`    Filtered out low-confidence matches: ${lowConfDetails}`);
+        logger.verbose(`    Filtered out low-confidence matches: ${lowConfDetails}`);
       }
 
       // Convert to interest names (for backward compat) and InterestMatch objects
@@ -212,13 +200,11 @@ export async function filterByInterests(
         });
       } else {
         // Parsed result but no valid interests (all filtered out by confidence or invalid indices)
-        if (config.verboseLogging) {
-          const reason =
-            interestMatches.length > 0
-              ? 'all matches below confidence threshold or invalid indices'
-              : 'no valid interests parsed from response';
-          console.log(`    DISCARDED: ${event.message.link} - ${reason}`);
-        }
+        const reason =
+          interestMatches.length > 0
+            ? 'all matches below confidence threshold or invalid indices'
+            : 'no valid interests parsed from response';
+        logger.verbose(`    DISCARDED: ${event.message.link} - ${reason}`);
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
         debugEntries.push({
           message: event.message,

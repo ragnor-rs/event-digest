@@ -58,14 +58,12 @@ export async function describeEvents(
     }
   }
 
-  if (config.verboseLogging && cacheHits > 0) {
-    console.log(`  Cache hits: ${cacheHits}/${events.length} events`);
+  if (cacheHits > 0) {
+    logger.verbose(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
-    if (config.verboseLogging) {
-      console.log(`  All events cached, skipping GPT calls`);
-    }
+    logger.verbose(`  All events cached, skipping GPT calls`);
     logger.log(`  Created ${describedEvents.length} events`);
     return describedEvents;
   }
@@ -74,9 +72,7 @@ export async function describeEvents(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    if (config.verboseLogging) {
-      console.log(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
-    }
+    logger.verbose(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
 
     const eventsText = chunk
       .map(
@@ -124,12 +120,10 @@ Link: ${event.message.link}`
         // Cache the full event description
         cache.cacheConvertedEvent(chunk[i].message.link, eventDescription, config.userInterests, false);
 
-        if (config.verboseLogging) {
-          if (title && summary && description) {
-            console.log(`    ✓ Created event: ${title}`);
-          } else {
-            console.log(`    ✗ Failed to extract complete event info for ${chunk[i].message.link}`);
-          }
+        if (title && summary && description) {
+          logger.verbose(`    ✓ Created event: ${title}`);
+        } else {
+          logger.verbose(`    ✗ Failed to extract complete event info for ${chunk[i].message.link}`);
         }
 
         if (config.writeDebugFiles) {
