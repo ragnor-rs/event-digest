@@ -128,12 +128,25 @@ export class EventPipeline {
       this.logger.error('Pipeline execution failed:', error);
       throw error;
     } finally {
-      // Always ensure Telegram client is disconnected and cache is saved
+      // Always ensure both cache save and Telegram disconnect are attempted
+      const cleanupErrors: Error[] = [];
+
       try {
         await this.cache.save();
+      } catch (error) {
+        cleanupErrors.push(new Error(`Cache save failed: ${error instanceof Error ? error.message : String(error)}`));
+      }
+
+      try {
         await this.telegramClient.disconnect();
-      } catch (cleanupError) {
-        this.logger.error('Cleanup failed:', cleanupError);
+      } catch (error) {
+        cleanupErrors.push(
+          new Error(`Telegram disconnect failed: ${error instanceof Error ? error.message : String(error)}`)
+        );
+      }
+
+      if (cleanupErrors.length > 0) {
+        this.logger.error('Cleanup encountered errors:', cleanupErrors.map((e) => e.message).join('; '));
       }
     }
   }

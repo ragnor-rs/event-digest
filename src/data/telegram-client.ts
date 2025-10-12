@@ -76,10 +76,8 @@ export class TelegramClient {
       },
     });
 
-    // Save session only if it's a new session
-    if (this.isNewSession) {
-      this.saveSession();
-    }
+    // Always save session after successful connection to ensure it's persisted
+    this.saveSession();
     this.logger.log('Connected to Telegram');
   }
 

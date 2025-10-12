@@ -105,12 +105,28 @@ export class Cache {
 
   // Public method to manually save cache when batching updates
   public save(): void {
-    this.saveCacheFile('telegram_messages');
-    this.saveCacheFile('messages');
-    this.saveCacheFile('event_type_classification');
-    this.saveCacheFile('matching_interests');
-    this.saveCacheFile('scheduled_events');
-    this.saveCacheFile('events');
+    const stores: Array<keyof typeof this.cacheFiles> = [
+      'telegram_messages',
+      'messages',
+      'event_type_classification',
+      'matching_interests',
+      'scheduled_events',
+      'events',
+    ];
+    const errors: string[] = [];
+
+    for (const store of stores) {
+      try {
+        this.saveCacheFile(store);
+      } catch (error) {
+        errors.push(`${store}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      this.logger.error('Some cache stores failed to save:', errors.join('; '));
+      throw new Error(`Cache save failed for ${errors.length} store(s): ${errors.join('; ')}`);
+    }
   }
 
   // Telegram messages caching (step 1)
