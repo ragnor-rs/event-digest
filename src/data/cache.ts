@@ -94,8 +94,9 @@ export class Cache {
         if (fs.existsSync(tempFilePath)) {
           fs.unlinkSync(tempFilePath);
         }
-      } catch {
-        // Ignore cleanup errors
+      } catch (cleanupError) {
+        // Log cleanup errors for diagnostics but don't fail
+        this.logger.error(`Failed to clean up temp file ${tempFilePath}`, cleanupError);
       }
 
       this.logger.error(`Failed to save ${storeName} cache`, error);

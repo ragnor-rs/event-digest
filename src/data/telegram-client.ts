@@ -220,9 +220,12 @@ export class TelegramClient {
       await this.client.disconnect();
       await this.client.destroy();
       this.logger.log('Disconnected from Telegram');
-    } catch {
-      // Ignore disconnect errors as they're often harmless timeouts from _updateLoop
-      this.logger.log('Disconnection completed (ignoring timeout errors)');
+    } catch (error) {
+      // Log errors for diagnostics, but don't throw as they're often harmless timeouts from _updateLoop
+      this.logger.verbose(
+        `Disconnect error (likely harmless timeout): ${error instanceof Error ? error.message : String(error)}`
+      );
+      this.logger.log('Disconnection completed');
     }
   }
 }
