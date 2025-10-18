@@ -2,6 +2,7 @@ import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugEventDescriptionEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
+import { formatDateTime } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
 import { DigestEvent } from '../entities';
 
@@ -30,7 +31,7 @@ export async function describeEvents(
       // Update cached event description with current data (interests might have changed)
       const updatedEventDescription = {
         ...cachedEventDescription,
-        date_time: event.start_datetime!,
+        date_time: formatDateTime(event.start_datetime!),
         met_interests: event.interests_matched!,
         link: event.message.link,
       };
@@ -74,7 +75,7 @@ export async function describeEvents(
     const eventsText = chunk
       .map(
         (event, idx) => `${idx + 1}.
-Start time: ${event.start_datetime}
+Start time: ${formatDateTime(event.start_datetime!)}
 Interests: ${event.interests_matched!.join(', ')}
 Content: ${event.message.content.replace(/\n/g, ' ')}
 Link: ${event.message.link}`
@@ -109,7 +110,7 @@ Link: ${event.message.link}`
 
           // Create fallback event description
           const fallbackDescription = {
-            date_time: event.start_datetime!,
+            date_time: formatDateTime(event.start_datetime!),
             met_interests: event.interests_matched!,
             title: 'Event',
             short_summary: 'Event details not available',
@@ -151,7 +152,7 @@ Link: ${event.message.link}`
         };
 
         const eventDescription = {
-          date_time: event.start_datetime!,
+          date_time: formatDateTime(event.start_datetime!),
           met_interests: event.interests_matched!,
           ...eventDescriptionData,
           link: event.message.link,

@@ -67,7 +67,7 @@ function processCachedEvent(
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
         ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
-        extracted_datetime: normalizedCachedDateTime,
+        extracted_datetime: eventDate,
         result: 'discarded',
         discard_reason: validation.reason,
         cached: true,
@@ -81,11 +81,11 @@ function processCachedEvent(
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
         ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
-        extracted_datetime: normalizedCachedDateTime,
+        extracted_datetime: eventDate,
         result: 'scheduled',
         cached: true,
       });
-      return { ...event, start_datetime: normalizedCachedDateTime };
+      return { ...event, start_datetime: eventDate };
     } else {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - outside desired timeslots (cached)`);
       debugEntries.push({
@@ -93,7 +93,7 @@ function processCachedEvent(
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
         ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
-        extracted_datetime: normalizedCachedDateTime,
+        extracted_datetime: eventDate,
         result: 'discarded',
         discard_reason: 'outside desired timeslots',
         cached: true,
@@ -137,7 +137,7 @@ function processExtractedDateTime(
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
-        extracted_datetime: dateTime,
+        extracted_datetime: dateTime, // Keep original unparseable string
         result: 'discarded',
         discard_reason: 'could not parse date',
         cached: false,
@@ -155,7 +155,7 @@ function processExtractedDateTime(
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
-        extracted_datetime: normalizedDateTime,
+        extracted_datetime: eventDate,
         result: 'discarded',
         discard_reason: validation.reason,
         cached: false,
@@ -167,14 +167,14 @@ function processExtractedDateTime(
     if (matchesTimeslot(eventDate, config.weeklyTimeslots)) {
       scheduledEvents.push({
         ...event,
-        start_datetime: normalizedDateTime,
+        start_datetime: eventDate,
       });
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
-        extracted_datetime: normalizedDateTime,
+        extracted_datetime: eventDate,
         result: 'scheduled',
         cached: false,
       });
@@ -185,7 +185,7 @@ function processExtractedDateTime(
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
-        extracted_datetime: normalizedDateTime,
+        extracted_datetime: eventDate,
         result: 'discarded',
         discard_reason: 'outside desired timeslots',
         cached: false,

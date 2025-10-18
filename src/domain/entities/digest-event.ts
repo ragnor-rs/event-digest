@@ -8,6 +8,6 @@ export interface DigestEvent {
   event_type?: AttendanceMode;
   interests_matched?: string[];
   interest_matches?: InterestMatch[];
-  start_datetime?: string;
+  start_datetime?: Date;
   event_description?: DigestEventDescription;
 }

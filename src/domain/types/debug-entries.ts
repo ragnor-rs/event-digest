@@ -28,7 +28,7 @@ export interface DebugScheduleFilteringEntry {
   event_type: string;
   ai_prompt: string;
   ai_response: string;
-  extracted_datetime: string;
+  extracted_datetime: Date | string; // Date for valid datetimes, string for "unknown"
   result: 'scheduled' | 'discarded';
   discard_reason?: string;
   cached: boolean;
@@ -37,7 +37,7 @@ export interface DebugScheduleFilteringEntry {
 export interface DebugInterestMatchingEntry {
   message: SourceMessage;
   event_type: string;
-  start_datetime: string;
+  start_datetime: Date;
   ai_prompt: string;
   ai_response: string;
   interests_matched: string[];
@@ -49,7 +49,7 @@ export interface DebugInterestMatchingEntry {
 export interface DebugEventDescriptionEntry {
   message: SourceMessage;
   event_type: string;
-  start_datetime: string;
+  start_datetime: Date;
   interests_matched: string[];
   ai_prompt: string;
   ai_response: string;
