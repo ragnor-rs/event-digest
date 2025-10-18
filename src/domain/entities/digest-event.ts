@@ -6,7 +6,6 @@ import { SourceMessage } from './source-message';
 export interface DigestEvent {
   message: SourceMessage;
   event_type?: AttendanceMode;
-  interests_matched?: string[];
   interest_matches?: InterestMatch[];
   start_datetime?: Date;
   event_description?: DigestEventDescription;

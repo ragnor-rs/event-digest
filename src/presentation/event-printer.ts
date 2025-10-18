@@ -29,8 +29,8 @@ export function printEvents(events: DigestEvent[]): void {
       console.error(`Warning: Event missing short_summary, skipping: ${event.message?.link || 'unknown'}`);
       return false;
     }
-    if (!event.interests_matched || event.interests_matched.length === 0) {
-      console.error(`Warning: Event missing interests_matched, skipping: ${event.message?.link || 'unknown'}`);
+    if (!event.interest_matches || event.interest_matches.length === 0) {
+      console.error(`Warning: Event missing interest_matches, skipping: ${event.message?.link || 'unknown'}`);
       return false;
     }
     return true;
@@ -48,7 +48,7 @@ export function printEvents(events: DigestEvent[]): void {
   sortedEvents.forEach((event, index) => {
     console.log(`${index + 1}. ${event.event_description!.title}`);
     console.log(`   📅 ${formatDateTime(event.start_datetime!)}`);
-    console.log(`   🏷️  ${event.interests_matched!.join(', ')}`);
+    console.log(`   🏷️  ${event.interest_matches!.map((m) => m.interest).join(', ')}`);
     console.log(`   📝 ${event.event_description!.short_summary}`);
     console.log(`   🔗 ${event.message.link}`);
     console.log('');
