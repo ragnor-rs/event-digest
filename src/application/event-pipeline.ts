@@ -50,8 +50,8 @@ export class EventPipeline {
       const eventCueMessages = await filterByEventCues(allMessages, this.config, this.logger);
       this.logger.log('');
 
-      // Step 3: Detect event announcements with GPT
-      this.logger.log(`Step 3/7: Detecting event announcements with GPT from ${eventCueMessages.length} messages...`);
+      // Step 3: Detect event announcements
+      this.logger.log(`Step 3/7: Detecting event announcements from ${eventCueMessages.length} messages...`);
       const debugEventDetection: DebugEventDetectionEntry[] = [];
       const events = await detectEventAnnouncements(
         eventCueMessages,
