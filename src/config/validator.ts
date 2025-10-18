@@ -3,20 +3,6 @@ import { DEFAULT_CONFIG } from './defaults';
 import { Config } from './types';
 
 /**
- * Strips @ symbol from a string if present at the start
- */
-function stripAtSymbol(value: string): string {
-  return value.startsWith('@') ? value.substring(1) : value;
-}
-
-/**
- * Strips @ symbols from an array of strings
- */
-function stripAtSymbols(values: string[]): string[] {
-  return values.map(stripAtSymbol);
-}
-
-/**
  * Validates and completes the configuration with defaults
  * Outputs configuration summary to console (before Logger is initialized)
  */
@@ -109,14 +95,6 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
 
   if (!config.eventDescriptionPrompt) {
     config.eventDescriptionPrompt = DEFAULT_CONFIG.eventDescriptionPrompt;
-  }
-
-  // Strip @ symbols from groups and channels if present (allows both @username and username)
-  if (config.groupsToParse) {
-    config.groupsToParse = stripAtSymbols(config.groupsToParse);
-  }
-  if (config.channelsToParse) {
-    config.channelsToParse = stripAtSymbols(config.channelsToParse);
   }
 
   // Validate required fields exist and are non-empty

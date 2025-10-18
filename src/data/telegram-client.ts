@@ -4,11 +4,13 @@ import path from 'path';
 import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { Api } from 'telegram';
+import { Dialog } from 'telegram/tl/custom/dialog';
 
 import { ICache, IMessageSource } from '../domain/interfaces';
 import { SourceMessage } from '../domain/entities';
 import { Logger } from '../shared/logger';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
+import { Username } from 'telegram/define';
 
 const TELEGRAM_DISCONNECT_DELAY_MS = 100; // ms to wait before disconnect
 
@@ -18,6 +20,7 @@ export class TelegramClient implements IMessageSource {
   private sessionFile: string;
   private cache: ICache;
   private logger: Logger;
+  private dialogs: Dialog[] | null = null;
 
   constructor(cache: ICache, logger: Logger) {
     this.cache = cache;
@@ -95,18 +98,27 @@ export class TelegramClient implements IMessageSource {
   }
 
   /**
+   * Loads all user dialogs once per program run to avoid flood wait
+   */
+  private async loadDialogs(): Promise<Dialog[]> {
+    if (this.dialogs === null) {
+      const dialogList = await this.client.getDialogs({ limit: 200 });
+      this.dialogs = Array.from(dialogList);
+    }
+    return this.dialogs;
+  }
+
+  /**
    * Searches for a channel or group by display name among user's dialogs
    * Returns entity and actual username/ID for the first match (case-insensitive)
    */
   private async findEntityByDisplayName(
     searchName: string,
     sourceType: 'group' | 'channel'
-  ): Promise<{ entity: Api.TypeEntityLike; actualName: string } | null> {
+  ): Promise<{ entity: Api.TypeEntityLike; actualName: string; displayName: string | undefined } | null> {
     try {
-      this.logger.verbose(`  Searching for ${sourceType} with display name: "${searchName}"`);
-
-      // Fetch all user dialogs
-      const dialogs = await this.client.getDialogs({ limit: 200 });
+      // Load dialogs (cached after first call to avoid flood wait)
+      const dialogs = await this.loadDialogs();
 
       const searchLower = searchName.toLowerCase();
 
@@ -116,14 +128,8 @@ export class TelegramClient implements IMessageSource {
         // Check if entity type matches what we're looking for
         if (!entity) continue;
 
-        const isChannel = entity instanceof Api.Channel;
-        const isChat = entity instanceof Api.Chat;
-
-        if (sourceType === 'channel' && !isChannel) continue;
-        if (sourceType === 'group' && !(isChannel || isChat)) continue;
-
-        // For groups, we want megagroups (supergroups) or regular chats
-        if (sourceType === 'group' && isChannel && !entity.megagroup) continue;
+        if (sourceType === 'channel' && !dialog.isChannel) continue;
+        if (sourceType === 'group' && !dialog.isGroup) continue;
 
         // Get the display name (title)
         const title = dialog.title?.toLowerCase() || '';
@@ -134,18 +140,16 @@ export class TelegramClient implements IMessageSource {
           let actualName: string;
           if (entity instanceof Api.Channel) {
             actualName = entity.username || `c/${entity.id}`;
-          } else if (entity instanceof Api.Chat) {
-            actualName = `c/${entity.id}`;
           } else {
             actualName = `c/${entity.id}`;
           }
 
-          this.logger.verbose(`  Found match: "${dialog.title}" (username: ${actualName})`);
-          return { entity, actualName };
+          let displayName: string | undefined = dialog.title
+
+          return { entity, actualName, displayName };
         }
       }
 
-      this.logger.verbose(`  No ${sourceType} found with display name containing: "${searchName}"`);
       return null;
     } catch (error) {
       this.logger.error(`Error searching for ${sourceType} by name`, error);
@@ -153,60 +157,53 @@ export class TelegramClient implements IMessageSource {
     }
   }
 
+  /**
+   * Fetches messages from a Telegram group or channel
+   *
+   * Supported name formats:
+   *   - @username: Direct lookup by username (requires @ prefix, fastest for public channels/groups)
+   *   - "Display Name": Searches through joined dialogs (works for both public and private)
+   */
   private async fetchMessagesFromSource(
     sourceName: string,
     sourceType: 'group' | 'channel',
     limit: number
   ): Promise<SourceMessage[]> {
-    const cacheKey = `${sourceType}:${sourceName}:${limit}`;
+    this.logger.verbose(`  Fetching messages from ${sourceType} ${sourceName}...`);
+
+    // Check if name starts with @ symbol (username) or not (display name)
+    const isUsername = sourceName.startsWith('@');
+
+    let entity: Api.TypeEntityLike;
+    let actualSourceName: String;
+  
+    // Determine how to fetch the entity
+    if (isUsername) {
+      actualSourceName = sourceName.slice(1)
+      // Username provided, use direct lookup
+      entity = await this.client.getEntity(actualSourceName as Username);
+    } else {
+      // Display name provided, search by display name
+      this.logger.verbose(`    Searching by display name...`);
+      const found = await this.findEntityByDisplayName(sourceName, sourceType);
+      if (found) {
+        entity = found.entity;
+        actualSourceName = found.actualName;
+        this.logger.verbose(`    Using ${sourceType}: "${found.displayName || sourceName}" → ${actualSourceName}`);
+      } else {
+        this.logger.verbose(`    Display name not found`);
+        return [];
+      }
+    }
+
+    const cacheKey = `${sourceType}:${actualSourceName}:${limit}`;
 
     // Get cached messages
     const cachedMessages = this.cache.getCachedMessages(cacheKey) || [];
 
     try {
-      this.logger.verbose(`  Fetching messages from ${sourceType} ${sourceName}...`);
       if (cachedMessages.length > 0) {
         this.logger.verbose(`    Cache contains ${cachedMessages.length} messages`);
-      }
-
-      // Determine how to fetch the entity
-      let entity: Api.TypeEntityLike;
-      let actualSourceName = sourceName;
-
-      // Check if name looks like a username (alphanumeric + underscores only)
-      // or if it contains spaces/special chars (likely a display name)
-      const isUsername = /^[a-zA-Z0-9_]+$/.test(sourceName);
-
-      if (isUsername) {
-        // Looks like a public username, try direct lookup first
-        try {
-          entity = await this.client.getEntity(sourceName);
-        } catch (directLookupError) {
-          // Direct lookup failed, might be a display name that happens to be simple
-          this.logger.verbose(`    Direct lookup failed, searching by display name...`);
-          const found = await this.findEntityByDisplayName(sourceName, sourceType);
-          if (found) {
-            entity = found.entity;
-            actualSourceName = found.actualName;
-            this.logger.verbose(`    Using ${sourceType}: "${sourceName}" → ${actualSourceName}`);
-          } else {
-            // Re-throw original error if display name search also fails
-            throw directLookupError;
-          }
-        }
-      } else {
-        // Contains spaces or special characters, likely a display name
-        this.logger.verbose(`    Name contains spaces/special chars, searching by display name...`);
-        const found = await this.findEntityByDisplayName(sourceName, sourceType);
-        if (found) {
-          entity = found.entity;
-          actualSourceName = found.actualName;
-          this.logger.verbose(`    Using ${sourceType}: "${sourceName}" → ${actualSourceName}`);
-        } else {
-          // Fall back to direct lookup as last resort
-          this.logger.verbose(`    Display name search failed, trying direct lookup...`);
-          entity = await this.client.getEntity(sourceName);
-        }
       }
 
       // Get the last cached message ID to fetch only newer messages
