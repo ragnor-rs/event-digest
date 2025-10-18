@@ -178,8 +178,6 @@ export class TelegramClient {
   }
 
   async fetchMessages(config: Config): Promise<TelegramMessage[]> {
-    this.logger.log('Fetching messages from Telegram...');
-
     const allMessages: TelegramMessage[] = [];
 
     // Process groups with higher message limit

@@ -14,8 +14,6 @@ export async function classifyEventTypes(
   debugEntries: DebugTypeClassificationEntry[],
   logger: Logger
 ): Promise<Event[]> {
-  logger.log(`Classifying event types for ${events.length} events...`);
-
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];

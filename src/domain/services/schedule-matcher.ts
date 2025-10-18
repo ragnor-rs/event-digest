@@ -218,8 +218,6 @@ export async function filterBySchedule(
   debugEntries: DebugScheduleFilteringEntry[],
   logger: Logger
 ): Promise<Event[]> {
-  logger.log(`Filtering ${events.length} events by schedule and availability...`);
-
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];
