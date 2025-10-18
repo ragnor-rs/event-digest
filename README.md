@@ -82,7 +82,7 @@ weeklyTimeslots:
   - "0 14:00"  # Sunday after 14:00
 
 # Maximum number of messages to fetch from groups
-# Default: 150 when both limits unspecified, 200 when only channels limit specified
+# Default: 200 (or 300 if both limits unspecified, calculated via GROUP_MESSAGE_MULTIPLIER)
 maxGroupMessages: 200
 
 # Maximum number of messages to fetch from channels
@@ -174,7 +174,7 @@ npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 - `channelsToParse`/`--channels`: Telegram channel usernames (without @)
 - `userInterests`/`--interests`: Your interests (events must be directly about these topics)
 - `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
-- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 150 when both unspecified, 200 when only channels specified)
+- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200, or 300 if both limits unspecified)
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
@@ -233,7 +233,10 @@ This codebase follows **Clean Architecture** and **Domain-Driven Design (DDD)** 
 src/
 ├── domain/                     # Business logic & domain entities
 │   ├── entities/               # Domain entities (Event, TelegramMessage, etc.)
-│   └── services/               # Business logic services (filtering, matching, etc.)
+│   ├── interfaces/             # Domain interfaces (IAIClient, ICache, IMessageSource, IDebugWriter)
+│   ├── services/               # Business logic services (filtering, matching, etc.)
+│   ├── types/                  # Domain types (debug entry types, etc.)
+│   └── constants.ts            # Domain constants (DATETIME_UNKNOWN)
 ├── application/                # Use case orchestration
 │   └── event-pipeline.ts       # 7-step pipeline orchestrator
 ├── data/                       # External systems (infrastructure layer)
@@ -243,6 +246,7 @@ src/
 ├── config/                     # Configuration management
 │   ├── types.ts                # Config interface
 │   ├── defaults.ts             # Default values & prompts
+│   ├── constants.ts            # Config constants (GROUP_MESSAGE_MULTIPLIER)
 │   ├── args-parser.ts          # CLI argument parsing
 │   ├── yaml-loader.ts          # YAML configuration loading
 │   └── validator.ts            # Config validation & merging

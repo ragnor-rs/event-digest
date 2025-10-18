@@ -9,9 +9,10 @@ import {
   DebugEventDescriptionEntry,
 } from '../domain/types';
 import { EventType } from '../domain/entities';
+import { IDebugWriter } from '../domain/interfaces';
 import { Logger } from '../shared/logger';
 
-export class DebugWriter {
+export class DebugWriter implements IDebugWriter {
   private debugDir = 'debug';
   private eventDetectionEntries: DebugEventDetectionEntry[] = [];
   private typeClassificationEntries: DebugTypeClassificationEntry[] = [];
