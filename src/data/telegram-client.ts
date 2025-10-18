@@ -4,21 +4,21 @@ import path from 'path';
 import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 
-import { Cache } from './cache';
-import { TELEGRAM_DISCONNECT_DELAY_MS } from '../config/constants';
-import { Config } from '../config/types';
+import { ICache, IMessageSource } from '../domain/interfaces';
 import { TelegramMessage } from '../domain/entities';
 import { Logger } from '../shared/logger';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
 
-export class TelegramClient {
+const TELEGRAM_DISCONNECT_DELAY_MS = 100; // ms to wait before disconnect
+
+export class TelegramClient implements IMessageSource {
   private client: GramJSClient;
   private session: StringSession;
   private sessionFile: string;
-  private cache: Cache;
+  private cache: ICache;
   private logger: Logger;
 
-  constructor(cache: Cache, logger: Logger) {
+  constructor(cache: ICache, logger: Logger) {
     this.cache = cache;
     this.logger = logger;
 
@@ -177,18 +177,23 @@ export class TelegramClient {
     }
   }
 
-  async fetchMessages(config: Config): Promise<TelegramMessage[]> {
+  async fetchMessages(
+    groupsToParse: string[],
+    channelsToParse: string[],
+    maxGroupMessages: number,
+    maxChannelMessages: number
+  ): Promise<TelegramMessage[]> {
     const allMessages: TelegramMessage[] = [];
 
     // Process groups with higher message limit
-    for (const groupName of config.groupsToParse) {
-      const messages = await this.fetchMessagesFromSource(groupName, 'group', config.maxGroupMessages);
+    for (const groupName of groupsToParse) {
+      const messages = await this.fetchMessagesFromSource(groupName, 'group', maxGroupMessages);
       allMessages.push(...messages);
     }
 
     // Process channels with separate limit
-    for (const channelName of config.channelsToParse) {
-      const messages = await this.fetchMessagesFromSource(channelName, 'channel', config.maxChannelMessages);
+    for (const channelName of channelsToParse) {
+      const messages = await this.fetchMessagesFromSource(channelName, 'channel', maxChannelMessages);
       allMessages.push(...messages);
     }
 

@@ -1,5 +1,5 @@
 import { Config } from '../config/types';
-import { IAIClient, ICache } from '../domain/interfaces';
+import { IAIClient, ICache, IMessageSource } from '../domain/interfaces';
 import { Event } from '../domain/entities';
 import {
   filterByEventCues,
@@ -16,31 +16,34 @@ import {
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
 } from '../domain/types';
-import { debugWriter } from '../presentation/debug-writer';
+import { DebugWriter } from '../presentation/debug-writer';
 import { Logger } from '../shared/logger';
-import { TelegramClient } from '../data/telegram-client';
 
 export class EventPipeline {
   constructor(
     private config: Config,
     private aiClient: IAIClient,
     private cache: ICache,
-    private telegramClient: TelegramClient,
+    private messageSource: IMessageSource,
+    private debugWriter: DebugWriter,
     private logger: Logger
   ) {}
 
   async execute(): Promise<Event[]> {
     try {
-      // Set logger for debug writer
-      debugWriter.setLogger(this.logger);
 
-      // Connect to Telegram
-      await this.telegramClient.connect();
+      // Connect to message source
+      await this.messageSource.connect();
       this.logger.log('');
 
-      // Step 1: Fetch messages from Telegram
-      this.logger.log('Step 1/7: Fetching messages from Telegram...');
-      const allMessages = await this.telegramClient.fetchMessages(this.config);
+      // Step 1: Fetch messages from message source
+      this.logger.log('Step 1/7: Fetching messages from message source...');
+      const allMessages = await this.messageSource.fetchMessages(
+        this.config.groupsToParse,
+        this.config.channelsToParse,
+        this.config.maxGroupMessages,
+        this.config.maxChannelMessages
+      );
       this.logger.log('');
 
       // Step 2: Filter by event cues
@@ -60,7 +63,7 @@ export class EventPipeline {
         this.logger
       );
       if (this.config.writeDebugFiles) {
-        debugWriter.writeEventDetection(debugEventDetection);
+        this.debugWriter.writeEventDetection(debugEventDetection);
       }
       this.logger.log('');
 
@@ -75,7 +78,7 @@ export class EventPipeline {
         debugTypeClassification,
         this.logger
       );
-      debugTypeClassification.forEach((entry) => debugWriter.addTypeClassificationEntry(entry));
+      debugTypeClassification.forEach((entry) => this.debugWriter.addTypeClassificationEntry(entry));
       this.logger.log('');
 
       // Step 5: Filter by schedule
@@ -89,7 +92,7 @@ export class EventPipeline {
         debugScheduleFiltering,
         this.logger
       );
-      debugScheduleFiltering.forEach((entry) => debugWriter.addScheduleFilteringEntry(entry));
+      debugScheduleFiltering.forEach((entry) => this.debugWriter.addScheduleFilteringEntry(entry));
       this.logger.log('');
 
       // Step 6: Match to user interests
@@ -103,7 +106,7 @@ export class EventPipeline {
         debugInterestMatching,
         this.logger
       );
-      debugInterestMatching.forEach((entry) => debugWriter.addInterestMatchingEntry(entry));
+      debugInterestMatching.forEach((entry) => this.debugWriter.addInterestMatchingEntry(entry));
       this.logger.log('');
 
       // Step 7: Generate event descriptions
@@ -117,12 +120,12 @@ export class EventPipeline {
         debugEventDescription,
         this.logger
       );
-      debugEventDescription.forEach((entry) => debugWriter.addEventDescriptionEntry(entry));
+      debugEventDescription.forEach((entry) => this.debugWriter.addEventDescriptionEntry(entry));
       this.logger.log('');
 
       // Write debug files if enabled
       if (this.config.writeDebugFiles) {
-        debugWriter.writeAll();
+        this.debugWriter.writeAll();
         this.logger.log('');
       }
 
@@ -141,7 +144,7 @@ export class EventPipeline {
       }
 
       try {
-        await this.telegramClient.disconnect();
+        await this.messageSource.disconnect();
       } catch (error) {
         cleanupErrors.push(
           new Error(`Telegram disconnect failed: ${error instanceof Error ? error.message : String(error)}`)

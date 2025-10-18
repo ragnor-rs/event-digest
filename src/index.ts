@@ -5,7 +5,7 @@ dotenv.config();
 import { EventPipeline } from './application';
 import { parseArgs } from './config';
 import { OpenAIClient, Cache, TelegramClient } from './data';
-import { printEvents } from './presentation';
+import { printEvents, DebugWriter } from './presentation';
 import { Logger } from './shared/logger';
 
 function validateEnvironmentVariables(): void {
@@ -29,9 +29,10 @@ async function main() {
     const logger = new Logger(config.verboseLogging);
     const cache = new Cache(logger);
     const openaiClient = new OpenAIClient(logger);
-    const telegramClient = new TelegramClient(cache, logger);
+    const messageSource = new TelegramClient(cache, logger);
+    const debugWriter = new DebugWriter(logger);
 
-    const pipeline = new EventPipeline(config, openaiClient, cache, telegramClient, logger);
+    const pipeline = new EventPipeline(config, openaiClient, cache, messageSource, debugWriter, logger);
     const events = await pipeline.execute();
 
     printEvents(events);
