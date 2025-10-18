@@ -3,6 +3,7 @@ import path from 'path';
 
 import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
+import { Api } from 'telegram';
 
 import { ICache, IMessageSource } from '../domain/interfaces';
 import { SourceMessage } from '../domain/entities';
@@ -93,6 +94,65 @@ export class TelegramClient implements IMessageSource {
     this.logger.log('Connected to Telegram');
   }
 
+  /**
+   * Searches for a channel or group by display name among user's dialogs
+   * Returns entity and actual username/ID for the first match (case-insensitive)
+   */
+  private async findEntityByDisplayName(
+    searchName: string,
+    sourceType: 'group' | 'channel'
+  ): Promise<{ entity: Api.TypeEntityLike; actualName: string } | null> {
+    try {
+      this.logger.verbose(`  Searching for ${sourceType} with display name: "${searchName}"`);
+
+      // Fetch all user dialogs
+      const dialogs = await this.client.getDialogs({ limit: 200 });
+
+      const searchLower = searchName.toLowerCase();
+
+      for (const dialog of dialogs) {
+        const entity = dialog.entity;
+
+        // Check if entity type matches what we're looking for
+        if (!entity) continue;
+
+        const isChannel = entity instanceof Api.Channel;
+        const isChat = entity instanceof Api.Chat;
+
+        if (sourceType === 'channel' && !isChannel) continue;
+        if (sourceType === 'group' && !(isChannel || isChat)) continue;
+
+        // For groups, we want megagroups (supergroups) or regular chats
+        if (sourceType === 'group' && isChannel && !entity.megagroup) continue;
+
+        // Get the display name (title)
+        const title = dialog.title?.toLowerCase() || '';
+
+        // Check if display name contains the search term
+        if (title.includes(searchLower)) {
+          // Get actual username or use ID
+          let actualName: string;
+          if (entity instanceof Api.Channel) {
+            actualName = entity.username || `c/${entity.id}`;
+          } else if (entity instanceof Api.Chat) {
+            actualName = `c/${entity.id}`;
+          } else {
+            actualName = `c/${entity.id}`;
+          }
+
+          this.logger.verbose(`  Found match: "${dialog.title}" (username: ${actualName})`);
+          return { entity, actualName };
+        }
+      }
+
+      this.logger.verbose(`  No ${sourceType} found with display name containing: "${searchName}"`);
+      return null;
+    } catch (error) {
+      this.logger.error(`Error searching for ${sourceType} by name`, error);
+      return null;
+    }
+  }
+
   private async fetchMessagesFromSource(
     sourceName: string,
     sourceType: 'group' | 'channel',
@@ -109,7 +169,45 @@ export class TelegramClient implements IMessageSource {
         this.logger.verbose(`    Cache contains ${cachedMessages.length} messages`);
       }
 
-      const entity = await this.client.getEntity(sourceName);
+      // Determine how to fetch the entity
+      let entity: Api.TypeEntityLike;
+      let actualSourceName = sourceName;
+
+      // Check if name looks like a username (alphanumeric + underscores only)
+      // or if it contains spaces/special chars (likely a display name)
+      const isUsername = /^[a-zA-Z0-9_]+$/.test(sourceName);
+
+      if (isUsername) {
+        // Looks like a public username, try direct lookup first
+        try {
+          entity = await this.client.getEntity(sourceName);
+        } catch (directLookupError) {
+          // Direct lookup failed, might be a display name that happens to be simple
+          this.logger.verbose(`    Direct lookup failed, searching by display name...`);
+          const found = await this.findEntityByDisplayName(sourceName, sourceType);
+          if (found) {
+            entity = found.entity;
+            actualSourceName = found.actualName;
+            this.logger.verbose(`    Using ${sourceType}: "${sourceName}" → ${actualSourceName}`);
+          } else {
+            // Re-throw original error if display name search also fails
+            throw directLookupError;
+          }
+        }
+      } else {
+        // Contains spaces or special characters, likely a display name
+        this.logger.verbose(`    Name contains spaces/special chars, searching by display name...`);
+        const found = await this.findEntityByDisplayName(sourceName, sourceType);
+        if (found) {
+          entity = found.entity;
+          actualSourceName = found.actualName;
+          this.logger.verbose(`    Using ${sourceType}: "${sourceName}" → ${actualSourceName}`);
+        } else {
+          // Fall back to direct lookup as last resort
+          this.logger.verbose(`    Display name search failed, trying direct lookup...`);
+          entity = await this.client.getEntity(sourceName);
+        }
+      }
 
       // Get the last cached message ID to fetch only newer messages
       let minId: number | undefined;
@@ -130,7 +228,7 @@ export class TelegramClient implements IMessageSource {
           newMessages.push({
             timestamp: new Date(msg.date * 1000).toISOString(),
             content: msg.message,
-            link: `https://t.me/${sourceName}/${msg.id}`,
+            link: `https://t.me/${actualSourceName}/${msg.id}`,
           });
         }
       }
