@@ -1,6 +1,6 @@
 import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
-import { DebugEventDetectionEntry } from '../types';
+import { DebugEventDetectionEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
 import { SourceMessage, DigestEvent } from '../entities';

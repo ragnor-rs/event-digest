@@ -82,6 +82,18 @@ export class Cache implements ICache {
           return converted as T;
         }
 
+        // Convert serialized dates back to Date objects for telegram_messages
+        if (storeName === 'telegram_messages') {
+          const converted: Record<string, SourceMessage[]> = {};
+          for (const [key, messages] of Object.entries(parsed)) {
+            converted[key] = (messages as any[]).map((msg: any) => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp),
+            }));
+          }
+          return converted as T;
+        }
+
         return parsed;
       }
     } catch (error) {
@@ -159,7 +171,7 @@ export class Cache implements ICache {
     }
   }
 
-  getLastMessageTimestamp(sourceName: string): string | undefined {
+  getLastMessageTimestamp(sourceName: string): Date | undefined {
     const cachedMessages = this.getCachedMessages(sourceName);
     if (!cachedMessages || cachedMessages.length === 0) {
       return undefined;

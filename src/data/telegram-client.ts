@@ -223,7 +223,7 @@ export class TelegramClient implements IMessageSource {
       for (const msg of telegramMessages) {
         if (msg.message) {
           newMessages.push({
-            timestamp: new Date(msg.date * 1000).toISOString(),
+            timestamp: new Date(msg.date * 1000),
             content: msg.message,
             link: `https://t.me/${actualSourceName}/${msg.id}`,
           });
@@ -240,9 +240,9 @@ export class TelegramClient implements IMessageSource {
       // Combine arrays efficiently
       const allMessages = cachedMessages.concat(uniqueNewMessages);
 
-      // Sort by timestamp (pre-parse timestamps for efficiency)
+      // Sort by timestamp (timestamp is already a Date object)
       allMessages.sort((a, b) => {
-        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        return a.timestamp.getTime() - b.timestamp.getTime();
       });
 
       // Take the most recent 'limit' messages as final result
@@ -293,7 +293,7 @@ export class TelegramClient implements IMessageSource {
     }
 
     const sortedMessages = allMessages.sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
     );
 
     this.logger.log(`  Fetched ${sortedMessages.length} total messages`);

@@ -15,7 +15,7 @@ import {
   DebugScheduleFilteringEntry,
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
-} from '../domain/types';
+} from '../shared/types';
 import { Logger } from '../shared/logger';
 
 export class EventPipeline {

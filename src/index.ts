@@ -5,8 +5,8 @@ dotenv.config();
 import { EventPipeline } from './application';
 import { parseArgs } from './config';
 import { OpenAIClient, Cache, TelegramClient } from './data';
-import { printEvents, DebugWriter } from './presentation';
-import { Logger } from './shared/logger';
+import { printEvents } from './presentation';
+import { Logger, DebugWriter } from './shared';
 
 function validateEnvironmentVariables(): void {
   const requiredVars = ['OPENAI_API_KEY', 'TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_PHONE_NUMBER'];

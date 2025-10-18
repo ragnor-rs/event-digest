@@ -1,6 +1,6 @@
 import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
-import { DebugEventDescriptionEntry } from '../types';
+import { DebugEventDescriptionEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
 import { formatDateTime } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
@@ -32,10 +32,14 @@ export async function describeEvents(
 
       if (config.writeDebugFiles) {
         debugEntries.push({
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
-          interest_matches: event.interest_matches!,
+          interest_matches: event.interest_matches!.map((m) => ({ interest: m.interest, confidence: m.confidence })),
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: ${cachedEventDescription.title || 'N/A'}]`,
           extracted_title: cachedEventDescription.title || 'N/A',
@@ -112,10 +116,14 @@ Link: ${event.message.link}`
 
           if (config.writeDebugFiles) {
             debugEntries.push({
-              message: event.message,
+              message: {
+                timestamp: event.message.timestamp,
+                content: event.message.content,
+                link: event.message.link,
+              },
               event_type: event.event_type!,
               start_datetime: event.start_datetime!,
-              interest_matches: event.interest_matches!,
+              interest_matches: event.interest_matches!.map((m) => ({ interest: m.interest, confidence: m.confidence })),
               ai_prompt: prompt,
               ai_response: '[NO RESPONSE]',
               extracted_title: 'Event',
@@ -154,10 +162,14 @@ Link: ${event.message.link}`
 
         if (config.writeDebugFiles) {
           debugEntries.push({
-            message: event.message,
+            message: {
+              timestamp: event.message.timestamp,
+              content: event.message.content,
+              link: event.message.link,
+            },
             event_type: event.event_type!,
             start_datetime: event.start_datetime!,
-            interest_matches: event.interest_matches!,
+            interest_matches: event.interest_matches!.map((m) => ({ interest: m.interest, confidence: m.confidence })),
             ai_prompt: prompt,
             ai_response: result,
             extracted_title: title,
