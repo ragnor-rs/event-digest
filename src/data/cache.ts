@@ -2,10 +2,11 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
+import { ICache } from '../domain/interfaces';
 import { TelegramMessage, EventDescription, EventType } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
-export class Cache {
+export class Cache implements ICache {
   private logger: Logger;
   private cacheDir: string;
   private cacheFiles: {

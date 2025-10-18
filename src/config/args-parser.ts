@@ -14,10 +14,10 @@ const VALID_OPTIONS = [
   '--skip-online-events',
   '--verbose-logging',
   '--min-interest-confidence',
-  '--gpt-batch-size-event-detection',
-  '--gpt-batch-size-event-classification',
-  '--gpt-batch-size-schedule-extraction',
-  '--gpt-batch-size-event-description',
+  '--event-detection-batch-size',
+  '--event-classification-batch-size',
+  '--schedule-extraction-batch-size',
+  '--event-description-batch-size',
 ];
 
 export function parseCommandLineArgs(args: string[]): Partial<Config> {
@@ -98,44 +98,44 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
         config.minInterestConfidence = parsed;
         break;
       }
-      case '--gpt-batch-size-event-detection': {
+      case '--event-detection-batch-size': {
         const parsed = parseInt(value);
         if (isNaN(parsed) || parsed <= 0) {
           throw new Error(
-            `Invalid value for --gpt-batch-size-event-detection: "${value}". Must be a positive integer.`
+            `Invalid value for --event-detection-batch-size: "${value}". Must be a positive integer.`
           );
         }
-        config.gptBatchSizeEventDetection = parsed;
+        config.eventDetectionBatchSize = parsed;
         break;
       }
-      case '--gpt-batch-size-event-classification': {
+      case '--event-classification-batch-size': {
         const parsed = parseInt(value);
         if (isNaN(parsed) || parsed <= 0) {
           throw new Error(
-            `Invalid value for --gpt-batch-size-event-classification: "${value}". Must be a positive integer.`
+            `Invalid value for --event-classification-batch-size: "${value}". Must be a positive integer.`
           );
         }
-        config.gptBatchSizeEventClassification = parsed;
+        config.eventClassificationBatchSize = parsed;
         break;
       }
-      case '--gpt-batch-size-schedule-extraction': {
+      case '--schedule-extraction-batch-size': {
         const parsed = parseInt(value);
         if (isNaN(parsed) || parsed <= 0) {
           throw new Error(
-            `Invalid value for --gpt-batch-size-schedule-extraction: "${value}". Must be a positive integer.`
+            `Invalid value for --schedule-extraction-batch-size: "${value}". Must be a positive integer.`
           );
         }
-        config.gptBatchSizeScheduleExtraction = parsed;
+        config.scheduleExtractionBatchSize = parsed;
         break;
       }
-      case '--gpt-batch-size-event-description': {
+      case '--event-description-batch-size': {
         const parsed = parseInt(value);
         if (isNaN(parsed) || parsed <= 0) {
           throw new Error(
-            `Invalid value for --gpt-batch-size-event-description: "${value}". Must be a positive integer.`
+            `Invalid value for --event-description-batch-size: "${value}". Must be a positive integer.`
           );
         }
-        config.gptBatchSizeEventDescription = parsed;
+        config.eventDescriptionBatchSize = parsed;
         break;
       }
     }

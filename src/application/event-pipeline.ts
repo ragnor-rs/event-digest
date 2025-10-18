@@ -1,7 +1,5 @@
 import { Config } from '../config/types';
-import { Cache } from '../data/cache';
-import { OpenAIClient } from '../data/openai-client';
-import { TelegramClient } from '../data/telegram-client';
+import { IAIClient, ICache } from '../domain/interfaces';
 import { Event } from '../domain/entities';
 import {
   filterByEventCues,
@@ -12,20 +10,21 @@ import {
   describeEvents,
 } from '../domain/services';
 import {
-  debugWriter,
   DebugEventDetectionEntry,
   DebugTypeClassificationEntry,
   DebugScheduleFilteringEntry,
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
-} from '../presentation/debug-writer';
+} from '../domain/types';
+import { debugWriter } from '../presentation/debug-writer';
 import { Logger } from '../shared/logger';
+import { TelegramClient } from '../data/telegram-client';
 
 export class EventPipeline {
   constructor(
     private config: Config,
-    private openaiClient: OpenAIClient,
-    private cache: Cache,
+    private aiClient: IAIClient,
+    private cache: ICache,
     private telegramClient: TelegramClient,
     private logger: Logger
   ) {}
@@ -55,7 +54,7 @@ export class EventPipeline {
       const events = await detectEventAnnouncements(
         eventCueMessages,
         this.config,
-        this.openaiClient,
+        this.aiClient,
         this.cache,
         debugEventDetection,
         this.logger
@@ -71,7 +70,7 @@ export class EventPipeline {
       const classifiedEvents = await classifyEventTypes(
         events,
         this.config,
-        this.openaiClient,
+        this.aiClient,
         this.cache,
         debugTypeClassification,
         this.logger
@@ -85,7 +84,7 @@ export class EventPipeline {
       const scheduledEvents = await filterBySchedule(
         classifiedEvents,
         this.config,
-        this.openaiClient,
+        this.aiClient,
         this.cache,
         debugScheduleFiltering,
         this.logger
@@ -99,7 +98,7 @@ export class EventPipeline {
       const matchedEvents = await filterByInterests(
         scheduledEvents,
         this.config,
-        this.openaiClient,
+        this.aiClient,
         this.cache,
         debugInterestMatching,
         this.logger
@@ -113,7 +112,7 @@ export class EventPipeline {
       const describedEvents = await describeEvents(
         matchedEvents,
         this.config,
-        this.openaiClient,
+        this.aiClient,
         this.cache,
         debugEventDescription,
         this.logger

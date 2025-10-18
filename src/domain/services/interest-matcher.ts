@@ -1,15 +1,14 @@
 import { Config } from '../../config/types';
-import { Cache } from '../../data/cache';
-import { OpenAIClient } from '../../data/openai-client';
-import { DebugInterestMatchingEntry } from '../../presentation/debug-writer';
+import { IAIClient, ICache } from '../interfaces';
+import { DebugInterestMatchingEntry } from '../types';
 import { Logger } from '../../shared/logger';
 import { Event } from '../entities';
 
 export async function filterByInterests(
   events: Event[],
   config: Config,
-  openaiClient: OpenAIClient,
-  cache: Cache,
+  aiClient: IAIClient,
+  cache: ICache,
   debugEntries: DebugInterestMatchingEntry[],
   logger: Logger
 ): Promise<Event[]> {
@@ -44,8 +43,8 @@ export async function filterByInterests(
           start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
-          gpt_prompt: '[CACHED]',
-          gpt_response: `[CACHED: matched interests: ${cachedInterests.join(', ')}]`,
+          ai_prompt: '[CACHED]',
+          ai_response: `[CACHED: matched interests: ${cachedInterests.join(', ')}]`,
           interests_matched: cachedInterests,
           interest_matches: cachedMatches,
           result: 'matched',
@@ -57,8 +56,8 @@ export async function filterByInterests(
           start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
-          gpt_prompt: '[CACHED]',
-          gpt_response: '[CACHED: no interests matched]',
+          ai_prompt: '[CACHED]',
+          ai_response: '[CACHED: no interests matched]',
           interests_matched: [],
           interest_matches: [],
           result: 'discarded',
@@ -75,7 +74,7 @@ export async function filterByInterests(
   }
 
   if (uncachedEvents.length === 0) {
-    logger.verbose(`  All events cached, skipping GPT calls`);
+    logger.verbose(`  All events cached, skipping AI calls`);
     logger.log(`  Found ${matchedEvents.length} events matching user interests`);
     return matchedEvents;
   }
@@ -93,38 +92,38 @@ export async function filterByInterests(
       .replace('{{EVENTS}}', eventsText)
       .replace('{{INTERESTS}}', interestsText);
 
-    const result = await openaiClient.callWithDelay(prompt);
+    const result = await aiClient.call(prompt);
 
     if (!result) {
-      // GPT returned undefined/empty - technical issue
-      logger.verbose(`    ✗ Discarded: ${event.message.link} - GPT returned no response`);
+      // AI returned undefined/empty - technical issue
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - AI returned no response`);
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
         start_datetime: event.start_datetime!,
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: prompt,
-        gpt_response: '[NO RESPONSE - EMPTY]',
+        ai_prompt: prompt,
+        ai_response: '[NO RESPONSE - EMPTY]',
         interests_matched: [],
         result: 'discarded',
         cached: false,
       });
     } else if (result.toLowerCase() === 'none') {
-      // GPT explicitly said "none" - legitimate no match
-      logger.verbose(`    ✗ Discarded: ${event.message.link} - GPT returned "none"`);
+      // AI explicitly said "none" - legitimate no match
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - AI returned "none"`);
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
         start_datetime: event.start_datetime!,
-        gpt_prompt: prompt,
-        gpt_response: 'none',
+        ai_prompt: prompt,
+        ai_response: 'none',
         interests_matched: [],
         result: 'discarded',
         cached: false,
       });
     } else {
-      // GPT returned interest indices with confidence scores
+      // AI returned interest indices with confidence scores
       // Format: "INDEX:CONFIDENCE, INDEX:CONFIDENCE" e.g., "19:0.95, 6:0.85"
       const matchPairs = result.split(',').map((s: string) => s.trim());
       const interestMatches: { index: number; confidence: number }[] = [];
@@ -168,7 +167,7 @@ export async function filterByInterests(
 
       // Log warnings
       if (invalidIndices.length > 0) {
-        logger.verbose(`    WARNING: GPT returned invalid interest indices: ${invalidIndices.join(', ')}`);
+        logger.verbose(`    WARNING: AI returned invalid interest indices: ${invalidIndices.join(', ')}`);
       }
       if (lowConfidenceMatches.length > 0) {
         const lowConfDetails = lowConfidenceMatches.map((m) => `${m.interest}(${m.confidence.toFixed(2)})`).join(', ');
@@ -194,8 +193,8 @@ export async function filterByInterests(
           message: event.message,
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
-          gpt_prompt: prompt,
-          gpt_response: result,
+          ai_prompt: prompt,
+          ai_response: result,
           interests_matched: matchedInterests,
           interest_matches: interestMatchesWithNames,
           result: 'matched',
@@ -213,8 +212,8 @@ export async function filterByInterests(
           message: event.message,
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
-          gpt_prompt: prompt,
-          gpt_response: result,
+          ai_prompt: prompt,
+          ai_response: result,
           interests_matched: [],
           interest_matches: [],
           result: 'discarded',

@@ -5,10 +5,10 @@ export const DEFAULT_CONFIG = {
   writeDebugFiles: false,
   verboseLogging: false,
   minInterestConfidence: 0.75,
-  gptBatchSizeEventDetection: 16,
-  gptBatchSizeEventClassification: 16,
-  gptBatchSizeScheduleExtraction: 16,
-  gptBatchSizeEventDescription: 5,
+  eventDetectionBatchSize: 16,
+  eventClassificationBatchSize: 16,
+  scheduleExtractionBatchSize: 16,
+  eventDescriptionBatchSize: 5,
 
   eventMessageCues: {
     ru: [

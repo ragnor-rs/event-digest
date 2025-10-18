@@ -55,10 +55,10 @@ Usage:
       [--skip-online-events true] \\
       [--write-debug-files false] \\
       [--verbose-logging false] \\
-      [--gpt-batch-size-event-detection 16] \\
-      [--gpt-batch-size-event-classification 16] \\
-      [--gpt-batch-size-schedule-extraction 16] \\
-      [--gpt-batch-size-event-description 5] \\
+      [--event-detection-batch-size 16] \\
+      [--event-classification-batch-size 16] \\
+      [--schedule-extraction-batch-size 16] \\
+      [--event-description-batch-size 5] \\
       [--last-timestamp "2011-08-12T20:17:46.384Z"] \\
       [--max-messages 100]
 

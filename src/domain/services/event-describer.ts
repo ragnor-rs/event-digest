@@ -1,7 +1,6 @@
 import { Config } from '../../config/types';
-import { Cache } from '../../data/cache';
-import { OpenAIClient, GPT_TEMPERATURE_CREATIVE } from '../../data/openai-client';
-import { DebugEventDescriptionEntry } from '../../presentation/debug-writer';
+import { IAIClient, ICache } from '../interfaces';
+import { DebugEventDescriptionEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
 import { Event } from '../entities';
@@ -9,8 +8,8 @@ import { Event } from '../entities';
 export async function describeEvents(
   events: Event[],
   config: Config,
-  openaiClient: OpenAIClient,
-  cache: Cache,
+  aiClient: IAIClient,
+  cache: ICache,
   debugEntries: DebugEventDescriptionEntry[],
   logger: Logger
 ): Promise<Event[]> {
@@ -43,8 +42,8 @@ export async function describeEvents(
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
           interests_matched: event.interests_matched!,
-          gpt_prompt: '[CACHED]',
-          gpt_response: `[CACHED: ${cachedEventDescription.title || 'N/A'}]`,
+          ai_prompt: '[CACHED]',
+          ai_response: `[CACHED: ${cachedEventDescription.title || 'N/A'}]`,
           extracted_title: cachedEventDescription.title || 'N/A',
           extracted_summary: cachedEventDescription.short_summary || 'N/A',
           extraction_success: true,
@@ -61,12 +60,12 @@ export async function describeEvents(
   }
 
   if (uncachedEvents.length === 0) {
-    logger.verbose(`  All events cached, skipping GPT calls`);
+    logger.verbose(`  All events cached, skipping AI calls`);
     logger.log(`  Created ${describedEvents.length} events`);
     return describedEvents;
   }
 
-  const chunks = createBatches(uncachedEvents, config.gptBatchSizeEventDescription);
+  const chunks = createBatches(uncachedEvents, config.eventDescriptionBatchSize);
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -84,7 +83,7 @@ Link: ${event.message.link}`
 
     const prompt = config.eventDescriptionPrompt!.replace('{{EVENTS}}', eventsText);
 
-    const result = await openaiClient.callWithDelay(prompt, GPT_TEMPERATURE_CREATIVE);
+    const result = await aiClient.callCreative(prompt);
 
     if (result) {
       const eventBlocks = result.split(/^\d+:/m).filter((block) => block.trim());
@@ -105,8 +104,8 @@ Link: ${event.message.link}`
         const block = blockMap.get(eventIdx);
 
         if (!block) {
-          // GPT didn't return a response for this event
-          logger.verbose(`    ✗ No GPT response for event ${eventIdx + 1}: ${event.message.link}`);
+          // AI didn't return a response for this event
+          logger.verbose(`    ✗ No AI response for event ${eventIdx + 1}: ${event.message.link}`);
 
           // Create fallback event description
           const fallbackDescription = {
@@ -126,8 +125,8 @@ Link: ${event.message.link}`
               event_type: event.event_type!,
               start_datetime: event.start_datetime!,
               interests_matched: event.interests_matched!,
-              gpt_prompt: prompt,
-              gpt_response: '[NO RESPONSE]',
+              ai_prompt: prompt,
+              ai_response: '[NO RESPONSE]',
               extracted_title: 'Event',
               extracted_summary: 'Event details not available',
               extraction_success: false,
@@ -175,8 +174,8 @@ Link: ${event.message.link}`
             event_type: event.event_type!,
             start_datetime: event.start_datetime!,
             interests_matched: event.interests_matched!,
-            gpt_prompt: prompt,
-            gpt_response: result,
+            ai_prompt: prompt,
+            ai_response: result,
             extracted_title: title,
             extracted_summary: summary,
             extraction_success: !!(title && summary && description),

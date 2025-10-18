@@ -12,10 +12,10 @@ export interface Config {
   writeDebugFiles: boolean;
   verboseLogging: boolean;
   minInterestConfidence: number; // Minimum confidence threshold for interest matching (0.0-1.0)
-  gptBatchSizeEventDetection: number;
-  gptBatchSizeEventClassification: number;
-  gptBatchSizeScheduleExtraction: number;
-  gptBatchSizeEventDescription: number;
+  eventDetectionBatchSize: number;
+  eventClassificationBatchSize: number;
+  scheduleExtractionBatchSize: number;
+  eventDescriptionBatchSize: number;
   eventDetectionPrompt?: string;
   interestMatchingPrompt?: string;
   eventTypeClassificationPrompt?: string;

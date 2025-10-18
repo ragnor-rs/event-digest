@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 
+import { IAIClient } from '../domain/interfaces';
 import { OPENAI_MAX_RETRIES, OPENAI_INITIAL_BACKOFF_MS } from '../config/constants';
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
 import { Logger } from '../shared/logger';
@@ -8,7 +9,7 @@ const GPT_MODEL = 'gpt-5-mini';
 const GPT_TEMPERATURE = 1.0;
 export const GPT_TEMPERATURE_CREATIVE = 1.0;
 
-export class OpenAIClient {
+export class OpenAIClient implements IAIClient {
   private client: OpenAI;
   private logger: Logger;
 
@@ -23,22 +24,26 @@ export class OpenAIClient {
     });
   }
 
-  async call(prompt: string, temperature: number = GPT_TEMPERATURE): Promise<string | undefined> {
-    const response = await this.client.chat.completions.create({
-      model: GPT_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      temperature,
-    });
-
-    return response.choices[0].message.content?.trim();
+  async call(prompt: string): Promise<string | undefined> {
+    return this.callWithTemperature(prompt, GPT_TEMPERATURE);
   }
 
-  async callWithDelay(prompt: string, temperature: number = GPT_TEMPERATURE): Promise<string | undefined> {
+  async callCreative(prompt: string): Promise<string | undefined> {
+    return this.callWithTemperature(prompt, GPT_TEMPERATURE_CREATIVE);
+  }
+
+  private async callWithTemperature(prompt: string, temperature: number): Promise<string | undefined> {
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= OPENAI_MAX_RETRIES; attempt++) {
       try {
-        const result = await this.call(prompt, temperature);
+        const response = await this.client.chat.completions.create({
+          model: GPT_MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          temperature,
+        });
+
+        const result = response.choices[0].message.content?.trim();
         await delay(RATE_LIMIT_DELAY);
         return result;
       } catch (error) {

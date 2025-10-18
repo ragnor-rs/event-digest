@@ -15,10 +15,10 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedVerboseLogging = config.verboseLogging !== undefined;
   const providedMinInterestConfidence = config.minInterestConfidence !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
-  const providedGptBatchSizeEventDetection = config.gptBatchSizeEventDetection !== undefined;
-  const providedGptBatchSizeEventClassification = config.gptBatchSizeEventClassification !== undefined;
-  const providedGptBatchSizeScheduleExtraction = config.gptBatchSizeScheduleExtraction !== undefined;
-  const providedGptBatchSizeEventDescription = config.gptBatchSizeEventDescription !== undefined;
+  const providedEventDetectionBatchSize = config.eventDetectionBatchSize !== undefined;
+  const providedEventClassificationBatchSize = config.eventClassificationBatchSize !== undefined;
+  const providedScheduleExtractionBatchSize = config.scheduleExtractionBatchSize !== undefined;
+  const providedEventDescriptionBatchSize = config.eventDescriptionBatchSize !== undefined;
   const providedEventDetectionPrompt = config.eventDetectionPrompt !== undefined;
   const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
   const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
@@ -62,18 +62,18 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     config.minInterestConfidence = DEFAULT_CONFIG.minInterestConfidence;
   }
 
-  // Set default GPT batch sizes
-  if (config.gptBatchSizeEventDetection === undefined) {
-    config.gptBatchSizeEventDetection = DEFAULT_CONFIG.gptBatchSizeEventDetection;
+  // Set default batch sizes
+  if (config.eventDetectionBatchSize === undefined) {
+    config.eventDetectionBatchSize = DEFAULT_CONFIG.eventDetectionBatchSize;
   }
-  if (config.gptBatchSizeEventClassification === undefined) {
-    config.gptBatchSizeEventClassification = DEFAULT_CONFIG.gptBatchSizeEventClassification;
+  if (config.eventClassificationBatchSize === undefined) {
+    config.eventClassificationBatchSize = DEFAULT_CONFIG.eventClassificationBatchSize;
   }
-  if (config.gptBatchSizeScheduleExtraction === undefined) {
-    config.gptBatchSizeScheduleExtraction = DEFAULT_CONFIG.gptBatchSizeScheduleExtraction;
+  if (config.scheduleExtractionBatchSize === undefined) {
+    config.scheduleExtractionBatchSize = DEFAULT_CONFIG.scheduleExtractionBatchSize;
   }
-  if (config.gptBatchSizeEventDescription === undefined) {
-    config.gptBatchSizeEventDescription = DEFAULT_CONFIG.gptBatchSizeEventDescription;
+  if (config.eventDescriptionBatchSize === undefined) {
+    config.eventDescriptionBatchSize = DEFAULT_CONFIG.eventDescriptionBatchSize;
   }
 
   // Set default prompts
@@ -140,16 +140,16 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     `  minInterestConfidence: ${finalConfig.minInterestConfidence}${!providedMinInterestConfidence ? ' (default)' : ''}`
   );
   console.log(
-    `  gptBatchSizeEventDetection: ${finalConfig.gptBatchSizeEventDetection}${!providedGptBatchSizeEventDetection ? ' (default)' : ''}`
+    `  eventDetectionBatchSize: ${finalConfig.eventDetectionBatchSize}${!providedEventDetectionBatchSize ? ' (default)' : ''}`
   );
   console.log(
-    `  gptBatchSizeEventClassification: ${finalConfig.gptBatchSizeEventClassification}${!providedGptBatchSizeEventClassification ? ' (default)' : ''}`
+    `  eventClassificationBatchSize: ${finalConfig.eventClassificationBatchSize}${!providedEventClassificationBatchSize ? ' (default)' : ''}`
   );
   console.log(
-    `  gptBatchSizeScheduleExtraction: ${finalConfig.gptBatchSizeScheduleExtraction}${!providedGptBatchSizeScheduleExtraction ? ' (default)' : ''}`
+    `  scheduleExtractionBatchSize: ${finalConfig.scheduleExtractionBatchSize}${!providedScheduleExtractionBatchSize ? ' (default)' : ''}`
   );
   console.log(
-    `  gptBatchSizeEventDescription: ${finalConfig.gptBatchSizeEventDescription}${!providedGptBatchSizeEventDescription ? ' (default)' : ''}`
+    `  eventDescriptionBatchSize: ${finalConfig.eventDescriptionBatchSize}${!providedEventDescriptionBatchSize ? ' (default)' : ''}`
   );
   console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp || 'not set'}`);
   console.log(
