@@ -3,7 +3,7 @@ import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 import { DATETIME_UNKNOWN } from '../constants';
 import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
-import { DebugScheduleFilteringEntry } from '../types';
+import { DebugScheduleFilteringEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
 import { normalizeDateTime, MAX_FUTURE_YEARS, DATE_FORMAT } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
@@ -67,7 +67,11 @@ function processCachedEvent(
     if (!validation.valid) {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - ${validation.reason} (cached)`);
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
         ai_response: `[CACHED: datetime]`,
@@ -81,7 +85,11 @@ function processCachedEvent(
 
     if (matchesTimeslot(eventDate, config.weeklyTimeslots)) {
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
         ai_response: `[CACHED: datetime]`,
@@ -93,7 +101,11 @@ function processCachedEvent(
     } else {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - outside desired timeslots (cached)`);
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
         ai_response: `[CACHED: datetime]`,
@@ -137,7 +149,11 @@ function processExtractedDateTime(
         `    ✗ Discarded: ${event.message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
       );
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
@@ -150,12 +166,16 @@ function processExtractedDateTime(
     }
 
     // Validate event date
-    const messageDate = new Date(event.message.timestamp);
+    const messageDate = event.message.timestamp;
     const validation = isValidEventDateTime(eventDate, messageDate);
     if (!validation.valid) {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - ${validation.reason}`);
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
@@ -174,7 +194,11 @@ function processExtractedDateTime(
         start_datetime: eventDate,
       });
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
@@ -185,7 +209,11 @@ function processExtractedDateTime(
     } else {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - outside desired timeslots`);
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: result || '',
@@ -201,7 +229,11 @@ function processExtractedDateTime(
       `    ✗ Discarded: ${event.message.link} - date parsing error for "${dateTime}" (normalized: "${normalizeDateTime(dateTime)}"): ${errorMsg}`
     );
     debugEntries.push({
-      message: event.message,
+      message: {
+        timestamp: event.message.timestamp,
+        content: event.message.content,
+        link: event.message.link,
+      },
       event_type: event.event_type!,
       ai_prompt: prompt,
       ai_response: result || '',
@@ -248,7 +280,11 @@ export async function filterBySchedule(
         }
       } else {
         debugEntries.push({
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           event_type: event.event_type!,
           ai_prompt: '[CACHED]',
           ai_response: '[CACHED: unknown datetime]',
@@ -281,7 +317,7 @@ export async function filterBySchedule(
 
     const messagesText = chunk
       .map((event, idx) => {
-        const messageDate = new Date(event.message.timestamp);
+        const messageDate = event.message.timestamp;
         return `${idx + 1}. [Posted: ${messageDate.toDateString()}] ${event.message.content.replace(/\n/g, ' ')}`;
       })
       .join('\n\n');
@@ -335,7 +371,11 @@ export async function filterBySchedule(
           logger.verbose(`    ✗ Discarded: ${chunk[idx].message.link} - no date/time found`);
           cache.cacheScheduledEvent(chunk[idx].message.link, null, config.weeklyTimeslots, false);
           debugEntries.push({
-            message: chunk[idx].message,
+            message: {
+              timestamp: chunk[idx].message.timestamp,
+              content: chunk[idx].message.content,
+              link: chunk[idx].message.link,
+            },
             event_type: chunk[idx].event_type!,
             ai_prompt: prompt,
             ai_response: result || '',
@@ -352,7 +392,11 @@ export async function filterBySchedule(
         logger.verbose(`    ✗ Discarded: ${event.message.link} - no date/time found`);
         cache.cacheScheduledEvent(event.message.link, null, config.weeklyTimeslots, false);
         debugEntries.push({
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           event_type: event.event_type!,
           ai_prompt: prompt,
           ai_response: result || '[NO RESPONSE]',

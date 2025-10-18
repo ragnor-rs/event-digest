@@ -1,6 +1,6 @@
 import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
-import { DebugTypeClassificationEntry } from '../types';
+import { DebugTypeClassificationEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
 import { DigestEvent, AttendanceMode } from '../entities';
@@ -33,11 +33,14 @@ export async function classifyEventTypes(
       if (cachedType === AttendanceMode.ONLINE && config.skipOnlineEvents) {
         logger.verbose(`    ✗ Discarded: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
         debugEntries.push({
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: ${cachedType}]`,
           result: 'discarded',
-          substep: '4_classification',
           cached: true,
         });
       } else {
@@ -46,11 +49,14 @@ export async function classifyEventTypes(
           event_type: cachedType,
         });
         debugEntries.push({
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: ${cachedType}]`,
-          result: cachedType,
-          substep: '4_classification',
+          result: cachedType as 'offline' | 'online' | 'hybrid',
           cached: true,
         });
       }
@@ -132,11 +138,14 @@ export async function classifyEventTypes(
           if (eventType === AttendanceMode.ONLINE && config.skipOnlineEvents) {
             logger.verbose(`    ✗ Discarded: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
             debugEntries.push({
-              message: chunk[messageIdx].message,
+              message: {
+                timestamp: chunk[messageIdx].message.timestamp,
+                content: chunk[messageIdx].message.content,
+                link: chunk[messageIdx].message.link,
+              },
               ai_prompt: prompt,
               ai_response: result,
               result: 'discarded',
-              substep: '4_classification',
               cached: false,
             });
           } else {
@@ -145,11 +154,14 @@ export async function classifyEventTypes(
               event_type: eventType,
             });
             debugEntries.push({
-              message: chunk[messageIdx].message,
+              message: {
+                timestamp: chunk[messageIdx].message.timestamp,
+                content: chunk[messageIdx].message.content,
+                link: chunk[messageIdx].message.link,
+              },
               ai_prompt: prompt,
               ai_response: result,
-              result: eventType,
-              substep: '4_classification',
+              result: eventType as 'offline' | 'online' | 'hybrid',
               cached: false,
             });
           }
@@ -189,11 +201,14 @@ export async function classifyEventTypes(
           event_type: eventType,
         });
         debugEntries.push({
-          message: chunk[idx].message,
+          message: {
+            timestamp: chunk[idx].message.timestamp,
+            content: chunk[idx].message.content,
+            link: chunk[idx].message.link,
+          },
           ai_prompt: prompt,
           ai_response: result || '[NO RESPONSE]',
-          result: eventType,
-          substep: '4_classification',
+          result: eventType as 'offline' | 'online' | 'hybrid',
           cached: false,
         });
       }

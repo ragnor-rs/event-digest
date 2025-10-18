@@ -1,9 +1,7 @@
-import { SourceMessage, InterestMatch, AttendanceMode } from '../entities';
-
 /**
- * Domain types for debug entries
- * These types are used by domain services to collect debug information
- * without depending on the presentation layer or specific AI implementation
+ * Shared debug entry types
+ * These types use primitive types to avoid dependencies on domain entities
+ * They are used by domain services to collect debug information
  */
 
 export interface DebugEventDetectionEntry {
@@ -15,16 +13,23 @@ export interface DebugEventDetectionEntry {
 }
 
 export interface DebugTypeClassificationEntry {
-  message: SourceMessage;
+  message: {
+    timestamp: Date;
+    content: string;
+    link: string;
+  };
   ai_prompt: string;
   ai_response: string;
-  result: AttendanceMode | 'discarded';
-  substep: '4_classification';
+  result: 'offline' | 'online' | 'hybrid' | 'discarded';
   cached: boolean;
 }
 
 export interface DebugScheduleFilteringEntry {
-  message: SourceMessage;
+  message: {
+    timestamp: Date;
+    content: string;
+    link: string;
+  };
   event_type: string;
   ai_prompt: string;
   ai_response: string;
@@ -35,21 +40,35 @@ export interface DebugScheduleFilteringEntry {
 }
 
 export interface DebugInterestMatchingEntry {
-  message: SourceMessage;
+  message: {
+    timestamp: Date;
+    content: string;
+    link: string;
+  };
   event_type: string;
   start_datetime: Date;
   ai_prompt: string;
   ai_response: string;
-  interest_matches: InterestMatch[];
+  interest_matches: Array<{
+    interest: string;
+    confidence: number;
+  }>;
   result: 'matched' | 'discarded';
   cached: boolean;
 }
 
 export interface DebugEventDescriptionEntry {
-  message: SourceMessage;
+  message: {
+    timestamp: Date;
+    content: string;
+    link: string;
+  };
   event_type: string;
   start_datetime: Date;
-  interest_matches: InterestMatch[];
+  interest_matches: Array<{
+    interest: string;
+    confidence: number;
+  }>;
   ai_prompt: string;
   ai_response: string;
   extracted_title: string;

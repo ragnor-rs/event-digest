@@ -1,6 +1,6 @@
 import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
-import { DebugInterestMatchingEntry } from '../types';
+import { DebugInterestMatchingEntry } from '../../shared/types';
 import { Logger } from '../../shared/logger';
 import { DigestEvent } from '../entities';
 
@@ -36,11 +36,15 @@ export async function filterByInterests(
         const interestNames = cachedInterests.map((m) => m.interest).join(', ');
         debugEntries.push({
           start_datetime: event.start_datetime!,
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           event_type: event.event_type!,
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: matched interests: ${interestNames}]`,
-          interest_matches: cachedInterests,
+          interest_matches: cachedInterests.map((m) => ({ interest: m.interest, confidence: m.confidence })),
           result: 'matched',
           cached: true,
         });
@@ -48,7 +52,11 @@ export async function filterByInterests(
         logger.verbose(`    ✗ Discarded: ${event.message.link} - no interests matched (cached)`);
         debugEntries.push({
           start_datetime: event.start_datetime!,
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           event_type: event.event_type!,
           ai_prompt: '[CACHED]',
           ai_response: '[CACHED: no interests matched]',
@@ -93,7 +101,11 @@ export async function filterByInterests(
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
         start_datetime: event.start_datetime!,
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: '[NO RESPONSE - EMPTY]',
@@ -106,7 +118,11 @@ export async function filterByInterests(
       logger.verbose(`    ✗ Discarded: ${event.message.link} - AI returned "none"`);
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
-        message: event.message,
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
         event_type: event.event_type!,
         start_datetime: event.start_datetime!,
         ai_prompt: prompt,
@@ -181,12 +197,16 @@ export async function filterByInterests(
         cache.cacheMatchingInterests(event.message.link, interestMatchesWithNames, config.userInterests, false);
 
         debugEntries.push({
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
           ai_prompt: prompt,
           ai_response: result,
-          interest_matches: interestMatchesWithNames,
+          interest_matches: interestMatchesWithNames.map((m) => ({ interest: m.interest, confidence: m.confidence })),
           result: 'matched',
           cached: false,
         });
@@ -199,7 +219,11 @@ export async function filterByInterests(
         logger.verbose(`    ✗ Discarded: ${event.message.link} - ${reason}`);
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
         debugEntries.push({
-          message: event.message,
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
           ai_prompt: prompt,

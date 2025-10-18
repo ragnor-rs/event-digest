@@ -13,7 +13,7 @@ export interface ICache {
   // Telegram messages caching (step 1)
   getCachedMessages(sourceName: string): SourceMessage[] | undefined;
   cacheMessages(sourceName: string, messages: SourceMessage[], autoSave?: boolean): void;
-  getLastMessageTimestamp(sourceName: string): string | undefined;
+  getLastMessageTimestamp(sourceName: string): Date | undefined;
 
   // Event message detection (step 3)
   isEventMessageCached(messageLink: string): boolean | undefined;

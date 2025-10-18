@@ -1,5 +1,5 @@
 export interface SourceMessage {
-  timestamp: string;
+  timestamp: Date;
   content: string;
   link: string;
 }

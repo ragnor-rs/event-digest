@@ -7,10 +7,9 @@ import {
   DebugScheduleFilteringEntry,
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
-} from '../domain/types';
-import { AttendanceMode } from '../domain/entities';
+} from './types';
 import { IDebugWriter } from '../domain/interfaces';
-import { Logger } from '../shared/logger';
+import { Logger } from './logger';
 
 export class DebugWriter implements IDebugWriter {
   private debugDir = 'debug';
@@ -84,9 +83,9 @@ export class DebugWriter implements IDebugWriter {
       description: 'Index-based AI classification of events as offline (0), online (1), or hybrid (2)',
       total_entries: this.typeClassificationEntries.length,
       result_counts: {
-        hybrid: this.typeClassificationEntries.filter((e) => e.result === AttendanceMode.HYBRID).length,
-        offline: this.typeClassificationEntries.filter((e) => e.result === AttendanceMode.OFFLINE).length,
-        online: this.typeClassificationEntries.filter((e) => e.result === AttendanceMode.ONLINE).length,
+        hybrid: this.typeClassificationEntries.filter((e) => e.result === 'hybrid').length,
+        offline: this.typeClassificationEntries.filter((e) => e.result === 'offline').length,
+        online: this.typeClassificationEntries.filter((e) => e.result === 'online').length,
         discarded: this.typeClassificationEntries.filter((e) => e.result === 'discarded').length,
       },
       cache_stats: {

@@ -4,7 +4,7 @@ import {
   DebugScheduleFilteringEntry,
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
-} from '../types';
+} from '../../shared/types';
 
 /**
  * Interface for debug output operations
