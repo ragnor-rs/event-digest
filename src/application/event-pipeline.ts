@@ -1,5 +1,5 @@
 import { Config } from '../config/types';
-import { IAIClient, ICache, IMessageSource } from '../domain/interfaces';
+import { IAIClient, ICache, IMessageSource, IDebugWriter } from '../domain/interfaces';
 import { Event } from '../domain/entities';
 import {
   filterByEventCues,
@@ -16,7 +16,6 @@ import {
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
 } from '../domain/types';
-import { DebugWriter } from '../presentation/debug-writer';
 import { Logger } from '../shared/logger';
 
 export class EventPipeline {
@@ -25,7 +24,7 @@ export class EventPipeline {
     private aiClient: IAIClient,
     private cache: ICache,
     private messageSource: IMessageSource,
-    private debugWriter: DebugWriter,
+    private debugWriter: IDebugWriter,
     private logger: Logger
   ) {}
 

@@ -71,14 +71,23 @@ src/
 │   │   ├── event-description.ts    # Structured event information
 │   │   ├── event-type.ts           # EventType enum (OFFLINE/ONLINE/HYBRID)
 │   │   └── index.ts                # Barrel export
-│   └── services/                   # Business logic services (filtering, matching, etc.)
-│       ├── event-cues-filter.ts    # Step 2: Text-based event filtering
-│       ├── event-detector.ts       # Step 3: GPT event detection (~180 lines)
-│       ├── event-classifier.ts     # Step 4: Event type classification
-│       ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~370 lines, longest service)
-│       ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~235 lines, processes individually)
-│       ├── event-describer.ts      # Step 7: Event description generation
-│       └── index.ts                # Barrel export
+│   ├── interfaces/                 # Domain interfaces (DDD abstraction layer)
+│   │   ├── ai-client.interface.ts  # IAIClient interface for GPT operations
+│   │   ├── cache.interface.ts      # ICache interface for caching operations
+│   │   ├── message-source.interface.ts  # IMessageSource interface for Telegram
+│   │   ├── debug-writer.interface.ts    # IDebugWriter interface for debug output
+│   │   └── index.ts                # Barrel export
+│   ├── services/                   # Business logic services (filtering, matching, etc.)
+│   │   ├── event-cues-filter.ts    # Step 2: Text-based event filtering
+│   │   ├── event-detector.ts       # Step 3: GPT event detection (~174 lines)
+│   │   ├── event-classifier.ts     # Step 4: Event type classification
+│   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~368 lines, longest service)
+│   │   ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~232 lines, processes individually)
+│   │   ├── event-describer.ts      # Step 7: Event description generation
+│   │   └── index.ts                # Barrel export
+│   ├── types/                      # Domain types (debug entries, etc.)
+│   │   └── index.ts                # Debug entry type definitions
+│   └── constants.ts                # Domain constants (DATETIME_UNKNOWN)
 ├── application/                    # Use case orchestration
 │   ├── event-pipeline.ts           # 7-step pipeline orchestrator
 │   └── index.ts                    # Barrel export
@@ -90,6 +99,7 @@ src/
 ├── config/                         # Configuration management
 │   ├── types.ts                    # Config interface definition
 │   ├── defaults.ts                 # Default values & all GPT prompts
+│   ├── constants.ts                # Config constants (GROUP_MESSAGE_MULTIPLIER)
 │   ├── args-parser.ts              # CLI argument parsing & validation
 │   ├── yaml-loader.ts              # YAML configuration file loading
 │   ├── validator.ts                # Config validation & merging logic
@@ -140,12 +150,12 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `event-describer.ts`: Event description generation with creative temperature
 
 **Application Layer** (`application/`):
-- `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection, coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
+- `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, IDebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
 
 **Data Layer** (`data/`):
-- `openai-client.ts`: OpenAI GPT API wrapper with rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0)
-- `telegram-client.ts`: Telegram API client with session management, uses readline-helper for authentication prompts
-- `cache.ts`: Six-tier caching system for messages and GPT results with preference-aware keys
+- `openai-client.ts`: OpenAI GPT API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0)
+- `telegram-client.ts`: Telegram API client implementing IMessageSource interface, session management, uses readline-helper for authentication prompts
+- `cache.ts`: Six-tier caching system implementing ICache interface, messages and GPT results with preference-aware keys
 
 **Configuration** (`config/`):
 - Supports YAML configuration files (config.yaml/config.yml) or command-line arguments
@@ -181,7 +191,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Presentation Layer** (`presentation/`):
 - `event-printer.ts`: Console output formatting with emoji icons, sorts events by datetime
-- `debug-writer.ts`: Writes 5 debug files (event_detection.json, event_classification.json, schedule_filtering.json, interest_matching.json, event_description.json)
+- `debug-writer.ts`: Implements IDebugWriter interface, writes 5 debug files (event_detection.json, event_classification.json, schedule_filtering.json, interest_matching.json, event_description.json)
 
 **Authentication** (`data/telegram-client.ts`):
 - Uses persistent session storage in `.telegram-session` file
@@ -278,11 +288,13 @@ The codebase follows **Clean Architecture** and **DDD** principles:
 
 1. **Separation of Concerns**: Business logic (domain), use cases (application), external systems (data), configuration, and presentation are clearly separated
 2. **Single Responsibility**: Each module has one clear purpose
-3. **No Code Duplication**: Shared logic extracted to utilities and services
-4. **Constants Management**: Configuration constants are centralized in `config/constants.ts` with documented rationale. Operation-specific constants (like `GPT_TEMPERATURE_CREATIVE`, `RATE_LIMIT_DELAY`, `DATE_FORMAT`) stay co-located with their usage context for better maintainability
-5. **YAGNI Principle**: No repository abstraction (not swapping Telegram for another platform), no dependency injection containers
+3. **Dependency Injection**: Domain services accept interfaces as parameters, application layer uses constructor injection, bootstrap layer instantiates concrete implementations
+4. **Dependency Inversion**: Domain defines interfaces (`IAIClient`, `ICache`, `IMessageSource`, `IDebugWriter`), outer layers implement them
+5. **No Code Duplication**: Shared logic extracted to utilities and services
+6. **Constants Management**: Configuration constants are centralized in `config/constants.ts` with documented rationale. Operation-specific constants (like `GPT_TEMPERATURE_CREATIVE`, `RATE_LIMIT_DELAY`, `DATE_FORMAT`) stay co-located with their usage context for better maintainability
+7. **YAGNI Principle**: No DI containers (simple constructor injection suffices), Config type not abstracted (stable, unlikely to change)
 
-**Note on Architecture:** While inspired by Clean Architecture principles, this codebase takes a pragmatic approach. Domain services directly import concrete implementations (`OpenAIClient`, `Cache`) and configuration types (`Config`) from outer layers rather than using interfaces and dependency injection. This avoids over-engineering for the current use case while maintaining clear separation of concerns through well-defined service boundaries.
+**Note on Architecture:** This codebase follows Clean Architecture principles with dependency injection for all infrastructure concerns. Domain services accept interfaces (`IAIClient`, `ICache`) as parameters, the application layer (`EventPipeline`) receives interface instances via constructor injection, and the bootstrap layer (`index.ts`) instantiates concrete implementations. The only pragmatic deviation is that domain services directly import the `Config` type from outer layers rather than abstracting it behind an interface, as configuration is stable and unlikely to change implementation.
 
 ## Key File Locations
 
@@ -296,12 +308,13 @@ When working with specific functionality, refer to these files:
 - **Add new configuration options**: Start with `config/types.ts`, then `config/defaults.ts`, then `config/validator.ts`, then `config/args-parser.ts`
 - **Modify GPT prompts**: `config/defaults.ts` (single source of truth)
 - **Add new entity fields**: Relevant file in `domain/entities/`
-- **Change caching logic**: `data/cache.ts`
-- **Modify Telegram fetching**: `data/telegram-client.ts`
-- **Update OpenAI integration**: `data/openai-client.ts`
-- **Change pipeline orchestration**: `application/event-pipeline.ts`
+- **Add new domain interfaces**: `domain/interfaces/` (IAIClient, ICache, IMessageSource, IDebugWriter)
+- **Change caching logic**: `data/cache.ts` (implements ICache)
+- **Modify Telegram fetching**: `data/telegram-client.ts` (implements IMessageSource)
+- **Update OpenAI integration**: `data/openai-client.ts` (implements IAIClient)
+- **Change pipeline orchestration**: `application/event-pipeline.ts` (uses all domain interfaces)
 - **Modify output formatting**: `presentation/event-printer.ts`
-- **Change debug file output**: `presentation/debug-writer.ts`
+- **Change debug file output**: `presentation/debug-writer.ts` (implements IDebugWriter)
 - **Add environment variable validation**: `src/index.ts` (validateEnvironmentVariables function)
 
 # important-instruction-reminders
