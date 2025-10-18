@@ -14,8 +14,6 @@ export async function describeEvents(
   debugEntries: DebugEventDescriptionEntry[],
   logger: Logger
 ): Promise<Event[]> {
-  logger.log(`Generating descriptions for ${events.length} events...`);
-
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];

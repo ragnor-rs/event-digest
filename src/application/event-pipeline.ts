@@ -35,20 +35,22 @@ export class EventPipeline {
       // Set logger for debug writer
       debugWriter.setLogger(this.logger);
 
-      this.logger.log('Starting Event Digest CLI...\n');
-
-      // Step 1: Fetch messages from Telegram
+      // Connect to Telegram
       await this.telegramClient.connect();
       this.logger.log('');
 
+      // Step 1: Fetch messages from Telegram
+      this.logger.log('Step 1/7: Fetching messages from Telegram...');
       const allMessages = await this.telegramClient.fetchMessages(this.config);
       this.logger.log('');
 
       // Step 2: Filter by event cues
+      this.logger.log(`Step 2/7: Filtering ${allMessages.length} messages by event cues...`);
       const eventCueMessages = await filterByEventCues(allMessages, this.config, this.logger);
       this.logger.log('');
 
       // Step 3: Detect event announcements with GPT
+      this.logger.log(`Step 3/7: Detecting event announcements with GPT from ${eventCueMessages.length} messages...`);
       const debugEventDetection: DebugEventDetectionEntry[] = [];
       const events = await detectEventAnnouncements(
         eventCueMessages,
@@ -58,13 +60,13 @@ export class EventPipeline {
         debugEventDetection,
         this.logger
       );
-      this.logger.log('');
-
       if (this.config.writeDebugFiles) {
         debugWriter.writeEventDetection(debugEventDetection);
       }
+      this.logger.log('');
 
       // Step 4: Classify event types (offline/online/hybrid)
+      this.logger.log(`Step 4/7: Classifying event types for ${events.length} events...`);
       const debugTypeClassification: DebugTypeClassificationEntry[] = [];
       const classifiedEvents = await classifyEventTypes(
         events,
@@ -74,11 +76,11 @@ export class EventPipeline {
         debugTypeClassification,
         this.logger
       );
+      debugTypeClassification.forEach((entry) => debugWriter.addTypeClassificationEntry(entry));
       this.logger.log('');
 
-      debugTypeClassification.forEach((entry) => debugWriter.addTypeClassificationEntry(entry));
-
       // Step 5: Filter by schedule
+      this.logger.log(`Step 5/7: Filtering ${classifiedEvents.length} events by schedule and availability...`);
       const debugScheduleFiltering: DebugScheduleFilteringEntry[] = [];
       const scheduledEvents = await filterBySchedule(
         classifiedEvents,
@@ -88,11 +90,11 @@ export class EventPipeline {
         debugScheduleFiltering,
         this.logger
       );
+      debugScheduleFiltering.forEach((entry) => debugWriter.addScheduleFilteringEntry(entry));
       this.logger.log('');
 
-      debugScheduleFiltering.forEach((entry) => debugWriter.addScheduleFilteringEntry(entry));
-
       // Step 6: Match to user interests
+      this.logger.log(`Step 6/7: Matching ${scheduledEvents.length} events to user interests...`);
       const debugInterestMatching: DebugInterestMatchingEntry[] = [];
       const matchedEvents = await filterByInterests(
         scheduledEvents,
@@ -102,11 +104,11 @@ export class EventPipeline {
         debugInterestMatching,
         this.logger
       );
+      debugInterestMatching.forEach((entry) => debugWriter.addInterestMatchingEntry(entry));
       this.logger.log('');
 
-      debugInterestMatching.forEach((entry) => debugWriter.addInterestMatchingEntry(entry));
-
       // Step 7: Generate event descriptions
+      this.logger.log(`Step 7/7: Generating descriptions for ${matchedEvents.length} events...`);
       const debugEventDescription: DebugEventDescriptionEntry[] = [];
       const describedEvents = await describeEvents(
         matchedEvents,
@@ -116,9 +118,8 @@ export class EventPipeline {
         debugEventDescription,
         this.logger
       );
-      this.logger.log('');
-
       debugEventDescription.forEach((entry) => debugWriter.addEventDescriptionEntry(entry));
+      this.logger.log('');
 
       // Write debug files if enabled
       if (this.config.writeDebugFiles) {

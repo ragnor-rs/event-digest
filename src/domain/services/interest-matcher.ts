@@ -13,8 +13,6 @@ export async function filterByInterests(
   debugEntries: DebugInterestMatchingEntry[],
   logger: Logger
 ): Promise<Event[]> {
-  logger.log(`Matching ${events.length} events to user interests...`);
-
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];

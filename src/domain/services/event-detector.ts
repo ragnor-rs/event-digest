@@ -14,8 +14,6 @@ export async function detectEventAnnouncements(
   debugEntries: DebugEventDetectionEntry[],
   logger: Logger
 ): Promise<Event[]> {
-  logger.log(`Detecting event announcements with GPT from ${messages.length} messages...`);
-
   if (messages.length === 0) {
     logger.log(`  No input on this step`);
     return [];
