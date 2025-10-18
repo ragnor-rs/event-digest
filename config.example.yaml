@@ -3,23 +3,21 @@
 
 # Telegram groups to monitor
 # Formats supported:
-#   - @username (public groups with username)
-#   - username (public groups, @ is optional)
-#   - "Display Name" (private groups - searches your joined groups by name)
+#   - @username (direct lookup by username - requires @ prefix)
+#   - "Display Name" (searches your joined groups by display name)
 groupsToParse:
-  - "@example_tech_chat"        # Public group with @ prefix
-  - "local_events_group"         # Public group without @ prefix
-  - "My Private Group"           # Private group (searched by display name)
+  - "@example_tech_chat"        # Direct username lookup (public group)
+  - "Local Events Group"         # Display name search (public or private group)
+  - "My Private Group"           # Display name search (private group)
 
 # Telegram channels to monitor
 # Formats supported:
-#   - @username (public channels with username)
-#   - username (public channels, @ is optional)
-#   - "Display Name" (private channels - searches your joined channels by name)
+#   - @username (direct lookup by username - requires @ prefix)
+#   - "Display Name" (searches your joined channels by display name)
 channelsToParse:
-  - "@city_announcements"        # Public channel with @ prefix
-  - "cultural_events_channel"    # Public channel without @ prefix
-  - "Private Event Channel"      # Private channel (searched by display name)
+  - "@city_announcements"        # Direct username lookup (public channel)
+  - "Cultural Events Channel"    # Display name search (public or private channel)
+  - "Private Event Channel"      # Display name search (private channel)
 
 # Your interests - events will be matched against these topics
 userInterests:
