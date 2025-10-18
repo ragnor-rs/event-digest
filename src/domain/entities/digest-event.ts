@@ -3,7 +3,7 @@ import { EventType } from './event-type';
 import { InterestMatch } from './interest-match';
 import { SourceMessage } from './source-message';
 
-export interface Event {
+export interface DigestEvent {
   message: SourceMessage;
   event_type?: EventType;
   interests_matched?: string[];

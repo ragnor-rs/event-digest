@@ -64,8 +64,8 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 ```
 src/
 ├── domain/                         # Business logic & domain entities
-│   ├── entities/                   # Domain entities (Event, SourceMessage, etc.)
-│   │   ├── event.ts                # Core Event entity with optional fields
+│   ├── entities/                   # Domain entities (DigestEvent, SourceMessage, etc.)
+│   │   ├── digest-event.ts         # Core DigestEvent entity with optional fields
 │   │   ├── source-message.ts       # Raw message data from any source
 │   │   ├── interest-match.ts       # Interest match with confidence score
 │   │   ├── event-description.ts    # Structured event information
@@ -121,11 +121,11 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 1. **Message Fetching** (`data/telegram-client.ts`) - Fetches messages from Telegram groups/channels using GramJS with incremental fetching via minId parameter
 2. **Event Cue Filtering** (`domain/services/event-cues-filter.ts`) - Text-based filtering using configurable date/time keywords
-3. **GPT Event Detection** (`domain/services/event-detector.ts`) - AI-powered filtering to identify single event announcements, returns Event[] with message field
-4. **Event Type Classification** (`domain/services/event-classifier.ts`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents, adds event_type field to Event
-5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Extracts datetime with GPT, filters by user availability slots, adds start_datetime field to Event
-6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to user interests with confidence scoring and validation, adds interests_matched and interest_matches fields to Event
-7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with GPT, adds event_description field to Event
+3. **GPT Event Detection** (`domain/services/event-detector.ts`) - AI-powered filtering to identify single event announcements, returns DigestEvent[] with message field
+4. **Event Type Classification** (`domain/services/event-classifier.ts`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents, adds event_type field to DigestEvent
+5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Extracts datetime with GPT, filters by user availability slots, adds start_datetime field to DigestEvent
+6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to user interests with confidence scoring and validation, adds interests_matched and interest_matches fields to DigestEvent
+7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with GPT, adds event_description field to DigestEvent
 
 ### Key Components
 
@@ -133,7 +133,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `SourceMessage`: Raw message data from any source (timestamp, content, link)
 - `InterestMatch`: Interest matching result with confidence score (0.0-1.0)
 - `EventDescription`: Structured event information (date_time, met_interests, title, short_summary, link)
-- `Event`: Single event type with optional fields populated through pipeline stages:
+- `DigestEvent`: Single event type with optional fields populated through pipeline stages:
   - Step 3 adds: `message: SourceMessage`
   - Step 4 adds: `event_type?: EventType` (enum: OFFLINE, ONLINE, HYBRID)
   - Step 5 adds: `start_datetime?: string`
@@ -225,7 +225,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 1. Basic event detection (`domain/services/event-detector.ts`) - Identifies genuine event announcements
 2. Event type classification (`domain/services/event-classifier.ts`) - Classifies as offline/online/hybrid and applies filtering
 
-**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in Event.event_type field. Classification uses explicit indicators:
+**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in DigestEvent.event_type field. Classification uses explicit indicators:
 - **Offline**: Physical addresses, venue names, city names, Google/Yandex Maps links, office locations
 - **Online**: Zoom/Google Meet links, explicit "online" mentions, webinar URLs
 - **Hybrid**: Events offering both physical and online participation options

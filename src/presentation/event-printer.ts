@@ -1,9 +1,9 @@
 import { parse } from 'date-fns';
 
-import { Event } from '../domain/entities';
+import { DigestEvent } from '../domain/entities';
 import { DATE_FORMAT } from '../shared/date-utils';
 
-export function printEvents(events: Event[]): void {
+export function printEvents(events: DigestEvent[]): void {
   console.log('=== EVENT DIGEST ===');
 
   if (events.length === 0) {

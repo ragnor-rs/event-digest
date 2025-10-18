@@ -3,24 +3,24 @@ import { IAIClient, ICache } from '../interfaces';
 import { DebugEventDescriptionEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-import { Event } from '../entities';
+import { DigestEvent } from '../entities';
 
 export async function describeEvents(
-  events: Event[],
+  events: DigestEvent[],
   config: Config,
   aiClient: IAIClient,
   cache: ICache,
   debugEntries: DebugEventDescriptionEntry[],
   logger: Logger
-): Promise<Event[]> {
+): Promise<DigestEvent[]> {
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];
   }
 
   // Check cache first
-  const uncachedEvents: Event[] = [];
-  const describedEvents: Event[] = [];
+  const uncachedEvents: DigestEvent[] = [];
+  const describedEvents: DigestEvent[] = [];
   let cacheHits = 0;
 
   for (const event of events) {

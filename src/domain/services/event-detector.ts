@@ -3,7 +3,7 @@ import { IAIClient, ICache } from '../interfaces';
 import { DebugEventDetectionEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-import { SourceMessage, Event } from '../entities';
+import { SourceMessage, DigestEvent } from '../entities';
 
 export async function detectEventAnnouncements(
   messages: SourceMessage[],
@@ -12,7 +12,7 @@ export async function detectEventAnnouncements(
   cache: ICache,
   debugEntries: DebugEventDetectionEntry[],
   logger: Logger
-): Promise<Event[]> {
+): Promise<DigestEvent[]> {
   if (messages.length === 0) {
     logger.log(`  No input on this step`);
     return [];
@@ -22,7 +22,7 @@ export async function detectEventAnnouncements(
 
   // Check cache first
   const uncachedMessages: SourceMessage[] = [];
-  const events: Event[] = [];
+  const events: DigestEvent[] = [];
   let cacheHits = 0;
 
   for (const message of messages) {
