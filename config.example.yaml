@@ -31,14 +31,13 @@ weeklyTimeslots:
 
 # Optional: Maximum number of messages to fetch from groups
 # Groups typically have more conversational noise, so need more messages
-# Default: 150 (when neither max*Messages nor maxInputMessages is specified)
-#          200 (when only maxChannelMessages is specified)
+# Default: 200 (when only maxChannelMessages is specified)
+#          300 (when both limits unspecified, calculated via GROUP_MESSAGE_MULTIPLIER=1.5)
 # maxGroupMessages: 200
 
 # Optional: Maximum number of messages to fetch from channels
 # Channels are more focused, so fewer messages needed
-# Default: 100 (when neither max*Messages nor maxInputMessages is specified)
-#          100 (when only maxGroupMessages is specified)
+# Default: 100
 # maxChannelMessages: 100
 
 # Optional: Legacy parameter for backward compatibility
