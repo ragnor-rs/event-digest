@@ -1,4 +1,4 @@
-export interface EventDescription {
+export interface DigestEventDescription {
   date_time: string;
   met_interests: string[];
   title: string;

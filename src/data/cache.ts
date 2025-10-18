@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { ICache } from '../domain/interfaces';
-import { SourceMessage, EventDescription, EventType } from '../domain/entities';
+import { SourceMessage, DigestEventDescription, AttendanceMode } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
 export class Cache implements ICache {
@@ -20,10 +20,10 @@ export class Cache implements ICache {
   private cache: {
     telegram_messages: Record<string, SourceMessage[]>; // source name -> source messages (step 1)
     messages: Record<string, boolean>; // message link -> is event (step 3)
-    event_type_classification: Record<string, EventType>; // message link -> event type (step 4)
+    event_type_classification: Record<string, AttendanceMode>; // message link -> attendance mode (step 4)
     matching_interests: Record<string, string[]>; // message link -> matched interests (step 6)
     scheduled_events: Record<string, string>; // message link -> extracted datetime (step 5)
-    events: Record<string, EventDescription>; // message link -> event description object (step 7)
+    events: Record<string, DigestEventDescription>; // message link -> event description object (step 7)
   };
 
   constructor(logger: Logger) {
@@ -43,10 +43,10 @@ export class Cache implements ICache {
   private loadCache(): {
     telegram_messages: Record<string, SourceMessage[]>;
     messages: Record<string, boolean>;
-    event_type_classification: Record<string, EventType>;
+    event_type_classification: Record<string, AttendanceMode>;
     matching_interests: Record<string, string[]>;
     scheduled_events: Record<string, string>;
-    events: Record<string, EventDescription>;
+    events: Record<string, DigestEventDescription>;
   } {
     try {
       if (!fs.existsSync(this.cacheDir)) {
@@ -248,14 +248,14 @@ export class Cache implements ICache {
   }
 
   // Event conversion (step 7)
-  getConvertedEventCache(messageLink: string, userInterests: string[]): EventDescription | undefined {
+  getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     return this.cache.events[cacheKey];
   }
 
   cacheConvertedEvent(
     messageLink: string,
-    event: EventDescription,
+    event: DigestEventDescription,
     userInterests: string[],
     autoSave: boolean = true
   ): void {
@@ -303,11 +303,11 @@ export class Cache implements ICache {
   }
 
   // Event type classification (step 4)
-  getEventTypeCache(messageLink: string): EventType | undefined {
+  getEventTypeCache(messageLink: string): AttendanceMode | undefined {
     return this.cache.event_type_classification[messageLink];
   }
 
-  cacheEventType(messageLink: string, eventType: EventType, autoSave: boolean = true): void {
+  cacheEventType(messageLink: string, eventType: AttendanceMode, autoSave: boolean = true): void {
     this.cache.event_type_classification[messageLink] = eventType;
     if (autoSave) {
       try {

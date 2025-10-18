@@ -1,4 +1,4 @@
-import { SourceMessage, InterestMatch, EventType } from '../entities';
+import { SourceMessage, InterestMatch, AttendanceMode } from '../entities';
 
 /**
  * Domain types for debug entries
@@ -18,7 +18,7 @@ export interface DebugTypeClassificationEntry {
   message: SourceMessage;
   ai_prompt: string;
   ai_response: string;
-  result: EventType | 'discarded';
+  result: AttendanceMode | 'discarded';
   substep: '4_classification';
   cached: boolean;
 }

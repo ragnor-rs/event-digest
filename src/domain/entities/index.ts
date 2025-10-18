@@ -1,5 +1,5 @@
 export * from './source-message';
 export * from './interest-match';
-export * from './event-description';
-export * from './event-type';
+export * from './digest-event-description';
+export * from './attendance-mode';
 export * from './digest-event';

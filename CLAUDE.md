@@ -68,8 +68,8 @@ src/
 │   │   ├── digest-event.ts         # Core DigestEvent entity with optional fields
 │   │   ├── source-message.ts       # Raw message data from any source
 │   │   ├── interest-match.ts       # Interest match with confidence score
-│   │   ├── event-description.ts    # Structured event information
-│   │   ├── event-type.ts           # EventType enum (OFFLINE/ONLINE/HYBRID)
+│   │   ├── digest-event-description.ts  # Structured event information
+│   │   ├── attendance-mode.ts      # AttendanceMode enum (OFFLINE/ONLINE/HYBRID)
 │   │   └── index.ts                # Barrel export
 │   ├── interfaces/                 # Domain interfaces (DDD abstraction layer)
 │   │   ├── ai-client.interface.ts  # IAIClient interface for GPT operations
@@ -132,14 +132,14 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 **Domain Entities** (`domain/entities/`):
 - `SourceMessage`: Raw message data from any source (timestamp, content, link)
 - `InterestMatch`: Interest matching result with confidence score (0.0-1.0)
-- `EventDescription`: Structured event information (date_time, met_interests, title, short_summary, link)
+- `DigestEventDescription`: Structured event information (date_time, met_interests, title, short_summary, link)
 - `DigestEvent`: Single event type with optional fields populated through pipeline stages:
   - Step 3 adds: `message: SourceMessage`
-  - Step 4 adds: `event_type?: EventType` (enum: OFFLINE, ONLINE, HYBRID)
+  - Step 4 adds: `event_type?: AttendanceMode` (enum: OFFLINE, ONLINE, HYBRID)
   - Step 5 adds: `start_datetime?: string`
   - Step 6 adds: `interests_matched?: string[]` and `interest_matches?: InterestMatch[]` (with confidence scores)
-  - Step 7 adds: `event_description?: EventDescription`
-- `EventType`: Enum defining event types (OFFLINE = 'offline', ONLINE = 'online', HYBRID = 'hybrid')
+  - Step 7 adds: `event_description?: DigestEventDescription`
+- `AttendanceMode`: Enum defining how attendees can participate (OFFLINE = 'offline', ONLINE = 'online', HYBRID = 'hybrid')
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
