@@ -140,10 +140,10 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `event-describer.ts`: Event description generation with creative temperature
 
 **Application Layer** (`application/`):
-- `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection, coordinates all domain services, manages debug file writing
+- `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection, coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
 
 **Data Layer** (`data/`):
-- `openai-client.ts`: OpenAI GPT API wrapper with rate limiting (1-second delays), exposes GPT_TEMPERATURE_CREATIVE constant
+- `openai-client.ts`: OpenAI GPT API wrapper with rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0)
 - `telegram-client.ts`: Telegram API client with session management, uses readline-helper for authentication prompts
 - `cache.ts`: Six-tier caching system for messages and GPT results with preference-aware keys
 
@@ -175,7 +175,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Shared Utilities** (`shared/`):
 - `date-utils.ts`: Single source of truth for date normalization, handles GPT's inconsistent formats, exports DATE_FORMAT and MAX_FUTURE_YEARS constants
-- `logger.ts`: Logging utilities with verbose mode support (fixed parameter name from `verbose` to `isVerbose`)
+- `logger.ts`: Logging utilities with verbose mode support (fixed parameter name from `verbose` to `isVerbose`), uses "✗ Discarded:" prefix for filtered messages in verbose mode
 - `batch-processor.ts`: Generic batch processing utilities, exports RATE_LIMIT_DELAY constant
 - `readline-helper.ts`: Extracts duplicated readline logic from telegram-client, handles password/code prompts (fixed type issues with MutableReadline interface)
 
@@ -231,7 +231,7 @@ This filtering happens during the type classification stage in `domain/services/
 
 Required environment variables (see `.env.example`):
 - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_PHONE_NUMBER` - Telegram API credentials
-- `OPENAI_API_KEY` - OpenAI API key for GPT-4o-mini
+- `OPENAI_API_KEY` - OpenAI API key for GPT-5-mini
 
 **Environment Variable Validation:** The application validates all required environment variables at startup before initializing clients. Missing variables will cause immediate failure with a clear error message referencing `.env.example`.
 
