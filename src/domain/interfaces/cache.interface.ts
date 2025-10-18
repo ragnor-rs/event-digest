@@ -1,4 +1,4 @@
-import { SourceMessage, DigestEventDescription, AttendanceMode } from '../entities';
+import { SourceMessage, DigestEventDescription, AttendanceMode, InterestMatch } from '../entities';
 
 /**
  * Interface for cache operations
@@ -24,14 +24,14 @@ export interface ICache {
   cacheEventType(messageLink: string, eventType: AttendanceMode, autoSave?: boolean): void;
 
   // Schedule filtering (step 5)
-  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): string | undefined;
-  cacheScheduledEvent(messageLink: string, datetime: string, weeklyTimeslots: string[], autoSave?: boolean): void;
+  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): Date | null | undefined;
+  cacheScheduledEvent(messageLink: string, datetime: Date | null, weeklyTimeslots: string[], autoSave?: boolean): void;
 
   // Interest matching (step 6)
-  getMatchingInterestsCache(messageLink: string, userInterests: string[]): string[] | undefined;
+  getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined;
   cacheMatchingInterests(
     messageLink: string,
-    interests: string[],
+    interests: InterestMatch[],
     userInterests: string[],
     autoSave?: boolean
   ): void;

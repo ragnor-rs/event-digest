@@ -29,22 +29,18 @@ export async function filterByInterests(
     if (cachedInterests !== undefined) {
       cacheHits++;
       if (cachedInterests.length > 0) {
-        // For cached results, we don't have confidence scores, so assume they all passed threshold (1.0)
-        const cachedMatches = cachedInterests.map((interest) => ({
-          interest,
-          confidence: 1.0,
-        }));
         matchedEvents.push({
           ...event,
-          interest_matches: cachedMatches,
+          interest_matches: cachedInterests,
         });
+        const interestNames = cachedInterests.map((m) => m.interest).join(', ');
         debugEntries.push({
           start_datetime: event.start_datetime!,
           message: event.message,
           event_type: event.event_type!,
           ai_prompt: '[CACHED]',
-          ai_response: `[CACHED: matched interests: ${cachedInterests.join(', ')}]`,
-          interest_matches: cachedMatches,
+          ai_response: `[CACHED: matched interests: ${interestNames}]`,
+          interest_matches: cachedInterests,
           result: 'matched',
           cached: true,
         });
@@ -182,8 +178,7 @@ export async function filterByInterests(
           ...event,
           interest_matches: interestMatchesWithNames,
         });
-        const matchedInterestNames = interestMatchesWithNames.map((m) => m.interest);
-        cache.cacheMatchingInterests(event.message.link, matchedInterestNames, config.userInterests, false);
+        cache.cacheMatchingInterests(event.message.link, interestMatchesWithNames, config.userInterests, false);
 
         debugEntries.push({
           message: event.message,
