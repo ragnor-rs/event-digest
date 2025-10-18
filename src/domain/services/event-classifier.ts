@@ -34,7 +34,7 @@ export async function classifyEventTypes(
 
       // Check if we should include this event based on skipOnlineEvents
       if (cachedType === EventType.ONLINE && config.skipOnlineEvents) {
-        logger.verbose(`    DISCARDED: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
+        logger.verbose(`    ✗ Discarded: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
         debugEntries.push({
           message: event.message,
           gpt_prompt: '[CACHED]',
@@ -133,7 +133,7 @@ export async function classifyEventTypes(
 
           // Check if we should include this event
           if (eventType === EventType.ONLINE && config.skipOnlineEvents) {
-            logger.verbose(`    DISCARDED: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
+            logger.verbose(`    ✗ Discarded: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
             debugEntries.push({
               message: chunk[messageIdx].message,
               gpt_prompt: prompt,
