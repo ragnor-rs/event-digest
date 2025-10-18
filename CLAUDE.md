@@ -81,8 +81,8 @@ src/
 │   │   ├── event-cues-filter.ts    # Step 2: Text-based event filtering
 │   │   ├── event-detector.ts       # Step 3: GPT event detection (~174 lines)
 │   │   ├── event-classifier.ts     # Step 4: Event type classification
-│   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~368 lines, longest service)
-│   │   ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~232 lines, processes individually)
+│   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~373 lines, longest service)
+│   │   ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~221 lines, processes individually)
 │   │   ├── event-describer.ts      # Step 7: Event description generation
 │   │   └── index.ts                # Barrel export
 │   ├── types/                      # Domain types (debug entries, etc.)
@@ -143,11 +143,11 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
-- `event-detector.ts`: GPT-powered event announcement detection (~180 lines)
+- `event-detector.ts`: GPT-powered event announcement detection (~174 lines)
 - `event-classifier.ts`: Event type classification (offline/online/hybrid) with online event filtering
-- `schedule-matcher.ts`: Schedule extraction and availability matching (~370 lines, longest service)
-- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~235 lines, processes individually for accuracy)
-- `event-describer.ts`: Event description generation with creative temperature
+- `schedule-matcher.ts`: Schedule extraction and availability matching (~373 lines, longest service)
+- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~221 lines, processes individually for accuracy)
+- `event-describer.ts`: Event description generation (uses same temperature 1.0 as other operations)
 
 **Application Layer** (`application/`):
 - `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, IDebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
