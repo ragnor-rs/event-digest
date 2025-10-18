@@ -1,7 +1,5 @@
-import { parse } from 'date-fns';
-
 import { DigestEvent } from '../domain/entities';
-import { DATE_FORMAT } from '../shared/date-utils';
+import { formatDateTime } from '../shared/date-utils';
 
 export function printEvents(events: DigestEvent[]): void {
   console.log('=== EVENT DIGEST ===');
@@ -13,14 +11,14 @@ export function printEvents(events: DigestEvent[]): void {
 
   console.log('');
 
-  // Validate all events have required description fields
+  // Validate all events have required fields
   const validEvents = events.filter((event) => {
     if (!event.event_description) {
       console.error(`Warning: Event missing description, skipping: ${event.message?.link || 'unknown'}`);
       return false;
     }
-    if (!event.event_description.date_time) {
-      console.error(`Warning: Event missing date_time, skipping: ${event.message?.link || 'unknown'}`);
+    if (!event.start_datetime) {
+      console.error(`Warning: Event missing start_datetime, skipping: ${event.message?.link || 'unknown'}`);
       return false;
     }
     if (!event.event_description.title) {
@@ -31,12 +29,8 @@ export function printEvents(events: DigestEvent[]): void {
       console.error(`Warning: Event missing short_summary, skipping: ${event.message?.link || 'unknown'}`);
       return false;
     }
-    if (!event.event_description.link) {
-      console.error(`Warning: Event missing link, skipping: ${event.message?.link || 'unknown'}`);
-      return false;
-    }
-    if (!event.event_description.met_interests || event.event_description.met_interests.length === 0) {
-      console.error(`Warning: Event missing met_interests, skipping: ${event.message?.link || 'unknown'}`);
+    if (!event.interests_matched || event.interests_matched.length === 0) {
+      console.error(`Warning: Event missing interests_matched, skipping: ${event.message?.link || 'unknown'}`);
       return false;
     }
     return true;
@@ -48,24 +42,15 @@ export function printEvents(events: DigestEvent[]): void {
 
   // Sort events by date in chronological order
   const sortedEvents = validEvents.sort((a, b) => {
-    try {
-      const dateA = parse(a.event_description!.date_time, DATE_FORMAT, new Date());
-      const dateB = parse(b.event_description!.date_time, DATE_FORMAT, new Date());
-      return dateA.getTime() - dateB.getTime();
-    } catch (error) {
-      console.error(
-        `Warning: Failed to parse dates for sorting (${a.event_description!.date_time} vs ${b.event_description!.date_time}): ${error instanceof Error ? error.message : String(error)}`
-      );
-      return 0;
-    }
+    return a.start_datetime!.getTime() - b.start_datetime!.getTime();
   });
 
   sortedEvents.forEach((event, index) => {
     console.log(`${index + 1}. ${event.event_description!.title}`);
-    console.log(`   📅 ${event.event_description!.date_time}`);
-    console.log(`   🏷️  ${event.event_description!.met_interests.join(', ')}`);
+    console.log(`   📅 ${formatDateTime(event.start_datetime!)}`);
+    console.log(`   🏷️  ${event.interests_matched!.join(', ')}`);
     console.log(`   📝 ${event.event_description!.short_summary}`);
-    console.log(`   🔗 ${event.event_description!.link}`);
+    console.log(`   🔗 ${event.message.link}`);
     console.log('');
   });
 
