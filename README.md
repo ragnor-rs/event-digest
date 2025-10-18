@@ -261,7 +261,7 @@ src/
 
 - **TypeScript** with strict type checking
 - **GramJS** for Telegram API integration
-- **OpenAI GPT-4o-mini** for intelligent filtering
+- **OpenAI GPT-5-mini** for intelligent filtering with temperature 1.0 for balanced creativity and accuracy
 - **date-fns** for date parsing and manipulation
 - **js-yaml** for YAML configuration support
 - **Comprehensive caching** to minimize API costs
@@ -295,7 +295,7 @@ npm run dev
 
 ## Cost Optimization
 
-- Uses GPT-4o-mini (50-100x cheaper than GPT-4)
+- Uses GPT-5-mini with temperature 1.0 for optimal balance of creativity and accuracy
 - Intelligent six-tier caching prevents redundant API calls
 - Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 5)
 - Individual processing for interest matching to ensure accurate validation
