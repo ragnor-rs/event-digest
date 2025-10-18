@@ -1,4 +1,4 @@
-import { TelegramMessage } from '../entities';
+import { SourceMessage } from '../entities';
 
 /**
  * Interface for message source operations (e.g., Telegram, Slack, Discord)
@@ -16,14 +16,14 @@ export interface IMessageSource {
    * @param channelsToParse List of channel identifiers to fetch from
    * @param maxGroupMessages Maximum messages to fetch per group
    * @param maxChannelMessages Maximum messages to fetch per channel
-   * @returns Array of telegram messages
+   * @returns Array of source messages
    */
   fetchMessages(
     groupsToParse: string[],
     channelsToParse: string[],
     maxGroupMessages: number,
     maxChannelMessages: number
-  ): Promise<TelegramMessage[]>;
+  ): Promise<SourceMessage[]>;
 
   /**
    * Disconnect from the message source

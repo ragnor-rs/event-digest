@@ -1,4 +1,4 @@
-import { TelegramMessage, EventDescription, EventType } from '../entities';
+import { SourceMessage, EventDescription, EventType } from '../entities';
 
 /**
  * Interface for cache operations
@@ -11,8 +11,8 @@ export interface ICache {
   save(): void;
 
   // Telegram messages caching (step 1)
-  getCachedMessages(sourceName: string): TelegramMessage[] | undefined;
-  cacheMessages(sourceName: string, messages: TelegramMessage[], autoSave?: boolean): void;
+  getCachedMessages(sourceName: string): SourceMessage[] | undefined;
+  cacheMessages(sourceName: string, messages: SourceMessage[], autoSave?: boolean): void;
   getLastMessageTimestamp(sourceName: string): string | undefined;
 
   // Event message detection (step 3)

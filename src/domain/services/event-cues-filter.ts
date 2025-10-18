@@ -1,12 +1,12 @@
 import { Config } from '../../config/types';
 import { Logger } from '../../shared/logger';
-import { TelegramMessage } from '../entities';
+import { SourceMessage } from '../entities';
 
 export async function filterByEventCues(
-  messages: TelegramMessage[],
+  messages: SourceMessage[],
   config: Config,
   logger: Logger
-): Promise<TelegramMessage[]> {
+): Promise<SourceMessage[]> {
   const eventMessages = messages.filter((msg) => {
     const content = msg.content.toLowerCase();
     for (const lang in config.eventMessageCues) {

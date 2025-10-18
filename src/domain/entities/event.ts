@@ -1,10 +1,10 @@
 import { EventDescription } from './event-description';
 import { EventType } from './event-type';
 import { InterestMatch } from './interest-match';
-import { TelegramMessage } from './telegram-message';
+import { SourceMessage } from './source-message';
 
 export interface Event {
-  message: TelegramMessage;
+  message: SourceMessage;
   event_type?: EventType;
   interests_matched?: string[];
   interest_matches?: InterestMatch[];

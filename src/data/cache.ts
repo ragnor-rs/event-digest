@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { ICache } from '../domain/interfaces';
-import { TelegramMessage, EventDescription, EventType } from '../domain/entities';
+import { SourceMessage, EventDescription, EventType } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
 export class Cache implements ICache {
@@ -18,7 +18,7 @@ export class Cache implements ICache {
     events: string;
   };
   private cache: {
-    telegram_messages: Record<string, TelegramMessage[]>; // source name -> telegram messages (step 1)
+    telegram_messages: Record<string, SourceMessage[]>; // source name -> source messages (step 1)
     messages: Record<string, boolean>; // message link -> is event (step 3)
     event_type_classification: Record<string, EventType>; // message link -> event type (step 4)
     matching_interests: Record<string, string[]>; // message link -> matched interests (step 6)
@@ -41,7 +41,7 @@ export class Cache implements ICache {
   }
 
   private loadCache(): {
-    telegram_messages: Record<string, TelegramMessage[]>;
+    telegram_messages: Record<string, SourceMessage[]>;
     messages: Record<string, boolean>;
     event_type_classification: Record<string, EventType>;
     matching_interests: Record<string, string[]>;
@@ -132,11 +132,11 @@ export class Cache implements ICache {
   }
 
   // Telegram messages caching (step 1)
-  getCachedMessages(sourceName: string): TelegramMessage[] | undefined {
+  getCachedMessages(sourceName: string): SourceMessage[] | undefined {
     return this.cache.telegram_messages[sourceName];
   }
 
-  cacheMessages(sourceName: string, messages: TelegramMessage[], autoSave: boolean = true): void {
+  cacheMessages(sourceName: string, messages: SourceMessage[], autoSave: boolean = true): void {
     this.cache.telegram_messages[sourceName] = messages;
     if (autoSave) {
       try {
