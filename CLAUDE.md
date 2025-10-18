@@ -75,7 +75,6 @@ src/
 │   │   ├── ai-client.interface.ts  # IAIClient interface for GPT operations
 │   │   ├── cache.interface.ts      # ICache interface for caching operations
 │   │   ├── message-source.interface.ts  # IMessageSource interface for Telegram
-│   │   ├── debug-writer.interface.ts    # IDebugWriter interface for debug output
 │   │   └── index.ts                # Barrel export
 │   ├── services/                   # Business logic services (filtering, matching, etc.)
 │   │   ├── event-cues-filter.ts    # Step 2: Text-based event filtering
@@ -152,7 +151,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `event-describer.ts`: Event description generation (uses same temperature 1.0 as other operations)
 
 **Application Layer** (`application/`):
-- `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, IDebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
+- `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, DebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
 
 **Data Layer** (`data/`):
 - `openai-client.ts`: OpenAI GPT API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0)
@@ -190,7 +189,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `logger.ts`: Logging utilities with verbose mode support (fixed parameter name from `verbose` to `isVerbose`), uses "✗ Discarded:" prefix for filtered messages in verbose mode
 - `batch-processor.ts`: Generic batch processing utilities, exports RATE_LIMIT_DELAY constant
 - `readline-helper.ts`: Extracts duplicated readline logic from telegram-client, handles password/code prompts (fixed type issues with MutableReadline interface)
-- `debug-writer.ts`: Implements IDebugWriter interface (defined in domain layer), writes 5 debug files (event_detection.json, event_classification.json, schedule_filtering.json, interest_matching.json, event_description.json)
+- `debug-writer.ts`: Concrete implementation for debug file writing, writes 5 debug files (event_detection.json, event_classification.json, schedule_filtering.json, interest_matching.json, event_description.json). Like Logger, this is a concrete class used directly (not abstracted behind an interface)
 - `types/debug-entries.ts`: Debug entry type definitions using primitive types (DebugEventDetectionEntry, DebugTypeClassificationEntry, DebugScheduleFilteringEntry, DebugInterestMatchingEntry, DebugEventDescriptionEntry) - uses primitives instead of domain entities to maintain clean architecture boundaries
 
 **Presentation Layer** (`presentation/`):
@@ -292,7 +291,7 @@ The codebase follows **Clean Architecture** and **DDD** principles:
 1. **Separation of Concerns**: Business logic (domain), use cases (application), external systems (data), configuration, and presentation are clearly separated
 2. **Single Responsibility**: Each module has one clear purpose
 3. **Dependency Injection**: Domain services accept interfaces as parameters, application layer uses constructor injection, bootstrap layer instantiates concrete implementations
-4. **Dependency Inversion**: Domain defines interfaces (`IAIClient`, `ICache`, `IMessageSource`, `IDebugWriter`), outer layers implement them
+4. **Dependency Inversion**: Domain defines interfaces (`IAIClient`, `ICache`, `IMessageSource`), outer layers implement them
 5. **No Code Duplication**: Shared logic extracted to utilities and services
 6. **Constants Management**: Configuration constants are centralized in `config/constants.ts` with documented rationale. Operation-specific constants (like `GPT_TEMPERATURE_CREATIVE`, `RATE_LIMIT_DELAY`, `DATE_FORMAT`) stay co-located with their usage context for better maintainability
 7. **YAGNI Principle**: No DI containers (simple constructor injection suffices), Config type not abstracted (stable, unlikely to change)
@@ -311,13 +310,13 @@ When working with specific functionality, refer to these files:
 - **Add new configuration options**: Start with `config/types.ts`, then `config/defaults.ts`, then `config/validator.ts`, then `config/args-parser.ts`
 - **Modify GPT prompts**: `config/defaults.ts` (single source of truth)
 - **Add new entity fields**: Relevant file in `domain/entities/`
-- **Add new domain interfaces**: `domain/interfaces/` (IAIClient, ICache, IMessageSource, IDebugWriter)
+- **Add new domain interfaces**: `domain/interfaces/` (IAIClient, ICache, IMessageSource)
 - **Change caching logic**: `data/cache.ts` (implements ICache)
 - **Modify Telegram fetching**: `data/telegram-client.ts` (implements IMessageSource)
 - **Update OpenAI integration**: `data/openai-client.ts` (implements IAIClient)
 - **Change pipeline orchestration**: `application/event-pipeline.ts` (uses all domain interfaces)
 - **Modify output formatting**: `presentation/event-printer.ts`
-- **Change debug file output**: `shared/debug-writer.ts` (implements IDebugWriter)
+- **Change debug file output**: `shared/debug-writer.ts`
 - **Add environment variable validation**: `src/index.ts` (validateEnvironmentVariables function)
 
 # important-instruction-reminders
