@@ -219,11 +219,11 @@ The tool processes messages through a 7-step pipeline:
 
 1. **Fetch Messages** (`data/telegram-client.ts`) - Retrieves recent messages from specified Telegram sources
 2. **Event Cue Filter** (`domain/services/event-cues-filter.ts`) - Filters messages containing date/event keywords
-3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates Event objects with message field
-4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field
+3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates DigestEvent objects with message field
+4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field (AttendanceMode enum)
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field
 6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interests_matched and interest_matches fields (with confidence scores)
-7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field
+7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field (DigestEventDescription type)
 
 ## Architecture
 
