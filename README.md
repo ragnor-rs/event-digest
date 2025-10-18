@@ -253,9 +253,8 @@ This codebase follows **Clean Architecture** and **Domain-Driven Design (DDD)** 
 src/
 ├── domain/                     # Business logic & domain entities
 │   ├── entities/               # Domain entities (DigestEvent, SourceMessage, etc.)
-│   ├── interfaces/             # Domain interfaces (IAIClient, ICache, IMessageSource, IDebugWriter)
+│   ├── interfaces/             # Domain interfaces (IAIClient, ICache, IMessageSource)
 │   ├── services/               # Business logic services (filtering, matching, etc.)
-│   ├── types/                  # Domain types (debug entry types, etc.)
 │   └── constants.ts            # Domain constants (DATETIME_UNKNOWN)
 ├── application/                # Use case orchestration
 │   └── event-pipeline.ts       # 7-step pipeline orchestrator
@@ -274,10 +273,12 @@ src/
 │   ├── date-utils.ts           # Date normalization
 │   ├── logger.ts               # Logging utilities
 │   ├── batch-processor.ts      # Batch processing helpers
-│   └── readline-helper.ts      # Input prompts
+│   ├── readline-helper.ts      # Input prompts
+│   ├── debug-writer.ts         # Debug file writer
+│   └── types/                  # Shared types
+│       └── debug-entries.ts    # Debug entry type definitions
 ├── presentation/               # Output formatting
-│   ├── event-printer.ts        # Console event output
-│   └── debug-writer.ts         # Debug file writer
+│   └── event-printer.ts        # Console event output
 └── index.ts                    # Application bootstrap
 ```
 
@@ -285,7 +286,7 @@ src/
 
 - **TypeScript** with strict type checking
 - **GramJS** for Telegram API integration
-- **OpenAI GPT-5-mini** for intelligent filtering with temperature 1.0 for balanced creativity and accuracy
+- **OpenAI GPT-5-mini** for intelligent filtering with temperature 1.0
 - **date-fns** for date parsing and manipulation
 - **js-yaml** for YAML configuration support
 - **Comprehensive caching** to minimize API costs

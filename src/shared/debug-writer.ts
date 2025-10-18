@@ -8,10 +8,9 @@ import {
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
 } from './types';
-import { IDebugWriter } from '../domain/interfaces';
 import { Logger } from './logger';
 
-export class DebugWriter implements IDebugWriter {
+export class DebugWriter {
   private debugDir = 'debug';
   private eventDetectionEntries: DebugEventDetectionEntry[] = [];
   private typeClassificationEntries: DebugTypeClassificationEntry[] = [];
