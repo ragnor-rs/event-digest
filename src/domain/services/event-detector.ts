@@ -40,7 +40,7 @@ export async function detectEventAnnouncements(
           cached: true,
         });
       } else {
-        logger.verbose(`    DISCARDED: ${message.link} - not an event announcement (cached)`);
+        logger.verbose(`    ✗ Discarded: ${message.link} - not an event announcement (cached)`);
         debugEntries.push({
           messageLink: message.link,
           isEvent: false,
@@ -140,7 +140,7 @@ export async function detectEventAnnouncements(
       // Cache negative results for unprocessed messages
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedIndices.has(idx)) {
-          logger.verbose(`    DISCARDED: ${chunk[idx].link} - not an event announcement`);
+          logger.verbose(`    ✗ Discarded: ${chunk[idx].link} - not an event announcement`);
           cache.cacheEventMessage(chunk[idx].link, false, false);
 
           debugEntries.push({
@@ -155,7 +155,7 @@ export async function detectEventAnnouncements(
     } else {
       // All messages in chunk are not events
       for (const message of chunk) {
-        logger.verbose(`    DISCARDED: ${message.link} - not an event announcement`);
+        logger.verbose(`    ✗ Discarded: ${message.link} - not an event announcement`);
         cache.cacheEventMessage(message.link, false, false);
 
         debugEntries.push({

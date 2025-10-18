@@ -54,7 +54,7 @@ export async function filterByInterests(
           cached: true,
         });
       } else {
-        logger.verbose(`    DISCARDED: ${event.message.link} - no interests matched (cached)`);
+        logger.verbose(`    ✗ Discarded: ${event.message.link} - no interests matched (cached)`);
         debugEntries.push({
           start_datetime: event.start_datetime!,
           message: event.message,
@@ -99,7 +99,7 @@ export async function filterByInterests(
 
     if (!result) {
       // GPT returned undefined/empty - technical issue
-      logger.verbose(`    DISCARDED: ${event.message.link} - GPT returned no response`);
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - GPT returned no response`);
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
         start_datetime: event.start_datetime!,
@@ -113,7 +113,7 @@ export async function filterByInterests(
       });
     } else if (result.toLowerCase() === 'none') {
       // GPT explicitly said "none" - legitimate no match
-      logger.verbose(`    DISCARDED: ${event.message.link} - GPT returned "none"`);
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - GPT returned "none"`);
       cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
       debugEntries.push({
         message: event.message,
@@ -209,7 +209,7 @@ export async function filterByInterests(
           interestMatches.length > 0
             ? 'all matches below confidence threshold or invalid indices'
             : 'no valid interests parsed from response';
-        logger.verbose(`    DISCARDED: ${event.message.link} - ${reason}`);
+        logger.verbose(`    ✗ Discarded: ${event.message.link} - ${reason}`);
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
         debugEntries.push({
           message: event.message,

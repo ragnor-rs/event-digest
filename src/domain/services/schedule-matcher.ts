@@ -62,7 +62,7 @@ function processCachedEvent(
 
     const validation = isValidEventDateTime(eventDate, new Date());
     if (!validation.valid) {
-      logger.verbose(`    DISCARDED: ${event.message.link} - ${validation.reason} (cached)`);
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - ${validation.reason} (cached)`);
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
@@ -88,7 +88,7 @@ function processCachedEvent(
       });
       return { ...event, start_datetime: normalizedCachedDateTime };
     } else {
-      logger.verbose(`    DISCARDED: ${event.message.link} - outside desired timeslots (cached)`);
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - outside desired timeslots (cached)`);
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
@@ -131,7 +131,7 @@ function processExtractedDateTime(
     // Check if the date is valid
     if (!isValid(eventDate)) {
       logger.verbose(
-        `    DISCARDED: ${event.message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
+        `    ✗ Discarded: ${event.message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
       );
       debugEntries.push({
         message: event.message,
@@ -150,7 +150,7 @@ function processExtractedDateTime(
     const messageDate = new Date(event.message.timestamp);
     const validation = isValidEventDateTime(eventDate, messageDate);
     if (!validation.valid) {
-      logger.verbose(`    DISCARDED: ${event.message.link} - ${validation.reason}`);
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - ${validation.reason}`);
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
@@ -180,7 +180,7 @@ function processExtractedDateTime(
         cached: false,
       });
     } else {
-      logger.verbose(`    DISCARDED: ${event.message.link} - outside desired timeslots`);
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - outside desired timeslots`);
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
@@ -195,7 +195,7 @@ function processExtractedDateTime(
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.verbose(
-      `    DISCARDED: ${event.message.link} - date parsing error for "${dateTime}" (normalized: "${normalizeDateTime(dateTime)}"): ${errorMsg}`
+      `    ✗ Discarded: ${event.message.link} - date parsing error for "${dateTime}" (normalized: "${normalizeDateTime(dateTime)}"): ${errorMsg}`
     );
     debugEntries.push({
       message: event.message,
@@ -330,7 +330,7 @@ export async function filterBySchedule(
       // Cache 'unknown' for unprocessed messages
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedMessages.has(idx)) {
-          logger.verbose(`    DISCARDED: ${chunk[idx].message.link} - no date/time found`);
+          logger.verbose(`    ✗ Discarded: ${chunk[idx].message.link} - no date/time found`);
           cache.cacheScheduledEvent(chunk[idx].message.link, DATETIME_UNKNOWN, config.weeklyTimeslots, false);
           debugEntries.push({
             message: chunk[idx].message,
@@ -347,7 +347,7 @@ export async function filterBySchedule(
     } else {
       // No results from GPT, cache as unknown
       for (const event of chunk) {
-        logger.verbose(`    DISCARDED: ${event.message.link} - no date/time found`);
+        logger.verbose(`    ✗ Discarded: ${event.message.link} - no date/time found`);
         cache.cacheScheduledEvent(event.message.link, DATETIME_UNKNOWN, config.weeklyTimeslots, false);
         debugEntries.push({
           message: event.message,
