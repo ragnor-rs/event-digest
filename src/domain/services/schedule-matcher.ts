@@ -50,14 +50,18 @@ function isValidEventDateTime(eventDate: Date, messageDate: Date): { valid: bool
  */
 function processCachedEvent(
   event: DigestEvent,
-  cachedDateTime: string,
+  cachedDateTime: Date | null,
   config: Config,
   logger: Logger,
   debugEntries: DebugScheduleFilteringEntry[]
 ): DigestEvent | null {
   try {
-    const normalizedCachedDateTime = normalizeDateTime(cachedDateTime);
-    const eventDate = parse(normalizedCachedDateTime, DATE_FORMAT, new Date());
+    // If cached as null (unknown datetime), return null to discard
+    if (cachedDateTime === null) {
+      return null;
+    }
+
+    const eventDate = cachedDateTime;
 
     const validation = isValidEventDateTime(eventDate, new Date());
     if (!validation.valid) {
@@ -66,7 +70,7 @@ function processCachedEvent(
         message: event.message,
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
-        ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        ai_response: `[CACHED: datetime]`,
         extracted_datetime: eventDate,
         result: 'discarded',
         discard_reason: validation.reason,
@@ -80,7 +84,7 @@ function processCachedEvent(
         message: event.message,
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
-        ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        ai_response: `[CACHED: datetime]`,
         extracted_datetime: eventDate,
         result: 'scheduled',
         cached: true,
@@ -92,7 +96,7 @@ function processCachedEvent(
         message: event.message,
         event_type: event.event_type!,
         ai_prompt: '[CACHED]',
-        ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        ai_response: `[CACHED: datetime]`,
         extracted_datetime: eventDate,
         result: 'discarded',
         discard_reason: 'outside desired timeslots',
@@ -102,7 +106,7 @@ function processCachedEvent(
     }
   } catch (error) {
     logger.verbose(
-      `    WARNING: Failed to parse cached datetime "${cachedDateTime}" for ${event.message.link}: ${error instanceof Error ? error.message : String(error)}`
+      `    WARNING: Failed to process cached datetime for ${event.message.link}: ${error instanceof Error ? error.message : String(error)}`
     );
     return null; // Will be reprocessed
   }
@@ -233,7 +237,7 @@ export async function filterBySchedule(
     const cachedDateTime = cache.getScheduledEventCache(event.message.link, config.weeklyTimeslots);
     if (cachedDateTime !== undefined) {
       cacheHits++;
-      if (cachedDateTime !== DATETIME_UNKNOWN) {
+      if (cachedDateTime !== null) {
         // Re-validate against current time and schedule
         const processedEvent = processCachedEvent(event, cachedDateTime, config, logger, debugEntries);
         if (processedEvent) {
@@ -302,10 +306,11 @@ export async function filterBySchedule(
         const messageIdx = parseInt(numPart.trim()) - 1;
         const dateTime = datePart.trim();
 
-        // Cache the extracted datetime with proper formatting
+        // Cache the extracted datetime
         if (messageIdx >= 0 && messageIdx < chunk.length) {
           const normalizedDateTime = normalizeDateTime(dateTime);
-          cache.cacheScheduledEvent(chunk[messageIdx].message.link, normalizedDateTime, config.weeklyTimeslots, false);
+          const parsedDate = parse(normalizedDateTime, DATE_FORMAT, new Date());
+          cache.cacheScheduledEvent(chunk[messageIdx].message.link, parsedDate, config.weeklyTimeslots, false);
           processedMessages.add(messageIdx);
         }
 
@@ -324,11 +329,11 @@ export async function filterBySchedule(
         }
       }
 
-      // Cache 'unknown' for unprocessed messages
+      // Cache null for unprocessed messages (unknown datetime)
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedMessages.has(idx)) {
           logger.verbose(`    ✗ Discarded: ${chunk[idx].message.link} - no date/time found`);
-          cache.cacheScheduledEvent(chunk[idx].message.link, DATETIME_UNKNOWN, config.weeklyTimeslots, false);
+          cache.cacheScheduledEvent(chunk[idx].message.link, null, config.weeklyTimeslots, false);
           debugEntries.push({
             message: chunk[idx].message,
             event_type: chunk[idx].event_type!,
@@ -342,10 +347,10 @@ export async function filterBySchedule(
         }
       }
     } else {
-      // No results from AI, cache as unknown
+      // No results from AI, cache as null (unknown)
       for (const event of chunk) {
         logger.verbose(`    ✗ Discarded: ${event.message.link} - no date/time found`);
-        cache.cacheScheduledEvent(event.message.link, DATETIME_UNKNOWN, config.weeklyTimeslots, false);
+        cache.cacheScheduledEvent(event.message.link, null, config.weeklyTimeslots, false);
         debugEntries.push({
           message: event.message,
           event_type: event.event_type!,

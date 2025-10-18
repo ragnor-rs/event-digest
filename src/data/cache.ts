@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { ICache } from '../domain/interfaces';
-import { SourceMessage, DigestEventDescription, AttendanceMode } from '../domain/entities';
+import { SourceMessage, DigestEventDescription, AttendanceMode, InterestMatch } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
 export class Cache implements ICache {
@@ -21,8 +21,8 @@ export class Cache implements ICache {
     telegram_messages: Record<string, SourceMessage[]>; // source name -> source messages (step 1)
     messages: Record<string, boolean>; // message link -> is event (step 3)
     event_type_classification: Record<string, AttendanceMode>; // message link -> attendance mode (step 4)
-    matching_interests: Record<string, string[]>; // message link -> matched interests (step 6)
-    scheduled_events: Record<string, string>; // message link -> extracted datetime (step 5)
+    matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 6)
+    scheduled_events: Record<string, Date | null>; // message link -> extracted datetime or null if unknown (step 5)
     events: Record<string, DigestEventDescription>; // message link -> event description object (step 7)
   };
 
@@ -44,8 +44,8 @@ export class Cache implements ICache {
     telegram_messages: Record<string, SourceMessage[]>;
     messages: Record<string, boolean>;
     event_type_classification: Record<string, AttendanceMode>;
-    matching_interests: Record<string, string[]>;
-    scheduled_events: Record<string, string>;
+    matching_interests: Record<string, InterestMatch[]>;
+    scheduled_events: Record<string, Date | null>;
     events: Record<string, DigestEventDescription>;
   } {
     try {
@@ -71,7 +71,18 @@ export class Cache implements ICache {
       const filePath = this.cacheFiles[storeName];
       if (fs.existsSync(filePath)) {
         const data = fs.readFileSync(filePath, 'utf-8');
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+
+        // Convert serialized dates back to Date objects for scheduled_events
+        if (storeName === 'scheduled_events') {
+          const converted: Record<string, Date | null> = {};
+          for (const [key, value] of Object.entries(parsed)) {
+            converted[key] = value === null ? null : new Date(value as string);
+          }
+          return converted as T;
+        }
+
+        return parsed;
       }
     } catch (error) {
       this.logger.error(`Failed to load cache file ${storeName}.json (starting fresh)`, error);
@@ -176,14 +187,14 @@ export class Cache implements ICache {
   }
 
   // Interest matching (step 6)
-  getMatchingInterestsCache(messageLink: string, userInterests: string[]): string[] | undefined {
+  getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined {
     const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
     return this.cache.matching_interests[cacheKey];
   }
 
   cacheMatchingInterests(
     messageLink: string,
-    interests: string[],
+    interests: InterestMatch[],
     userInterests: string[],
     autoSave: boolean = true
   ): void {
@@ -212,14 +223,14 @@ export class Cache implements ICache {
   }
 
   // Schedule filtering (datetime extraction) (step 5)
-  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): string | undefined {
+  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): Date | null | undefined {
     const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
     return this.cache.scheduled_events[cacheKey];
   }
 
   cacheScheduledEvent(
     messageLink: string,
-    datetime: string,
+    datetime: Date | null,
     weeklyTimeslots: string[],
     autoSave: boolean = true
   ): void {
