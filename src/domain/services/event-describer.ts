@@ -28,14 +28,7 @@ export async function describeEvents(
     const cachedEventDescription = cache.getConvertedEventCache(event.message.link, config.userInterests);
     if (cachedEventDescription !== undefined) {
       cacheHits++;
-      // Update cached event description with current data (interests might have changed)
-      const updatedEventDescription = {
-        ...cachedEventDescription,
-        date_time: formatDateTime(event.start_datetime!),
-        met_interests: event.interests_matched!,
-        link: event.message.link,
-      };
-      describedEvents.push({ ...event, event_description: updatedEventDescription });
+      describedEvents.push({ ...event, event_description: cachedEventDescription });
 
       if (config.writeDebugFiles) {
         debugEntries.push({
@@ -110,11 +103,8 @@ Link: ${event.message.link}`
 
           // Create fallback event description
           const fallbackDescription = {
-            date_time: formatDateTime(event.start_datetime!),
-            met_interests: event.interests_matched!,
             title: 'Event',
             short_summary: 'Event details not available',
-            link: event.message.link,
           };
 
           describedEvents.push({ ...event, event_description: fallbackDescription });
@@ -146,16 +136,9 @@ Link: ${event.message.link}`
         const summary = summaryMatch ? summaryMatch[1].trim() : '';
         const description = descriptionMatch ? descriptionMatch[1].trim() : '';
 
-        const eventDescriptionData = {
+        const eventDescription = {
           title: title || 'Event',
           short_summary: summary || 'Event details not extracted properly',
-        };
-
-        const eventDescription = {
-          date_time: formatDateTime(event.start_datetime!),
-          met_interests: event.interests_matched!,
-          ...eventDescriptionData,
-          link: event.message.link,
         };
 
         describedEvents.push({ ...event, event_description: eventDescription });
