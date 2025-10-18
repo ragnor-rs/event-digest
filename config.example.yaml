@@ -1,15 +1,25 @@
 # Event Digest Configuration Example
 # Copy this file to config.yaml and customize for your needs
 
-# Telegram groups to monitor (with or without @ prefix)
+# Telegram groups to monitor
+# Formats supported:
+#   - @username (public groups with username)
+#   - username (public groups, @ is optional)
+#   - "Display Name" (private groups - searches your joined groups by name)
 groupsToParse:
-  - "@example_tech_chat"
-  - "@local_events_group"
+  - "@example_tech_chat"        # Public group with @ prefix
+  - "local_events_group"         # Public group without @ prefix
+  - "My Private Group"           # Private group (searched by display name)
 
-# Telegram channels to monitor (with or without @ prefix)
+# Telegram channels to monitor
+# Formats supported:
+#   - @username (public channels with username)
+#   - username (public channels, @ is optional)
+#   - "Display Name" (private channels - searches your joined channels by name)
 channelsToParse:
-  - "@city_announcements"
-  - "@cultural_events_channel"
+  - "@city_announcements"        # Public channel with @ prefix
+  - "cultural_events_channel"    # Public channel without @ prefix
+  - "Private Event Channel"      # Private channel (searched by display name)
 
 # Your interests - events will be matched against these topics
 userInterests:

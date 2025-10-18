@@ -58,15 +58,19 @@ You can configure the tool in multiple ways. **Command-line arguments always ove
 Create a `config.yaml` file in the project root:
 
 ```yaml
-# Telegram channels to monitor (without @ prefix)
+# Telegram channels to monitor
+# Supports: @username, username (@ is optional), or "Display Name" for private channels
 channelsToParse:
-  - "city_events"
+  - "@city_events"
   - "local_announcements"
+  - "Private Event Channel"  # For private channels, use display name
 
-# Telegram groups to monitor (without @ prefix)
+# Telegram groups to monitor
+# Supports: @username, username (@ is optional), or "Display Name" for private groups
 groupsToParse:
-  - "tech_meetups"
+  - "@tech_meetups"
   - "community_events"
+  - "My Private Group"  # For private groups, use display name
 
 # Your interests - events will be matched against these topics
 userInterests:
@@ -170,8 +174,8 @@ npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 
 ### Configuration Parameters
 
-- `groupsToParse`/`--groups`: Telegram group usernames (without @)
-- `channelsToParse`/`--channels`: Telegram channel usernames (without @)
+- `groupsToParse`/`--groups`: Telegram groups - supports @username, username, or "Display Name" for private groups
+- `channelsToParse`/`--channels`: Telegram channels - supports @username, username, or "Display Name" for private channels
 - `userInterests`/`--interests`: Your interests (events must be directly about these topics)
 - `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
 - `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200, or 300 if both limits unspecified)
@@ -210,6 +214,14 @@ The tool will save your Telegram session to `.telegram-session` file for future 
 - **Session Storage**: Session data is securely stored in `.telegram-session` file
 - **No Re-authentication**: You won't need to enter codes again unless the session expires
 - **Session Management**: The session is saved only after successful login, not on every disconnect
+
+### Private Channels and Groups
+
+The tool supports accessing private channels and groups by their display names:
+- You must be a member of the private channel/group
+- Use the display name as shown in Telegram (e.g., "My Private Group")
+- The tool searches through your joined chats to find matching names (case-insensitive, partial match)
+- For public channels/groups, use @username or username format for faster lookup
 
 **Important**: Keep the `.telegram-session` file secure and add it to `.gitignore` to avoid committing sensitive session data.
 
