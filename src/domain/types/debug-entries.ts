@@ -1,4 +1,4 @@
-import { TelegramMessage, InterestMatch, EventType } from '../entities';
+import { SourceMessage, InterestMatch, EventType } from '../entities';
 
 /**
  * Domain types for debug entries
@@ -15,7 +15,7 @@ export interface DebugEventDetectionEntry {
 }
 
 export interface DebugTypeClassificationEntry {
-  message: TelegramMessage;
+  message: SourceMessage;
   ai_prompt: string;
   ai_response: string;
   result: EventType | 'discarded';
@@ -24,7 +24,7 @@ export interface DebugTypeClassificationEntry {
 }
 
 export interface DebugScheduleFilteringEntry {
-  message: TelegramMessage;
+  message: SourceMessage;
   event_type: string;
   ai_prompt: string;
   ai_response: string;
@@ -35,7 +35,7 @@ export interface DebugScheduleFilteringEntry {
 }
 
 export interface DebugInterestMatchingEntry {
-  message: TelegramMessage;
+  message: SourceMessage;
   event_type: string;
   start_datetime: string;
   ai_prompt: string;
@@ -47,7 +47,7 @@ export interface DebugInterestMatchingEntry {
 }
 
 export interface DebugEventDescriptionEntry {
-  message: TelegramMessage;
+  message: SourceMessage;
   event_type: string;
   start_datetime: string;
   interests_matched: string[];

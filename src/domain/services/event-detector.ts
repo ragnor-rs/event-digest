@@ -3,10 +3,10 @@ import { IAIClient, ICache } from '../interfaces';
 import { DebugEventDetectionEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-import { TelegramMessage, Event } from '../entities';
+import { SourceMessage, Event } from '../entities';
 
 export async function detectEventAnnouncements(
-  messages: TelegramMessage[],
+  messages: SourceMessage[],
   config: Config,
   aiClient: IAIClient,
   cache: ICache,
@@ -21,7 +21,7 @@ export async function detectEventAnnouncements(
   logger.verbose(`  Processing cache...`);
 
   // Check cache first
-  const uncachedMessages: TelegramMessage[] = [];
+  const uncachedMessages: SourceMessage[] = [];
   const events: Event[] = [];
   let cacheHits = 0;
 

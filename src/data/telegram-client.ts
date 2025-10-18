@@ -5,7 +5,7 @@ import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 
 import { ICache, IMessageSource } from '../domain/interfaces';
-import { TelegramMessage } from '../domain/entities';
+import { SourceMessage } from '../domain/entities';
 import { Logger } from '../shared/logger';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
 
@@ -97,7 +97,7 @@ export class TelegramClient implements IMessageSource {
     sourceName: string,
     sourceType: 'group' | 'channel',
     limit: number
-  ): Promise<TelegramMessage[]> {
+  ): Promise<SourceMessage[]> {
     const cacheKey = `${sourceType}:${sourceName}:${limit}`;
 
     // Get cached messages
@@ -124,7 +124,7 @@ export class TelegramClient implements IMessageSource {
         minId: minId,
       });
 
-      const newMessages: TelegramMessage[] = [];
+      const newMessages: SourceMessage[] = [];
       for (const msg of telegramMessages) {
         if (msg.message) {
           newMessages.push({
@@ -182,8 +182,8 @@ export class TelegramClient implements IMessageSource {
     channelsToParse: string[],
     maxGroupMessages: number,
     maxChannelMessages: number
-  ): Promise<TelegramMessage[]> {
-    const allMessages: TelegramMessage[] = [];
+  ): Promise<SourceMessage[]> {
+    const allMessages: SourceMessage[] = [];
 
     // Process groups with higher message limit
     for (const groupName of groupsToParse) {

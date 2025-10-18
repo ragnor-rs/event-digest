@@ -64,9 +64,9 @@ This is an event digest CLI that processes Telegram messages through a 7-step fi
 ```
 src/
 ├── domain/                         # Business logic & domain entities
-│   ├── entities/                   # Domain entities (Event, TelegramMessage, etc.)
+│   ├── entities/                   # Domain entities (Event, SourceMessage, etc.)
 │   │   ├── event.ts                # Core Event entity with optional fields
-│   │   ├── telegram-message.ts     # Raw Telegram message data
+│   │   ├── source-message.ts       # Raw message data from any source
 │   │   ├── interest-match.ts       # Interest match with confidence score
 │   │   ├── event-description.ts    # Structured event information
 │   │   ├── event-type.ts           # EventType enum (OFFLINE/ONLINE/HYBRID)
@@ -130,11 +130,11 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 ### Key Components
 
 **Domain Entities** (`domain/entities/`):
-- `TelegramMessage`: Raw Telegram message data (timestamp, content, link)
+- `SourceMessage`: Raw message data from any source (timestamp, content, link)
 - `InterestMatch`: Interest matching result with confidence score (0.0-1.0)
 - `EventDescription`: Structured event information (date_time, met_interests, title, short_summary, link)
 - `Event`: Single event type with optional fields populated through pipeline stages:
-  - Step 3 adds: `message: TelegramMessage`
+  - Step 3 adds: `message: SourceMessage`
   - Step 4 adds: `event_type?: EventType` (enum: OFFLINE, ONLINE, HYBRID)
   - Step 5 adds: `start_datetime?: string`
   - Step 6 adds: `interests_matched?: string[]` and `interest_matches?: InterestMatch[]` (with confidence scores)
