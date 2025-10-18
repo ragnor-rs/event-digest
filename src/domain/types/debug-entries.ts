@@ -40,8 +40,7 @@ export interface DebugInterestMatchingEntry {
   start_datetime: Date;
   ai_prompt: string;
   ai_response: string;
-  interests_matched: string[];
-  interest_matches?: InterestMatch[];
+  interest_matches: InterestMatch[];
   result: 'matched' | 'discarded';
   cached: boolean;
 }
@@ -50,7 +49,7 @@ export interface DebugEventDescriptionEntry {
   message: SourceMessage;
   event_type: string;
   start_datetime: Date;
-  interests_matched: string[];
+  interest_matches: InterestMatch[];
   ai_prompt: string;
   ai_response: string;
   extracted_title: string;

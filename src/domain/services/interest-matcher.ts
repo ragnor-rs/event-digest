@@ -36,7 +36,6 @@ export async function filterByInterests(
         }));
         matchedEvents.push({
           ...event,
-          interests_matched: cachedInterests,
           interest_matches: cachedMatches,
         });
         debugEntries.push({
@@ -45,7 +44,6 @@ export async function filterByInterests(
           event_type: event.event_type!,
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: matched interests: ${cachedInterests.join(', ')}]`,
-          interests_matched: cachedInterests,
           interest_matches: cachedMatches,
           result: 'matched',
           cached: true,
@@ -58,7 +56,6 @@ export async function filterByInterests(
           event_type: event.event_type!,
           ai_prompt: '[CACHED]',
           ai_response: '[CACHED: no interests matched]',
-          interests_matched: [],
           interest_matches: [],
           result: 'discarded',
           cached: true,
@@ -104,7 +101,7 @@ export async function filterByInterests(
         event_type: event.event_type!,
         ai_prompt: prompt,
         ai_response: '[NO RESPONSE - EMPTY]',
-        interests_matched: [],
+        interest_matches: [],
         result: 'discarded',
         cached: false,
       });
@@ -118,7 +115,7 @@ export async function filterByInterests(
         start_datetime: event.start_datetime!,
         ai_prompt: prompt,
         ai_response: 'none',
-        interests_matched: [],
+        interest_matches: [],
         result: 'discarded',
         cached: false,
       });
@@ -174,20 +171,19 @@ export async function filterByInterests(
         logger.verbose(`    Filtered out low-confidence matches: ${lowConfDetails}`);
       }
 
-      // Convert to interest names (for backward compat) and InterestMatch objects
-      const matchedInterests: string[] = validMatches.map((m) => config.userInterests[m.index]);
+      // Convert to InterestMatch objects
       const interestMatchesWithNames: Array<{ interest: string; confidence: number }> = validMatches.map((m) => ({
         interest: config.userInterests[m.index],
         confidence: m.confidence,
       }));
 
-      if (matchedInterests.length > 0) {
+      if (interestMatchesWithNames.length > 0) {
         matchedEvents.push({
           ...event,
-          interests_matched: matchedInterests,
           interest_matches: interestMatchesWithNames,
         });
-        cache.cacheMatchingInterests(event.message.link, matchedInterests, config.userInterests, false);
+        const matchedInterestNames = interestMatchesWithNames.map((m) => m.interest);
+        cache.cacheMatchingInterests(event.message.link, matchedInterestNames, config.userInterests, false);
 
         debugEntries.push({
           message: event.message,
@@ -195,7 +191,6 @@ export async function filterByInterests(
           start_datetime: event.start_datetime!,
           ai_prompt: prompt,
           ai_response: result,
-          interests_matched: matchedInterests,
           interest_matches: interestMatchesWithNames,
           result: 'matched',
           cached: false,
@@ -214,7 +209,6 @@ export async function filterByInterests(
           start_datetime: event.start_datetime!,
           ai_prompt: prompt,
           ai_response: result,
-          interests_matched: [],
           interest_matches: [],
           result: 'discarded',
           cached: false,

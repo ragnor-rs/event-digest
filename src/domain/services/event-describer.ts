@@ -35,7 +35,7 @@ export async function describeEvents(
           message: event.message,
           event_type: event.event_type!,
           start_datetime: event.start_datetime!,
-          interests_matched: event.interests_matched!,
+          interest_matches: event.interest_matches!,
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: ${cachedEventDescription.title || 'N/A'}]`,
           extracted_title: cachedEventDescription.title || 'N/A',
@@ -69,7 +69,7 @@ export async function describeEvents(
       .map(
         (event, idx) => `${idx + 1}.
 Start time: ${formatDateTime(event.start_datetime!)}
-Interests: ${event.interests_matched!.join(', ')}
+Interests: ${event.interest_matches!.map((m) => m.interest).join(', ')}
 Content: ${event.message.content.replace(/\n/g, ' ')}
 Link: ${event.message.link}`
       )
@@ -115,7 +115,7 @@ Link: ${event.message.link}`
               message: event.message,
               event_type: event.event_type!,
               start_datetime: event.start_datetime!,
-              interests_matched: event.interests_matched!,
+              interest_matches: event.interest_matches!,
               ai_prompt: prompt,
               ai_response: '[NO RESPONSE]',
               extracted_title: 'Event',
@@ -157,7 +157,7 @@ Link: ${event.message.link}`
             message: event.message,
             event_type: event.event_type!,
             start_datetime: event.start_datetime!,
-            interests_matched: event.interests_matched!,
+            interest_matches: event.interest_matches!,
             ai_prompt: prompt,
             ai_response: result,
             extracted_title: title,
