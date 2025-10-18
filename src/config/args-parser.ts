@@ -1,5 +1,12 @@
 import { Config } from './types';
 
+/**
+ * Strips @ symbol from a string if present at the start
+ */
+function stripAtSymbol(value: string): string {
+  return value.startsWith('@') ? value.substring(1) : value;
+}
+
 const VALID_OPTIONS = [
   '--config',
   '--groups',
@@ -43,10 +50,10 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
 
     switch (key) {
       case '--groups':
-        config.groupsToParse = value.split(',').map((s) => s.trim());
+        config.groupsToParse = value.split(',').map((s) => stripAtSymbol(s.trim()));
         break;
       case '--channels':
-        config.channelsToParse = value.split(',').map((s) => s.trim());
+        config.channelsToParse = value.split(',').map((s) => stripAtSymbol(s.trim()));
         break;
       case '--interests':
         config.userInterests = value.split(',').map((s) => s.trim());

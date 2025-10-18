@@ -1,15 +1,15 @@
 # Event Digest Configuration Example
 # Copy this file to config.yaml and customize for your needs
 
-# Telegram groups to monitor (without @ prefix)
+# Telegram groups to monitor (with or without @ prefix)
 groupsToParse:
-  - "example_tech_chat"
-  - "local_events_group"
+  - "@example_tech_chat"
+  - "@local_events_group"
 
-# Telegram channels to monitor (without @ prefix)
+# Telegram channels to monitor (with or without @ prefix)
 channelsToParse:
-  - "city_announcements"
-  - "cultural_events_channel"
+  - "@city_announcements"
+  - "@cultural_events_channel"
 
 # Your interests - events will be matched against these topics
 userInterests:
