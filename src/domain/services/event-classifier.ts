@@ -1,7 +1,6 @@
 import { Config } from '../../config/types';
-import { Cache } from '../../data/cache';
-import { OpenAIClient } from '../../data/openai-client';
-import { DebugTypeClassificationEntry } from '../../presentation/debug-writer';
+import { IAIClient, ICache } from '../interfaces';
+import { DebugTypeClassificationEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
 import { Event, EventType } from '../entities';
@@ -9,8 +8,8 @@ import { Event, EventType } from '../entities';
 export async function classifyEventTypes(
   events: Event[],
   config: Config,
-  openaiClient: OpenAIClient,
-  cache: Cache,
+  aiClient: IAIClient,
+  cache: ICache,
   debugEntries: DebugTypeClassificationEntry[],
   logger: Logger
 ): Promise<Event[]> {
@@ -35,8 +34,8 @@ export async function classifyEventTypes(
         logger.verbose(`    ✗ Discarded: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
         debugEntries.push({
           message: event.message,
-          gpt_prompt: '[CACHED]',
-          gpt_response: `[CACHED: ${cachedType}]`,
+          ai_prompt: '[CACHED]',
+          ai_response: `[CACHED: ${cachedType}]`,
           result: 'discarded',
           substep: '4_classification',
           cached: true,
@@ -48,8 +47,8 @@ export async function classifyEventTypes(
         });
         debugEntries.push({
           message: event.message,
-          gpt_prompt: '[CACHED]',
-          gpt_response: `[CACHED: ${cachedType}]`,
+          ai_prompt: '[CACHED]',
+          ai_response: `[CACHED: ${cachedType}]`,
           result: cachedType,
           substep: '4_classification',
           cached: true,
@@ -65,12 +64,12 @@ export async function classifyEventTypes(
   }
 
   if (uncachedEvents.length === 0) {
-    logger.verbose(`  All events cached, skipping GPT calls`);
+    logger.verbose(`  All events cached, skipping AI calls`);
     logger.log(`  Created ${classifiedEvents.length} classified events`);
     return classifiedEvents;
   }
 
-  const chunks = createBatches(uncachedEvents, config.gptBatchSizeEventClassification);
+  const chunks = createBatches(uncachedEvents, config.eventClassificationBatchSize);
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -81,7 +80,7 @@ export async function classifyEventTypes(
       .join('\n\n');
     const prompt = (config.eventTypeClassificationPrompt || '').replace('{{MESSAGES}}', messagesText);
 
-    const result = await openaiClient.callWithDelay(prompt);
+    const result = await aiClient.call(prompt);
     const processedIndices = new Set<number>();
 
     if (result) {
@@ -134,8 +133,8 @@ export async function classifyEventTypes(
             logger.verbose(`    ✗ Discarded: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
             debugEntries.push({
               message: chunk[messageIdx].message,
-              gpt_prompt: prompt,
-              gpt_response: result,
+              ai_prompt: prompt,
+              ai_response: result,
               result: 'discarded',
               substep: '4_classification',
               cached: false,
@@ -147,8 +146,8 @@ export async function classifyEventTypes(
             });
             debugEntries.push({
               message: chunk[messageIdx].message,
-              gpt_prompt: prompt,
-              gpt_response: result,
+              ai_prompt: prompt,
+              ai_response: result,
               result: eventType,
               substep: '4_classification',
               cached: false,
@@ -159,22 +158,22 @@ export async function classifyEventTypes(
         }
       }
 
-      // Log warnings for unexpected GPT output
+      // Log warnings for unexpected AI output
       if (outOfRangeIndices.length > 0) {
         logger.verbose(
-          `    WARNING: GPT returned out-of-range indices (valid range: 1-${chunk.length}): ${outOfRangeIndices.join(', ')}`
+          `    WARNING: AI returned out-of-range indices (valid range: 1-${chunk.length}): ${outOfRangeIndices.join(', ')}`
         );
       }
       if (invalidClassifications.length > 0) {
         const details = invalidClassifications.map((c) => `${c.index}:${c.value}`).join(', ');
-        logger.verbose(`    WARNING: GPT returned invalid classification values (valid: 0-2): ${details}`);
+        logger.verbose(`    WARNING: AI returned invalid classification values (valid: 0-2): ${details}`);
       }
       if (duplicateIndices.length > 0) {
-        logger.verbose(`    WARNING: GPT returned duplicate indices: ${duplicateIndices.join(', ')}`);
+        logger.verbose(`    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`);
       }
       if (malformedLines.length > 0) {
         logger.verbose(
-          `    WARNING: GPT returned unexpected format in lines: ${malformedLines.slice(0, 3).join(', ')}${malformedLines.length > 3 ? ` (and ${malformedLines.length - 3} more)` : ''}`
+          `    WARNING: AI returned unexpected format in lines: ${malformedLines.slice(0, 3).join(', ')}${malformedLines.length > 3 ? ` (and ${malformedLines.length - 3} more)` : ''}`
         );
       }
     }
@@ -191,8 +190,8 @@ export async function classifyEventTypes(
         });
         debugEntries.push({
           message: chunk[idx].message,
-          gpt_prompt: prompt,
-          gpt_response: result || '[NO RESPONSE]',
+          ai_prompt: prompt,
+          ai_response: result || '[NO RESPONSE]',
           result: eventType,
           substep: '4_classification',
           cached: false,

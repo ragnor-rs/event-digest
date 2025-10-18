@@ -110,10 +110,10 @@ minInterestConfidence: 0.75
 # GPT batch sizes for processing (optional)
 # Controls how many items are processed in each GPT API call
 # Larger batches are faster but may reduce accuracy
-gptBatchSizeEventDetection: 16      # Step 3: Event detection
-gptBatchSizeEventClassification: 16 # Step 4: Event type classification
-gptBatchSizeScheduleExtraction: 16  # Step 5: Schedule extraction
-gptBatchSizeEventDescription: 5     # Step 7: Event description generation
+eventDetectionBatchSize: 16      # Step 3: Event detection
+eventClassificationBatchSize: 16 # Step 4: Event type classification
+scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
+eventDescriptionBatchSize: 5     # Step 7: Event description generation
 
 # Optional: Custom GPT prompts for AI filtering steps
 # See config.example.yaml for detailed placeholder docs and examples
@@ -150,10 +150,10 @@ npm run dev -- \
   --write-debug-files false \
   --verbose-logging false \
   --min-interest-confidence 0.75 \
-  --gpt-batch-size-event-detection 16 \
-  --gpt-batch-size-event-classification 16 \
-  --gpt-batch-size-schedule-extraction 16 \
-  --gpt-batch-size-event-description 5
+  --event-detection-batch-size 16 \
+  --event-classification-batch-size 16 \
+  --schedule-extraction-batch-size 16 \
+  --event-description-batch-size 5
 ```
 
 #### Option 4: Mix YAML and CLI (Override Specific Values)
@@ -165,7 +165,7 @@ Load YAML config and override specific parameters via command line:
 npm run dev -- --verbose-logging true
 
 # Use config.yaml but change batch sizes for testing
-npm run dev -- --gpt-batch-size-event-detection 8 --verbose-logging true
+npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 ```
 
 ### Configuration Parameters
@@ -181,10 +181,10 @@ npm run dev -- --gpt-batch-size-event-detection 8 --verbose-logging true
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
 - `minInterestConfidence`/`--min-interest-confidence`: Minimum confidence threshold (0.0-1.0) for interest matching; GPT assigns scores, only matches ≥ threshold included (default: 0.75)
 - **GPT Batch Sizes** (optional - controls processing efficiency):
-  - `gptBatchSizeEventDetection`/`--gpt-batch-size-event-detection`: Items per batch for event detection (default: 16)
-  - `gptBatchSizeEventClassification`/`--gpt-batch-size-event-classification`: Items per batch for event type classification (default: 16)
-  - `gptBatchSizeScheduleExtraction`/`--gpt-batch-size-schedule-extraction`: Items per batch for schedule extraction (default: 16)
-  - `gptBatchSizeEventDescription`/`--gpt-batch-size-event-description`: Items per batch for event description generation (default: 5)
+  - `eventDetectionBatchSize`/`--event-detection-batch-size`: Items per batch for event detection (default: 16)
+  - `eventClassificationBatchSize`/`--event-classification-batch-size`: Items per batch for event type classification (default: 16)
+  - `scheduleExtractionBatchSize`/`--schedule-extraction-batch-size`: Items per batch for schedule extraction (default: 16)
+  - `eventDescriptionBatchSize`/`--event-description-batch-size`: Items per batch for event description generation (default: 5)
 - **Custom GPT Prompts** (optional, YAML only - all 5 AI steps configurable):
   - `eventDetectionPrompt`: Custom prompt for event detection (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Custom prompt for event type classification (step 4) - uses `{{MESSAGES}}` placeholder

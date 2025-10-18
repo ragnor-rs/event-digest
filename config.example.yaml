@@ -72,13 +72,13 @@ weeklyTimeslots:
 # Recommended: 0.75 for balanced precision/recall
 # minInterestConfidence: 0.75
 
-# Optional: GPT batch sizes for processing (defaults shown)
-# Controls how many items are processed in each GPT API call
+# Optional: AI batch sizes for processing (defaults shown)
+# Controls how many items are processed in each AI API call
 # Larger batches are faster but may reduce accuracy
-# gptBatchSizeEventDetection: 16      # Step 3: Event detection
-# gptBatchSizeEventClassification: 16 # Step 4: Event type classification
-# gptBatchSizeScheduleExtraction: 16  # Step 5: Schedule extraction
-# gptBatchSizeEventDescription: 5     # Step 7: Event description generation
+# eventDetectionBatchSize: 16      # Step 3: Event detection
+# eventClassificationBatchSize: 16 # Step 4: Event type classification
+# scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
+# eventDescriptionBatchSize: 5     # Step 7: Event description generation
 
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used

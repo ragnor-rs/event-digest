@@ -2,9 +2,8 @@ import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 
 import { DATETIME_UNKNOWN } from '../../config/constants';
 import { Config } from '../../config/types';
-import { Cache } from '../../data/cache';
-import { OpenAIClient } from '../../data/openai-client';
-import { DebugScheduleFilteringEntry } from '../../presentation/debug-writer';
+import { IAIClient, ICache } from '../interfaces';
+import { DebugScheduleFilteringEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { normalizeDateTime, MAX_FUTURE_YEARS, DATE_FORMAT } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
@@ -66,8 +65,8 @@ function processCachedEvent(
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: '[CACHED]',
-        gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        ai_prompt: '[CACHED]',
+        ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
         extracted_datetime: normalizedCachedDateTime,
         result: 'discarded',
         discard_reason: validation.reason,
@@ -80,8 +79,8 @@ function processCachedEvent(
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: '[CACHED]',
-        gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        ai_prompt: '[CACHED]',
+        ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
         extracted_datetime: normalizedCachedDateTime,
         result: 'scheduled',
         cached: true,
@@ -92,8 +91,8 @@ function processCachedEvent(
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: '[CACHED]',
-        gpt_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
+        ai_prompt: '[CACHED]',
+        ai_response: `[CACHED: datetime ${normalizedCachedDateTime}]`,
         extracted_datetime: normalizedCachedDateTime,
         result: 'discarded',
         discard_reason: 'outside desired timeslots',
@@ -118,7 +117,7 @@ function processExtractedDateTime(
   prompt: string,
   result: string,
   config: Config,
-  cache: Cache,
+  cache: ICache,
   logger: Logger,
   debugEntries: DebugScheduleFilteringEntry[],
   scheduledEvents: Event[]
@@ -136,8 +135,8 @@ function processExtractedDateTime(
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: prompt,
-        gpt_response: result || '',
+        ai_prompt: prompt,
+        ai_response: result || '',
         extracted_datetime: dateTime,
         result: 'discarded',
         discard_reason: 'could not parse date',
@@ -154,8 +153,8 @@ function processExtractedDateTime(
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: prompt,
-        gpt_response: result || '',
+        ai_prompt: prompt,
+        ai_response: result || '',
         extracted_datetime: normalizedDateTime,
         result: 'discarded',
         discard_reason: validation.reason,
@@ -173,8 +172,8 @@ function processExtractedDateTime(
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: prompt,
-        gpt_response: result || '',
+        ai_prompt: prompt,
+        ai_response: result || '',
         extracted_datetime: normalizedDateTime,
         result: 'scheduled',
         cached: false,
@@ -184,8 +183,8 @@ function processExtractedDateTime(
       debugEntries.push({
         message: event.message,
         event_type: event.event_type!,
-        gpt_prompt: prompt,
-        gpt_response: result || '',
+        ai_prompt: prompt,
+        ai_response: result || '',
         extracted_datetime: normalizedDateTime,
         result: 'discarded',
         discard_reason: 'outside desired timeslots',
@@ -200,8 +199,8 @@ function processExtractedDateTime(
     debugEntries.push({
       message: event.message,
       event_type: event.event_type!,
-      gpt_prompt: prompt,
-      gpt_response: result || '',
+      ai_prompt: prompt,
+      ai_response: result || '',
       extracted_datetime: dateTime,
       result: 'discarded',
       discard_reason: `date parsing error: ${errorMsg}`,
@@ -213,8 +212,8 @@ function processExtractedDateTime(
 export async function filterBySchedule(
   events: Event[],
   config: Config,
-  openaiClient: OpenAIClient,
-  cache: Cache,
+  aiClient: IAIClient,
+  cache: ICache,
   debugEntries: DebugScheduleFilteringEntry[],
   logger: Logger
 ): Promise<Event[]> {
@@ -247,8 +246,8 @@ export async function filterBySchedule(
         debugEntries.push({
           message: event.message,
           event_type: event.event_type!,
-          gpt_prompt: '[CACHED]',
-          gpt_response: '[CACHED: unknown datetime]',
+          ai_prompt: '[CACHED]',
+          ai_response: '[CACHED: unknown datetime]',
           extracted_datetime: DATETIME_UNKNOWN,
           result: 'discarded',
           discard_reason: 'no date/time found',
@@ -265,12 +264,12 @@ export async function filterBySchedule(
   }
 
   if (uncachedEvents.length === 0) {
-    logger.verbose(`  All messages cached, skipping GPT calls`);
+    logger.verbose(`  All messages cached, skipping AI calls`);
     logger.log(`  Found ${scheduledEvents.length} messages matching schedule`);
     return scheduledEvents;
   }
 
-  const chunks = createBatches(uncachedEvents, config.gptBatchSizeScheduleExtraction);
+  const chunks = createBatches(uncachedEvents, config.scheduleExtractionBatchSize);
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -287,7 +286,7 @@ export async function filterBySchedule(
       .scheduleExtractionPrompt!.replace('{{TODAY_DATE}}', new Date().toDateString())
       .replace('{{MESSAGES}}', messagesText);
 
-    const result = await openaiClient.callWithDelay(prompt);
+    const result = await aiClient.call(prompt);
 
     if (result) {
       const lines = result.split('\n').filter((line) => line.includes(':'));
@@ -333,8 +332,8 @@ export async function filterBySchedule(
           debugEntries.push({
             message: chunk[idx].message,
             event_type: chunk[idx].event_type!,
-            gpt_prompt: prompt,
-            gpt_response: result || '',
+            ai_prompt: prompt,
+            ai_response: result || '',
             extracted_datetime: DATETIME_UNKNOWN,
             result: 'discarded',
             discard_reason: 'no date/time found',
@@ -343,15 +342,15 @@ export async function filterBySchedule(
         }
       }
     } else {
-      // No results from GPT, cache as unknown
+      // No results from AI, cache as unknown
       for (const event of chunk) {
         logger.verbose(`    ✗ Discarded: ${event.message.link} - no date/time found`);
         cache.cacheScheduledEvent(event.message.link, DATETIME_UNKNOWN, config.weeklyTimeslots, false);
         debugEntries.push({
           message: event.message,
           event_type: event.event_type!,
-          gpt_prompt: prompt,
-          gpt_response: result || '[NO RESPONSE]',
+          ai_prompt: prompt,
+          ai_response: result || '[NO RESPONSE]',
           extracted_datetime: DATETIME_UNKNOWN,
           result: 'discarded',
           discard_reason: 'no date/time found',

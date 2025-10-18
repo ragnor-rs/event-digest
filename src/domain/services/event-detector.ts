@@ -1,7 +1,6 @@
 import { Config } from '../../config/types';
-import { Cache } from '../../data/cache';
-import { OpenAIClient } from '../../data/openai-client';
-import { DebugEventDetectionEntry } from '../../presentation/debug-writer';
+import { IAIClient, ICache } from '../interfaces';
+import { DebugEventDetectionEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
 import { TelegramMessage, Event } from '../entities';
@@ -9,8 +8,8 @@ import { TelegramMessage, Event } from '../entities';
 export async function detectEventAnnouncements(
   messages: TelegramMessage[],
   config: Config,
-  openaiClient: OpenAIClient,
-  cache: Cache,
+  aiClient: IAIClient,
+  cache: ICache,
   debugEntries: DebugEventDetectionEntry[],
   logger: Logger
 ): Promise<Event[]> {
@@ -55,12 +54,12 @@ export async function detectEventAnnouncements(
   }
 
   if (uncachedMessages.length === 0) {
-    logger.verbose(`  All messages cached, skipping GPT calls`);
-    logger.log(`  GPT identified ${events.length} event messages`);
+    logger.verbose(`  All messages cached, skipping AI calls`);
+    logger.log(`  AI identified ${events.length} event messages`);
     return events;
   }
 
-  const chunks = createBatches(uncachedMessages, config.gptBatchSizeEventDetection);
+  const chunks = createBatches(uncachedMessages, config.eventDetectionBatchSize);
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -71,7 +70,7 @@ export async function detectEventAnnouncements(
       chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')
     );
 
-    const result = await openaiClient.callWithDelay(prompt);
+    const result = await aiClient.call(prompt);
 
     if (result && result !== 'none') {
       const lines = result.split('\n').filter((line) => line.trim());
@@ -113,25 +112,25 @@ export async function detectEventAnnouncements(
             isEvent: true,
             cached: false,
             prompt,
-            gptResponse: result,
+            aiResponse: result,
           });
         } else if (line.trim() !== '' && !line.toLowerCase().includes('none')) {
           malformedLines.push(line);
         }
       }
 
-      // Log warnings for unexpected GPT output
+      // Log warnings for unexpected AI output
       if (outOfRangeIndices.length > 0) {
         logger.verbose(
-          `    WARNING: GPT returned out-of-range indices (valid range: 1-${chunk.length}): ${outOfRangeIndices.join(', ')}`
+          `    WARNING: AI returned out-of-range indices (valid range: 1-${chunk.length}): ${outOfRangeIndices.join(', ')}`
         );
       }
       if (duplicateIndices.length > 0) {
-        logger.verbose(`    WARNING: GPT returned duplicate indices: ${duplicateIndices.join(', ')}`);
+        logger.verbose(`    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`);
       }
       if (malformedLines.length > 0) {
         logger.verbose(
-          `    WARNING: GPT returned unexpected format in lines: ${malformedLines.slice(0, 3).join(', ')}${malformedLines.length > 3 ? ` (and ${malformedLines.length - 3} more)` : ''}`
+          `    WARNING: AI returned unexpected format in lines: ${malformedLines.slice(0, 3).join(', ')}${malformedLines.length > 3 ? ` (and ${malformedLines.length - 3} more)` : ''}`
         );
       }
 
@@ -146,7 +145,7 @@ export async function detectEventAnnouncements(
             isEvent: false,
             cached: false,
             prompt,
-            gptResponse: result,
+            aiResponse: result,
           });
         }
       }
@@ -161,7 +160,7 @@ export async function detectEventAnnouncements(
           isEvent: false,
           cached: false,
           prompt,
-          gptResponse: result || 'none',
+          aiResponse: result || 'none',
         });
       }
     }
@@ -170,6 +169,6 @@ export async function detectEventAnnouncements(
     cache.save();
   }
 
-  logger.log(`  GPT identified ${events.length} event messages`);
+  logger.log(`  AI identified ${events.length} event messages`);
   return events;
 }

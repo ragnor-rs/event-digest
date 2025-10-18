@@ -1,61 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { TelegramMessage, InterestMatch, EventType } from '../domain/entities';
+import {
+  DebugEventDetectionEntry,
+  DebugTypeClassificationEntry,
+  DebugScheduleFilteringEntry,
+  DebugInterestMatchingEntry,
+  DebugEventDescriptionEntry,
+} from '../domain/types';
+import { EventType } from '../domain/entities';
 import { Logger } from '../shared/logger';
-
-export interface DebugEventDetectionEntry {
-  messageLink: string;
-  isEvent: boolean;
-  cached: boolean;
-  prompt?: string;
-  gptResponse?: string;
-}
-
-export interface DebugTypeClassificationEntry {
-  message: TelegramMessage;
-  gpt_prompt: string;
-  gpt_response: string;
-  result: EventType | 'discarded';
-  substep: '4_classification';
-  cached: boolean;
-}
-
-export interface DebugScheduleFilteringEntry {
-  message: TelegramMessage;
-  event_type: string;
-  gpt_prompt: string;
-  gpt_response: string;
-  extracted_datetime: string;
-  result: 'scheduled' | 'discarded';
-  discard_reason?: string;
-  cached: boolean;
-}
-
-export interface DebugInterestMatchingEntry {
-  message: TelegramMessage;
-  event_type: string;
-  start_datetime: string;
-  gpt_prompt: string;
-  gpt_response: string;
-  interests_matched: string[];
-  interest_matches?: InterestMatch[]; // New: with confidence scores
-  result: 'matched' | 'discarded';
-  cached: boolean;
-}
-
-export interface DebugEventDescriptionEntry {
-  message: TelegramMessage;
-  event_type: string;
-  start_datetime: string;
-  interests_matched: string[];
-  gpt_prompt: string;
-  gpt_response: string;
-  extracted_title: string;
-  extracted_summary: string;
-  extraction_success: boolean;
-  cached: boolean;
-}
 
 class DebugWriter {
   private debugDir = 'debug';
@@ -111,8 +65,8 @@ class DebugWriter {
   private writeEventDetectionFile(): void {
     const filename = path.join(this.debugDir, 'event_detection.json');
     const data = {
-      step: 'GPT Event Detection',
-      description: 'GPT filtering to identify single event announcements',
+      step: 'AI Event Detection',
+      description: 'AI filtering to identify single event announcements',
       total_entries: this.eventDetectionEntries.length,
       result_counts: {
         is_event: this.eventDetectionEntries.filter((e) => e.isEvent).length,
@@ -131,7 +85,7 @@ class DebugWriter {
     const filename = path.join(this.debugDir, 'event_classification.json');
     const data = {
       step: 'Event Type Classification',
-      description: 'Index-based GPT classification of events as offline (0), online (1), or hybrid (2)',
+      description: 'Index-based AI classification of events as offline (0), online (1), or hybrid (2)',
       total_entries: this.typeClassificationEntries.length,
       result_counts: {
         hybrid: this.typeClassificationEntries.filter((e) => e.result === EventType.HYBRID).length,
@@ -152,7 +106,7 @@ class DebugWriter {
     const filename = path.join(this.debugDir, 'schedule_filtering.json');
     const data = {
       step: 'Schedule Filtering',
-      description: 'GPT datetime extraction and schedule matching',
+      description: 'AI datetime extraction and schedule matching',
       total_entries: this.scheduleFilteringEntries.length,
       result_counts: {
         scheduled: this.scheduleFilteringEntries.filter((e) => e.result === 'scheduled').length,
@@ -172,7 +126,7 @@ class DebugWriter {
     const filename = path.join(this.debugDir, 'interest_matching.json');
     const data = {
       step: 'Interest Matching',
-      description: 'GPT matching of events to user interests',
+      description: 'AI matching of events to user interests',
       total_entries: this.interestMatchingEntries.length,
       result_counts: {
         matched: this.interestMatchingEntries.filter((e) => e.result === 'matched').length,
@@ -202,7 +156,7 @@ class DebugWriter {
     const filename = path.join(this.debugDir, 'event_description.json');
     const data = {
       step: 'Event Description Generation',
-      description: 'GPT-based event description extraction (title, summary)',
+      description: 'AI-based event description extraction (title, summary)',
       total_entries: this.eventDescriptionEntries.length,
       result_counts: {
         successful: this.eventDescriptionEntries.filter((e) => e.extraction_success).length,

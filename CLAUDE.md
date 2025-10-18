@@ -38,10 +38,10 @@ npm run dev -- \
   --write-debug-files true \
   --verbose-logging false \
   --min-interest-confidence 0.75 \
-  --gpt-batch-size-event-detection 16 \
-  --gpt-batch-size-event-classification 16 \
-  --gpt-batch-size-schedule-extraction 16 \
-  --gpt-batch-size-event-description 5
+  --event-detection-batch-size 16 \
+  --event-classification-batch-size 16 \
+  --schedule-extraction-batch-size 16 \
+  --event-description-batch-size 5
 ```
 
 Option 4 - Override YAML config with CLI arguments:
@@ -50,7 +50,7 @@ Option 4 - Override YAML config with CLI arguments:
 npm run dev -- --verbose-logging true
 
 # Mix YAML config with specific CLI overrides
-npm run dev -- --gpt-batch-size-event-detection 8 --verbose-logging true
+npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 ```
 
 **Note:** Command-line arguments always override YAML configuration values.
@@ -161,10 +161,10 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `verboseLogging` parameter (default: false) enables detailed processing logs with cache stats, batch numbers, and DISCARDED message links
 - `minInterestConfidence` parameter (default: 0.75) sets minimum confidence threshold for interest matching; GPT assigns 0.0-1.0 scores, only matches ≥ threshold are included
 - **Configurable GPT batch sizes** (all optional with defaults optimized for balance of speed and accuracy):
-  - `gptBatchSizeEventDetection` (default: 16): Controls batch size for step 3 event detection
-  - `gptBatchSizeEventClassification` (default: 16): Controls batch size for step 4 event type classification
-  - `gptBatchSizeScheduleExtraction` (default: 16): Controls batch size for step 5 schedule extraction
-  - `gptBatchSizeEventDescription` (default: 5): Controls batch size for step 7 event description generation
+  - `eventDetectionBatchSize` (default: 16): Controls batch size for step 3 event detection
+  - `eventClassificationBatchSize` (default: 16): Controls batch size for step 4 event type classification
+  - `scheduleExtractionBatchSize` (default: 16): Controls batch size for step 5 schedule extraction
+  - `eventDescriptionBatchSize` (default: 5): Controls batch size for step 7 event description generation
 - **Configurable GPT prompts** (all optional with sensible defaults in config/defaults.ts):
   - `eventDetectionPrompt`: Customizes event detection logic (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Customizes event type classification (step 4) - uses `{{MESSAGES}}` placeholder
