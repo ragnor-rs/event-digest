@@ -1,6 +1,6 @@
 import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 
-import { DATETIME_UNKNOWN } from '../../config/constants';
+import { DATETIME_UNKNOWN } from '../constants';
 import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugScheduleFilteringEntry } from '../types';

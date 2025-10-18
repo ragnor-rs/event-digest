@@ -1,13 +1,25 @@
 import OpenAI from 'openai';
 
 import { IAIClient } from '../domain/interfaces';
-import { OPENAI_MAX_RETRIES, OPENAI_INITIAL_BACKOFF_MS } from '../config/constants';
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
 import { Logger } from '../shared/logger';
 
 const GPT_MODEL = 'gpt-5-mini';
 const GPT_TEMPERATURE = 1.0;
 export const GPT_TEMPERATURE_CREATIVE = 1.0;
+
+/**
+ * Maximum number of retry attempts for OpenAI API calls when rate limited.
+ * 3 retries provides good balance between resilience and fast failure.
+ */
+const OPENAI_MAX_RETRIES = 3;
+
+/**
+ * Initial backoff delay in milliseconds for OpenAI rate limit retries.
+ * Uses exponential backoff: 2s, 4s, 8s for retries.
+ * 2000ms (2 seconds) is a reasonable starting point for rate limit recovery.
+ */
+const OPENAI_INITIAL_BACKOFF_MS = 2000;
 
 export class OpenAIClient implements IAIClient {
   private client: OpenAI;

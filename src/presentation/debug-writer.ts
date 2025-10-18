@@ -11,24 +11,21 @@ import {
 import { EventType } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
-class DebugWriter {
+export class DebugWriter {
   private debugDir = 'debug';
   private eventDetectionEntries: DebugEventDetectionEntry[] = [];
   private typeClassificationEntries: DebugTypeClassificationEntry[] = [];
   private scheduleFilteringEntries: DebugScheduleFilteringEntry[] = [];
   private interestMatchingEntries: DebugInterestMatchingEntry[] = [];
   private eventDescriptionEntries: DebugEventDescriptionEntry[] = [];
-  private logger?: Logger;
+  private logger: Logger;
 
-  constructor() {
+  constructor(logger: Logger) {
+    this.logger = logger;
     // Create debug directory if it doesn't exist
     if (!fs.existsSync(this.debugDir)) {
       fs.mkdirSync(this.debugDir, { recursive: true });
     }
-  }
-
-  setLogger(logger: Logger): void {
-    this.logger = logger;
   }
 
   writeEventDetection(entries: DebugEventDetectionEntry[]): void {
@@ -57,9 +54,7 @@ class DebugWriter {
     this.writeScheduleFiltering();
     this.writeInterestMatching();
     this.writeEventDescription();
-    if (this.logger) {
-      this.logger.log(`Debug files written to ${this.debugDir}/ directory`);
-    }
+    this.logger.log(`Debug files written to ${this.debugDir}/ directory`);
   }
 
   private writeEventDetectionFile(): void {
@@ -171,5 +166,3 @@ class DebugWriter {
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 }
-
-export const debugWriter = new DebugWriter();
