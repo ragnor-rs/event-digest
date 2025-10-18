@@ -2,24 +2,24 @@ import { Config } from '../../config/types';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugInterestMatchingEntry } from '../types';
 import { Logger } from '../../shared/logger';
-import { Event } from '../entities';
+import { DigestEvent } from '../entities';
 
 export async function filterByInterests(
-  events: Event[],
+  events: DigestEvent[],
   config: Config,
   aiClient: IAIClient,
   cache: ICache,
   debugEntries: DebugInterestMatchingEntry[],
   logger: Logger
-): Promise<Event[]> {
+): Promise<DigestEvent[]> {
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];
   }
 
   // Check cache first
-  const uncachedEvents: Event[] = [];
-  const matchedEvents: Event[] = [];
+  const uncachedEvents: DigestEvent[] = [];
+  const matchedEvents: DigestEvent[] = [];
   let cacheHits = 0;
 
   logger.verbose('  Processing cache...');
@@ -81,7 +81,7 @@ export async function filterByInterests(
 
   // Process each event individually
   for (let i = 0; i < uncachedEvents.length; i++) {
-    const event: Event = uncachedEvents[i];
+    const event: DigestEvent = uncachedEvents[i];
     logger.verbose(`  Processing event ${i + 1}/${uncachedEvents.length}...`);
 
     const eventsText = `0: ${event.message.content.replace(/\n/g, ' ')}`;

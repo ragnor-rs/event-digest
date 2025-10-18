@@ -3,23 +3,23 @@ import { IAIClient, ICache } from '../interfaces';
 import { DebugTypeClassificationEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
-import { Event, EventType } from '../entities';
+import { DigestEvent, EventType } from '../entities';
 
 export async function classifyEventTypes(
-  events: Event[],
+  events: DigestEvent[],
   config: Config,
   aiClient: IAIClient,
   cache: ICache,
   debugEntries: DebugTypeClassificationEntry[],
   logger: Logger
-): Promise<Event[]> {
+): Promise<DigestEvent[]> {
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];
   }
 
-  const classifiedEvents: Event[] = [];
-  const uncachedEvents: Event[] = [];
+  const classifiedEvents: DigestEvent[] = [];
+  const uncachedEvents: DigestEvent[] = [];
   let cacheHits = 0;
 
   logger.verbose('  Processing cache...');

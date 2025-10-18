@@ -1,6 +1,6 @@
 import { Config } from '../config/types';
 import { IAIClient, ICache, IMessageSource, IDebugWriter } from '../domain/interfaces';
-import { Event } from '../domain/entities';
+import { DigestEvent } from '../domain/entities';
 import {
   filterByEventCues,
   detectEventAnnouncements,
@@ -28,7 +28,7 @@ export class EventPipeline {
     private logger: Logger
   ) {}
 
-  async execute(): Promise<Event[]> {
+  async execute(): Promise<DigestEvent[]> {
     try {
 
       // Connect to message source

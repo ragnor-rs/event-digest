@@ -232,7 +232,7 @@ This codebase follows **Clean Architecture** and **Domain-Driven Design (DDD)** 
 ```
 src/
 ├── domain/                     # Business logic & domain entities
-│   ├── entities/               # Domain entities (Event, SourceMessage, etc.)
+│   ├── entities/               # Domain entities (DigestEvent, SourceMessage, etc.)
 │   ├── interfaces/             # Domain interfaces (IAIClient, ICache, IMessageSource, IDebugWriter)
 │   ├── services/               # Business logic services (filtering, matching, etc.)
 │   ├── types/                  # Domain types (debug entry types, etc.)

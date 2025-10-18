@@ -7,7 +7,7 @@ import { DebugScheduleFilteringEntry } from '../types';
 import { createBatches } from '../../shared/batch-processor';
 import { normalizeDateTime, MAX_FUTURE_YEARS, DATE_FORMAT } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
-import { Event } from '../entities';
+import { DigestEvent } from '../entities';
 
 /**
  * Validates if an event datetime matches user's availability schedule
@@ -49,12 +49,12 @@ function isValidEventDateTime(eventDate: Date, messageDate: Date): { valid: bool
  * Processes a single cached event entry and validates it against current schedule
  */
 function processCachedEvent(
-  event: Event,
+  event: DigestEvent,
   cachedDateTime: string,
   config: Config,
   logger: Logger,
   debugEntries: DebugScheduleFilteringEntry[]
-): Event | null {
+): DigestEvent | null {
   try {
     const normalizedCachedDateTime = normalizeDateTime(cachedDateTime);
     const eventDate = parse(normalizedCachedDateTime, DATE_FORMAT, new Date());
@@ -112,7 +112,7 @@ function processCachedEvent(
  * Processes a freshly extracted datetime for an event and validates it
  */
 function processExtractedDateTime(
-  event: Event,
+  event: DigestEvent,
   dateTime: string,
   prompt: string,
   result: string,
@@ -120,7 +120,7 @@ function processExtractedDateTime(
   cache: ICache,
   logger: Logger,
   debugEntries: DebugScheduleFilteringEntry[],
-  scheduledEvents: Event[]
+  scheduledEvents: DigestEvent[]
 ): void {
   try {
     // Use normalized date for all processing
@@ -210,21 +210,21 @@ function processExtractedDateTime(
 }
 
 export async function filterBySchedule(
-  events: Event[],
+  events: DigestEvent[],
   config: Config,
   aiClient: IAIClient,
   cache: ICache,
   debugEntries: DebugScheduleFilteringEntry[],
   logger: Logger
-): Promise<Event[]> {
+): Promise<DigestEvent[]> {
   if (events.length === 0) {
     logger.log(`  No input on this step`);
     return [];
   }
 
   // Check cache first
-  const uncachedEvents: Event[] = [];
-  const scheduledEvents: Event[] = [];
+  const uncachedEvents: DigestEvent[] = [];
+  const scheduledEvents: DigestEvent[] = [];
   let cacheHits = 0;
 
   logger.verbose('  Processing cache...');
