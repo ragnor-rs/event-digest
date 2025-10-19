@@ -6,7 +6,6 @@ const VALID_OPTIONS = [
   '--channels',
   '--interests',
   '--timeslots',
-  '--last-timestamp',
   '--max-messages',
   '--max-group-messages',
   '--max-channel-messages',
@@ -53,9 +52,6 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
         break;
       case '--timeslots':
         config.weeklyTimeslots = value.split(',').map((s) => s.trim());
-        break;
-      case '--last-timestamp':
-        config.lastGenerationTimestamp = value;
         break;
       case '--max-messages': {
         const parsed = parseInt(value);
