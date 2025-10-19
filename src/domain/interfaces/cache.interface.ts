@@ -1,4 +1,4 @@
-import { SourceMessage, DigestEventDescription, AttendanceMode, InterestMatch } from '../entities';
+import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../entities';
 
 /**
  * Interface for cache operations
@@ -20,8 +20,8 @@ export interface ICache {
   cacheEventMessage(messageLink: string, isEvent: boolean, autoSave?: boolean): void;
 
   // Event type classification (step 4)
-  getEventTypeCache(messageLink: string): AttendanceMode | undefined;
-  cacheEventType(messageLink: string, eventType: AttendanceMode, autoSave?: boolean): void;
+  getEventTypeCache(messageLink: string): EventTypeClassification | undefined;
+  cacheEventType(messageLink: string, classification: EventTypeClassification, autoSave?: boolean): void;
 
   // Schedule filtering (step 5)
   getScheduledEventCache(messageLink: string): Date | null | undefined;

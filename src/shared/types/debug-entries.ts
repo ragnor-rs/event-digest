@@ -7,6 +7,7 @@
 export interface DebugEventDetectionEntry {
   messageLink: string;
   isEvent: boolean;
+  confidence?: number; // 0.0-1.0 confidence score from AI
   cached: boolean;
   prompt?: string;
   aiResponse?: string;
@@ -20,7 +21,11 @@ export interface DebugTypeClassificationEntry {
   };
   ai_prompt: string;
   ai_response: string;
-  result: 'offline' | 'online' | 'hybrid' | 'discarded';
+  type_classifications: Array<{
+    type: 'offline' | 'online' | 'hybrid';
+    confidence: number;
+  }>;
+  result: 'matched' | 'discarded';
   cached: boolean;
 }
 

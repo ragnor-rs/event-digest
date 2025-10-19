@@ -37,6 +37,8 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files true \
   --verbose-logging false \
+  --min-event-detection-confidence 0.7 \
+  --min-event-classification-confidence 0.7 \
   --min-interest-confidence 0.75 \
   --event-detection-batch-size 16 \
   --event-classification-batch-size 16 \
@@ -68,6 +70,7 @@ src/
 │   │   ├── digest-event.ts         # Core DigestEvent entity with optional fields
 │   │   ├── source-message.ts       # Raw message data from any source
 │   │   ├── interest-match.ts       # Interest match with confidence score
+│   │   ├── event-type-classification.ts  # Event type classification with confidence
 │   │   ├── digest-event-description.ts  # Structured event information
 │   │   ├── attendance-mode.ts      # AttendanceMode enum (OFFLINE/ONLINE/HYBRID)
 │   │   └── index.ts                # Barrel export
@@ -122,10 +125,10 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 1. **Message Fetching** (`data/telegram-client.ts`) - Fetches messages from Telegram groups/channels using GramJS with incremental fetching via minId parameter
 2. **Event Cue Filtering** (`domain/services/event-cues-filter.ts`) - Text-based filtering using configurable date/time keywords
-3. **GPT Event Detection** (`domain/services/event-detector.ts`) - AI-powered filtering to identify single event announcements, returns DigestEvent[] with message field
-4. **Event Type Classification** (`domain/services/event-classifier.ts`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents, adds event_type field (AttendanceMode enum) to DigestEvent
+3. **GPT Event Detection** (`domain/services/event-detector.ts`) - AI-powered filtering to identify single event announcements, returns DigestEvent[] with message field and event_detection_confidence (0.0-1.0 score)
+4. **Event Type Classification** (`domain/services/event-classifier.ts`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents, adds event_type_classification field (EventTypeClassification with type and confidence) to DigestEvent
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Extracts datetime with GPT, filters by user availability slots, adds start_datetime field to DigestEvent
-6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to user interests with confidence scoring and validation, adds interests_matched and interest_matches fields to DigestEvent
+6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to user interests with confidence scoring and validation, adds interest_matches field to DigestEvent
 7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with GPT, adds event_description field (DigestEventDescription type) to DigestEvent
 
 ### Key Components
@@ -133,19 +136,20 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 **Domain Entities** (`domain/entities/`):
 - `SourceMessage`: Raw message data from any source (timestamp, content, link)
 - `InterestMatch`: Interest matching result with confidence score (0.0-1.0)
+- `EventTypeClassification`: Event type classification result with type (AttendanceMode) and confidence (0.0-1.0)
 - `DigestEventDescription`: Structured event information (date_time, met_interests, title, short_summary, link)
 - `DigestEvent`: Single event type with optional fields populated through pipeline stages:
-  - Step 3 adds: `message: SourceMessage`
-  - Step 4 adds: `event_type?: AttendanceMode` (enum: OFFLINE, ONLINE, HYBRID)
+  - Step 3 adds: `message: SourceMessage` and `event_detection_confidence?: number` (0.0-1.0 confidence score)
+  - Step 4 adds: `event_type_classification?: EventTypeClassification` (contains type: AttendanceMode enum and confidence: number)
   - Step 5 adds: `start_datetime?: Date`
-  - Step 6 adds: `interests_matched?: string[]` and `interest_matches?: InterestMatch[]` (with confidence scores)
+  - Step 6 adds: `interest_matches?: InterestMatch[]` (with confidence scores)
   - Step 7 adds: `event_description?: DigestEventDescription`
 - `AttendanceMode`: Enum defining how attendees can participate (OFFLINE = 'offline', ONLINE = 'online', HYBRID = 'hybrid')
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
-- `event-detector.ts`: GPT-powered event announcement detection (~174 lines)
-- `event-classifier.ts`: Event type classification (offline/online/hybrid) with online event filtering
+- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (~204 lines)
+- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (~265 lines)
 - `schedule-matcher.ts`: Schedule extraction and availability matching (~417 lines, longest service)
 - `interest-matcher.ts`: Interest matching with confidence scoring and validation (~245 lines, processes individually for accuracy)
 - `event-describer.ts`: Event description generation (uses same temperature 1.0 as other operations)
@@ -170,7 +174,10 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
 - `verboseLogging` parameter (default: false) enables detailed processing logs with cache stats, batch numbers, and DISCARDED message links
-- `minInterestConfidence` parameter (default: 0.75) sets minimum confidence threshold for interest matching; GPT assigns 0.0-1.0 scores, only matches ≥ threshold are included
+- **Configurable confidence thresholds** (all optional with defaults optimized for quality filtering):
+  - `minEventDetectionConfidence` (default: 0.7): Minimum confidence (0.0-1.0) for step 3 event detection; higher values = fewer but more certain events
+  - `minEventClassificationConfidence` (default: 0.7): Minimum confidence (0.0-1.0) for step 4 event type classification; higher values = stricter classification
+  - `minInterestConfidence` (default: 0.75): Minimum confidence (0.0-1.0) for step 6 interest matching; GPT assigns scores, only matches ≥ threshold are included
 - **Configurable GPT batch sizes** (all optional with defaults optimized for balance of speed and accuracy):
   - `eventDetectionBatchSize` (default: 16): Controls batch size for step 3 event detection
   - `eventClassificationBatchSize` (default: 16): Controls batch size for step 4 event type classification
@@ -227,7 +234,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 1. Basic event detection (`domain/services/event-detector.ts`) - Identifies genuine event announcements
 2. Event type classification (`domain/services/event-classifier.ts`) - Classifies as offline/online/hybrid and applies filtering
 
-**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in DigestEvent.event_type field. Classification uses explicit indicators:
+**Event Type Detection:** GPT classifies each event as offline (in-person), online (virtual), or hybrid, stored in DigestEvent.event_type_classification field (EventTypeClassification contains both type and confidence score). Classification uses explicit indicators:
 - **Offline**: Physical addresses, venue names, city names, Google/Yandex Maps links, office locations
 - **Online**: Zoom/Google Meet links, explicit "online" mentions, webinar URLs
 - **Hybrid**: Events offering both physical and online participation options

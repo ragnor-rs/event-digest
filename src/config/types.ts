@@ -10,6 +10,8 @@ export interface Config {
   skipOnlineEvents: boolean;
   writeDebugFiles: boolean;
   verboseLogging: boolean;
+  minEventDetectionConfidence: number; // Minimum confidence threshold for event detection (0.0-1.0)
+  minEventClassificationConfidence: number; // Minimum confidence threshold for event type classification (0.0-1.0)
   minInterestConfidence: number; // Minimum confidence threshold for interest matching (0.0-1.0)
   eventDetectionBatchSize: number;
   eventClassificationBatchSize: number;

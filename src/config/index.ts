@@ -55,6 +55,9 @@ Usage:
       [--skip-online-events true] \\
       [--write-debug-files false] \\
       [--verbose-logging false] \\
+      [--min-event-detection-confidence 0.7] \\
+      [--min-event-classification-confidence 0.7] \\
+      [--min-interest-confidence 0.75] \\
       [--event-detection-batch-size 16] \\
       [--event-classification-batch-size 16] \\
       [--schedule-extraction-batch-size 16] \\

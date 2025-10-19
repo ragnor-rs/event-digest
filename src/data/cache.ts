@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { ICache } from '../domain/interfaces';
-import { SourceMessage, DigestEventDescription, AttendanceMode, InterestMatch } from '../domain/entities';
+import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
 export class Cache implements ICache {
@@ -20,7 +20,7 @@ export class Cache implements ICache {
   private cache: {
     telegram_messages: Record<string, SourceMessage[]>; // source name -> source messages (step 1)
     messages: Record<string, boolean>; // message link -> is event (step 3)
-    event_type_classification: Record<string, AttendanceMode>; // message link -> attendance mode (step 4)
+    event_type_classification: Record<string, EventTypeClassification>; // message link -> type + confidence (step 4)
     matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 6)
     scheduled_events: Record<string, Date | null>; // message link -> extracted datetime or null if unknown (step 5)
     events: Record<string, DigestEventDescription>; // message link -> event description object (step 7)
@@ -43,7 +43,7 @@ export class Cache implements ICache {
   private loadCache(): {
     telegram_messages: Record<string, SourceMessage[]>;
     messages: Record<string, boolean>;
-    event_type_classification: Record<string, AttendanceMode>;
+    event_type_classification: Record<string, EventTypeClassification>;
     matching_interests: Record<string, InterestMatch[]>;
     scheduled_events: Record<string, Date | null>;
     events: Record<string, DigestEventDescription>;
@@ -311,12 +311,12 @@ export class Cache implements ICache {
   }
 
   // Event type classification (step 4)
-  getEventTypeCache(messageLink: string): AttendanceMode | undefined {
+  getEventTypeCache(messageLink: string): EventTypeClassification | undefined {
     return this.cache.event_type_classification[messageLink];
   }
 
-  cacheEventType(messageLink: string, eventType: AttendanceMode, autoSave: boolean = true): void {
-    this.cache.event_type_classification[messageLink] = eventType;
+  cacheEventType(messageLink: string, classification: EventTypeClassification, autoSave: boolean = true): void {
+    this.cache.event_type_classification[messageLink] = classification;
     if (autoSave) {
       try {
         this.saveCacheFile('event_type_classification');

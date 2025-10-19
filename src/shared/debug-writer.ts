@@ -79,13 +79,16 @@ export class DebugWriter {
     const filename = path.join(this.debugDir, 'event_classification.json');
     const data = {
       step: 'Event Type Classification',
-      description: 'Index-based AI classification of events as offline (0), online (1), or hybrid (2)',
+      description: 'Index-based AI classification of events as offline (0), online (1), or hybrid (2) with confidence scores',
       total_entries: this.typeClassificationEntries.length,
       result_counts: {
-        hybrid: this.typeClassificationEntries.filter((e) => e.result === 'hybrid').length,
-        offline: this.typeClassificationEntries.filter((e) => e.result === 'offline').length,
-        online: this.typeClassificationEntries.filter((e) => e.result === 'online').length,
+        matched: this.typeClassificationEntries.filter((e) => e.result === 'matched').length,
         discarded: this.typeClassificationEntries.filter((e) => e.result === 'discarded').length,
+      },
+      type_counts: {
+        hybrid: this.typeClassificationEntries.filter((e) => e.type_classifications.some((t) => t.type === 'hybrid')).length,
+        offline: this.typeClassificationEntries.filter((e) => e.type_classifications.some((t) => t.type === 'offline')).length,
+        online: this.typeClassificationEntries.filter((e) => e.type_classifications.some((t) => t.type === 'online')).length,
       },
       cache_stats: {
         cached: this.typeClassificationEntries.filter((e) => e.cached).length,
