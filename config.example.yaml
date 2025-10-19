@@ -36,8 +36,8 @@ weeklyTimeslots:
 
 # Optional: Maximum number of messages to fetch from groups
 # Groups typically have more conversational noise, so need more messages
-# Default: 200 (when only maxChannelMessages is specified)
-#          300 (when both limits unspecified, calculated via GROUP_MESSAGE_MULTIPLIER=1.5)
+# Default: 200 (when only this value is unspecified but maxChannelMessages is specified)
+#          300 (when both limits unspecified: maxChannelMessages becomes 200, maxGroupMessages becomes 300 via GROUP_MESSAGE_MULTIPLIER=1.5)
 # maxGroupMessages: 200
 
 # Optional: Maximum number of messages to fetch from channels
@@ -156,14 +156,19 @@ weeklyTimeslots:
 #   {{MESSAGES}} - numbered list: "1. text\n\n2. text"
 #
 # REQUIRED OUTPUT:
-#   Message numbers (one per line) or "none"
-#   Example: "1\n3\n7" or "none"
+#   Format: "MESSAGE_NUMBER:CONFIDENCE" (one per line)
+#   Confidence: 0.0-1.0 (how certain it's an event)
+#   Example: "1:0.95" or "none"
 #
 # EXAMPLE PROMPT:
 # eventDetectionPrompt: |
-#   Which messages announce a single specific event with date/time?
+#   Identify messages announcing a SINGLE SPECIFIC EVENT with date/time.
+#   Include: workshops, meetups, presentations, talks with timing info
+#   Exclude: event digests, general announcements, job postings
 #   {{MESSAGES}}
-#   Respond with message numbers (one per line) or "none".
+#   Format: MESSAGE_NUMBER:CONFIDENCE (0.0-1.0)
+#   Example: 1:0.95
+#   If none: "none"
 
 # Custom GPT prompt for interest matching (optional)
 # Matches events to user interests with confidence scores
@@ -179,12 +184,22 @@ weeklyTimeslots:
 # EXAMPLE PROMPT:
 # interestMatchingPrompt: |
 #   Match events to interests with confidence scores (0.0-1.0).
+#
+#   HIERARCHICAL MATCHING: Interests may contain parent categories with examples in parentheses.
+#   Match if event relates to the category OR any specific example.
+#
+#   STRICT RELEVANCE:
+#   - "Professional networking" ≠ "Social gatherings" (professional ≠ casual)
+#   - "Frontend/React" ≠ "Backend/database" (different tech stacks)
+#   - "Music concerts" ≠ "Music production workshops" (consumption ≠ creation)
+#
 #   EVENTS:
 #   {{EVENTS}}
 #   INTERESTS:
 #   {{INTERESTS}}
+#
 #   Format: INDEX:CONFIDENCE, INDEX:CONFIDENCE
-#   Example: 19:0.95, 6:0.70
+#   Example: 19:0.95, 6:0.72
 #   If no matches: none
 
 # Custom GPT prompt for event type classification (optional)
@@ -194,15 +209,20 @@ weeklyTimeslots:
 #   {{MESSAGES}} - numbered list: "1. text\n\n2. text"
 #
 # REQUIRED OUTPUT:
-#   Message classifications: "MESSAGE_NUMBER: INDEX"
-#   Indices: 0=offline, 1=online, 2=hybrid
-#   Example: "1: 0\n2: 1\n3: 2"
+#   Format: "MESSAGE_NUMBER:INDEX:CONFIDENCE" (one per line)
+#   INDEX: 0=offline, 1=online, 2=hybrid
+#   CONFIDENCE: 0.0-1.0 (how certain about classification)
+#   Example: "1:0:0.95" or "2:1:0.85"
 #
 # EXAMPLE PROMPT:
 # eventTypeClassificationPrompt: |
 #   Classify events: 0=offline (physical location), 1=online (virtual only), 2=hybrid (both).
+#   OFFLINE: physical addresses, venues, map links
+#   ONLINE: only virtual links, no physical location
+#   HYBRID: both physical and online options mentioned
 #   {{MESSAGES}}
-#   Format: MESSAGE_NUMBER: INDEX
+#   Format: MESSAGE_NUMBER:INDEX:CONFIDENCE
+#   Example: 1:0:0.95
 
 # Custom GPT prompt for schedule/datetime extraction (optional)
 # Extracts event start date and time from messages
@@ -212,16 +232,20 @@ weeklyTimeslots:
 #   {{MESSAGES}} - numbered list with timestamps: "1. [Posted: date] text"
 #
 # REQUIRED OUTPUT:
-#   Datetime per message: "MESSAGE_NUMBER: DD MMM YYYY HH:MM"
-#   Example: "1: 08 Oct 2025 19:30"
+#   Format: "MESSAGE_NUMBER: DD Mon YYYY HH:MM" (one per line)
+#   Use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
+#   Use 24-hour time format with leading zeros
+#   Example: "1: 05 Dec 2024 19:30"
 #   If unknown: "MESSAGE_NUMBER: unknown"
 #
 # EXAMPLE PROMPT:
 # scheduleExtractionPrompt: |
 #   Extract start datetime for each event. Today is {{TODAY_DATE}}.
+#   Use message timestamps to infer correct year.
 #   {{MESSAGES}}
-#   Format: MESSAGE_NUMBER: DD MMM YYYY HH:MM
-#   Example: 1: 15 Oct 2025 20:00
+#   EXACT format: MESSAGE_NUMBER: DD Mon YYYY HH:MM
+#   Examples: 1: 05 Dec 2024 19:30
+#   NEVER return just time like "19:30" - always include full date
 
 # Custom GPT prompt for event description generation (optional)
 # Converts event messages into structured titles and summaries
@@ -230,18 +254,18 @@ weeklyTimeslots:
 #   {{EVENTS}} - numbered list with metadata: "1. Start time: ... Interests: ... Content: ... Link: ..."
 #
 # REQUIRED OUTPUT:
-#   Structured format per event:
+#   EXACT format per event (must include keywords TITLE:, SUMMARY:, DESCRIPTION:):
 #   "MESSAGE_NUMBER:
-#   TITLE: [title]
-#   SUMMARY: [summary]
-#   DESCRIPTION: [description]"
+#   TITLE: [short catchy title in English]
+#   SUMMARY: [1-2 sentence summary in English - no dates/times]
+#   DESCRIPTION: [full description, can be original language]"
 #
 # EXAMPLE PROMPT:
 # eventDescriptionPrompt: |
-#   Convert events to English titles and summaries.
+#   Convert events to English titles and summaries. Respond in English.
 #   {{EVENTS}}
-#   Format:
+#   EXACT format (include keywords TITLE:, SUMMARY:, DESCRIPTION:):
 #   MESSAGE_NUMBER:
-#   TITLE: [catchy title]
-#   SUMMARY: [1-2 sentences, no dates/times]
-#   DESCRIPTION: [full description]
+#   TITLE: [short catchy title in English]
+#   SUMMARY: [1-2 sentences, DO NOT mention dates/times]
+#   DESCRIPTION: [full description from message, can be original language]
