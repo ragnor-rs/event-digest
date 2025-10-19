@@ -309,8 +309,11 @@ export class TelegramClient implements IMessageSource {
       // Resolve the recipient entity (can be username, phone number, or chat ID)
       const entity = await this.client.getEntity(cleanRecipient);
 
-      // Send the message
-      await this.client.sendMessage(entity, { message });
+      // Send the message with link preview disabled
+      await this.client.sendMessage(entity, {
+        message,
+        linkPreview: false
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to send message to ${recipient}: ${errorMessage}`);

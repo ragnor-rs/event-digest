@@ -5,7 +5,7 @@ dotenv.config();
 import { EventPipeline } from './application';
 import { parseArgs } from './config';
 import { OpenAIClient, Cache, TelegramClient } from './data';
-import { printEvents, EventSender } from './presentation';
+import { EventPrinter, EventSender, IEventReporter } from './presentation';
 import { Logger, DebugWriter } from './shared';
 
 function validateEnvironmentVariables(): void {
@@ -42,13 +42,13 @@ async function main() {
     const pipeline = new EventPipeline(config, openaiClient, cache, messageSource, debugWriter, logger);
     const events = await pipeline.execute();
 
-    // Send events to recipient if configured, otherwise print to console
-    if (config.sendEventsRecipient) {
-      const eventSender = new EventSender(config, messageSource, logger);
-      await eventSender.sendEvents(events);
-    } else {
-      printEvents(events);
-    }
+    // Create appropriate event reporter based on configuration
+    const eventReporter: IEventReporter = config.sendEventsRecipient
+      ? new EventSender(config, messageSource, logger)
+      : new EventPrinter();
+
+    // Report events using the configured reporter
+    await eventReporter.report(events);
     logger.log('');
   } catch (error) {
     logger.error('Fatal error:', error instanceof Error ? error : new Error(String(error)));
