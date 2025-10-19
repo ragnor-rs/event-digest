@@ -235,19 +235,16 @@ export class Cache implements ICache {
   }
 
   // Schedule filtering (datetime extraction) (step 5)
-  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): Date | null | undefined {
-    const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
-    return this.cache.scheduled_events[cacheKey];
+  getScheduledEventCache(messageLink: string): Date | null | undefined {
+    return this.cache.scheduled_events[messageLink];
   }
 
   cacheScheduledEvent(
     messageLink: string,
     datetime: Date | null,
-    weeklyTimeslots: string[],
     autoSave: boolean = true
   ): void {
-    const cacheKey = this.createScheduleCacheKey(messageLink, weeklyTimeslots);
-    this.cache.scheduled_events[cacheKey] = datetime;
+    this.cache.scheduled_events[messageLink] = datetime;
     if (autoSave) {
       try {
         this.saveCacheFile('scheduled_events');
@@ -256,18 +253,6 @@ export class Cache implements ICache {
         throw error;
       }
     }
-  }
-
-  private createScheduleCacheKey(messageLink: string, weeklyTimeslots: string[]): string {
-    // Normalize timeslots: sort alphabetically for consistent cache keys
-    const normalizedTimeslots = weeklyTimeslots
-      .map((slot) => slot.trim())
-      .sort()
-      .join(',');
-
-    // Hash the normalized timeslots for shorter, consistent cache keys
-    const preferencesHash = this.hashPreferences(normalizedTimeslots);
-    return `${messageLink}|schedule:${preferencesHash}`;
   }
 
   // Event conversion (step 7)

@@ -266,7 +266,7 @@ export async function filterBySchedule(
   logger.verbose('  Processing cache...');
 
   for (const event of events) {
-    const cachedDateTime = cache.getScheduledEventCache(event.message.link, config.weeklyTimeslots);
+    const cachedDateTime = cache.getScheduledEventCache(event.message.link);
     if (cachedDateTime !== undefined) {
       cacheHits++;
       if (cachedDateTime !== null) {
@@ -346,7 +346,7 @@ export async function filterBySchedule(
         if (messageIdx >= 0 && messageIdx < chunk.length) {
           const normalizedDateTime = normalizeDateTime(dateTime);
           const parsedDate = parse(normalizedDateTime, DATE_FORMAT, new Date());
-          cache.cacheScheduledEvent(chunk[messageIdx].message.link, parsedDate, config.weeklyTimeslots, false);
+          cache.cacheScheduledEvent(chunk[messageIdx].message.link, parsedDate, false);
           processedMessages.add(messageIdx);
         }
 
@@ -369,7 +369,7 @@ export async function filterBySchedule(
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedMessages.has(idx)) {
           logger.verbose(`    ✗ Discarded: ${chunk[idx].message.link} - no date/time found`);
-          cache.cacheScheduledEvent(chunk[idx].message.link, null, config.weeklyTimeslots, false);
+          cache.cacheScheduledEvent(chunk[idx].message.link, null, false);
           debugEntries.push({
             message: {
               timestamp: chunk[idx].message.timestamp,
@@ -390,7 +390,7 @@ export async function filterBySchedule(
       // No results from AI, cache as null (unknown)
       for (const event of chunk) {
         logger.verbose(`    ✗ Discarded: ${event.message.link} - no date/time found`);
-        cache.cacheScheduledEvent(event.message.link, null, config.weeklyTimeslots, false);
+        cache.cacheScheduledEvent(event.message.link, null, false);
         debugEntries.push({
           message: {
             timestamp: event.message.timestamp,

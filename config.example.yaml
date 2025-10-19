@@ -59,7 +59,7 @@ weeklyTimeslots:
 
 # Optional: Write debug files (default: false)
 # When enabled, writes detailed debug files to debug/ directory
-# Files include: event_classification.json, interest_matching.json, schedule_filtering.json
+# Files include: event_detection.json, event_classification.json, schedule_filtering.json, interest_matching.json, event_description.json
 # writeDebugFiles: false
 
 # Optional: Verbose logging (default: false)
