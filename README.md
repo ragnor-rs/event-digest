@@ -74,14 +74,16 @@ groupsToParse:
   - "My Private Group"  # Display name search works for both public and private
 
 # Your interests - events will be matched against these topics
-# Use specific interests for better accuracy
-# Hierarchical format: "Music (Jazz, Classical)" matches any subcategory
+# Use specific, focused interests for best accuracy
+# Parentheses are for clarification, NOT for OR matching alternatives
+# Events must explicitly match the specific interest topic
 userInterests:
-  - "React/Frontend development"
-  - "Photography (Street photography, Portraits)"
-  - "Board games (Strategy games, D&D)"
-  - "Professional networking (Tech meetups)"
-  - "Jazz concerts"
+  - "React and Frontend development"
+  - "Street photography"
+  - "Portrait photography"
+  - "Board games and tabletop gaming (strategy games, D&D sessions)"
+  - "Professional networking events (Tech industry)"
+  - "Jazz music and jazz concerts"
 # See config.example.yaml for detailed tips and examples
 
 # Weekly availability timeslots
@@ -205,22 +207,36 @@ npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 
 The tool uses AI to match events to your interests with confidence scoring. For best results:
 
-**Be Specific**
+**Be Specific and Explicit**
 - ❌ Too broad: `"Technology"`, `"Music"`, `"Sports"`
-- ✅ Specific: `"React/Frontend development"`, `"Jazz concerts"`, `"Trail running"`
+- ✅ Specific: `"React development"`, `"Jazz concerts"`, `"Trail running"`
+- Events must explicitly mention the interest to match
 
-**Use Hierarchical Format**
-- Format: `"Parent category (Subcategory 1, Subcategory 2)"`
-- Example: `"Electronic music (Electro Swing, Glitch Hop)"`
-- Matches events about the parent OR any subcategory
+**Use Parentheses for Clarification Only**
+- Format: `"Main interest (clarifying details)"`
+- Example: `"Abstract Hip Hop (instrumental/experimental beats)"`
+- Parentheses explain WHAT the interest is, NOT alternative match options
+- The event must be about "Abstract Hip Hop" specifically
+
+**Break Down Broad Categories**
+- ❌ `"Electronic music (various subgenres)"` - expects OR matching (won't work)
+- ✅ Create separate specific interests:
+  - `"Drum and Bass"`
+  - `"Electro Swing"`
+  - `"Big Beat"`
+- Each event is matched against specific subgenres only
 
 **Distinguish Context**
 - ❌ Unclear: `"Networking"`
-- ✅ Clear: `"Professional networking (Tech industry)"` vs `"Social gatherings"`
+- ✅ Clear: `"Professional networking events (Tech industry)"` vs `"Social gatherings"`
 
 **Separate Similar Interests**
 - Consumption vs Creation: `"Music concerts"` vs `"Music production workshops"`
-- Different stacks: `"React/Frontend"` vs `"Python/Backend"`
+- Different stacks: `"React development"` vs `"Python development"`
+
+**Use EXCLUDE Markers (Optional)**
+- `"Neural mechanisms — EXCLUDE: nutrition, wellness, general psychology"`
+- Events matching excluded topics will be rejected
 
 **Debug Your Matches**
 - Enable `writeDebugFiles: true` to generate `debug/interest_matching.json`

@@ -152,11 +152,11 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
-- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (~205 lines), uses aiClient.call()
-- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (~266 lines), uses aiClient.call()
-- `schedule-matcher.ts`: Schedule extraction and availability matching (~418 lines, longest service), uses aiClient.call()
-- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~246 lines, processes individually for accuracy), uses aiClient.call()
-- `event-describer.ts`: Event description generation (~191 lines), uses aiClient.callCreative() (same temperature 1.0 as other operations)
+- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (204 lines), uses aiClient.call()
+- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (265 lines), uses aiClient.call()
+- `schedule-matcher.ts`: Schedule extraction and availability matching (417 lines, longest service), uses aiClient.call()
+- `interest-matcher.ts`: Interest matching with confidence scoring and validation (245 lines, processes individually for accuracy), uses aiClient.call()
+- `event-describer.ts`: Event description generation (190 lines), uses aiClient.callCreative() (same temperature 1.0 as other operations)
 
 **Application Layer** (`application/`):
 - `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, DebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
