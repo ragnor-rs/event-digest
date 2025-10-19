@@ -24,8 +24,8 @@ export interface ICache {
   cacheEventType(messageLink: string, eventType: AttendanceMode, autoSave?: boolean): void;
 
   // Schedule filtering (step 5)
-  getScheduledEventCache(messageLink: string, weeklyTimeslots: string[]): Date | null | undefined;
-  cacheScheduledEvent(messageLink: string, datetime: Date | null, weeklyTimeslots: string[], autoSave?: boolean): void;
+  getScheduledEventCache(messageLink: string): Date | null | undefined;
+  cacheScheduledEvent(messageLink: string, datetime: Date | null, autoSave?: boolean): void;
 
   // Interest matching (step 6)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined;

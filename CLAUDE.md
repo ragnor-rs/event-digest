@@ -137,7 +137,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `DigestEvent`: Single event type with optional fields populated through pipeline stages:
   - Step 3 adds: `message: SourceMessage`
   - Step 4 adds: `event_type?: AttendanceMode` (enum: OFFLINE, ONLINE, HYBRID)
-  - Step 5 adds: `start_datetime?: string`
+  - Step 5 adds: `start_datetime?: Date`
   - Step 6 adds: `interests_matched?: string[]` and `interest_matches?: InterestMatch[]` (with confidence scores)
   - Step 7 adds: `event_description?: DigestEventDescription`
 - `AttendanceMode`: Enum defining how attendees can participate (OFFLINE = 'offline', ONLINE = 'online', HYBRID = 'hybrid')
@@ -255,7 +255,7 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/telegram_messages.json`: Raw Telegram messages per source (step 1, assumes immutability)
 - `.cache/messages.json`: Basic event detection results (step 3, no preferences needed)
 - `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed)
-- `.cache/scheduled_events.json`: Schedule filtering results (step 5, includes timeslots hash)
+- `.cache/scheduled_events.json`: Schedule filtering results (step 5, no preferences in cache key)
 - `.cache/matching_interests.json`: Interest matching results (step 6, includes interests hash)
 - `.cache/events.json`: Final event objects (step 7, includes interests hash)
 
