@@ -24,55 +24,83 @@ channelsToParse:
 # MATCHING BEHAVIOR:
 # - Events are matched using AI with confidence scoring (0.0-1.0)
 # - Only matches with confidence ≥ minInterestConfidence (default: 0.75) are included
-# - Use specific interests for better matching accuracy
+# - Events must explicitly match the specific interest topic (exact matching, not broad categories)
+# - Use specific, focused interests for better matching accuracy
 #
 # TIPS FOR WRITING INTERESTS:
-# 1. Be specific: "React/Frontend development" > "Programming"
-# 2. Use hierarchical format: "Electronic music (Electro Swing, Glitch Hop)"
-#    - Matches events about "electronic music" OR "Electro Swing" OR "Glitch Hop"
-# 3. Separate similar interests: "Music concerts" vs "Music production workshops"
-#    - Different interests = consumption vs creation
-# 4. Distinguish context: "Professional networking" vs "Social gatherings"
-#    - Different interests = professional vs casual
+# 1. Be specific and explicit
+#    ❌ Too broad: "Technology", "Music", "Sports"
+#    ✅ Specific: "React development", "Jazz concerts", "Trail running"
+#    → Events must explicitly mention the interest to match
+#
+# 2. Use parentheses for clarification (NOT for alternatives)
+#    - Format: "Main interest (clarifying details)"
+#    - Example: "Abstract Hip Hop (instrumental/experimental beats)"
+#    - The parentheses explain WHAT the interest is, not alternative match options
+#    - The event must be about "Abstract Hip Hop" specifically
+#
+# 3. Break down broad categories into specific interests
+#    ❌ "Electronic music (various subgenres)" - too vague
+#    ✅ Multiple specific interests:
+#       - "Drum and Bass"
+#       - "Electro Swing"
+#       - "Big Beat"
+#    → Each event is matched against specific subgenres
+#
+# 4. Separate different contexts
+#    - "Professional networking events" vs "Social gatherings"
+#    - "Music concerts" vs "Music production workshops"
+#    - "React development" vs "Python development"
+#
+# 5. Use EXCLUDE markers for problematic categories (optional)
+#    - "Neural mechanisms — EXCLUDE: nutrition, wellness, general psychology"
+#    - Events matching excluded topics will be rejected
 #
 # EXAMPLES:
 userInterests:
-  # Technology (specific areas)
-  - "React/Frontend development"
-  - "Python/Data Science"
-  - "DevOps/Cloud infrastructure"
+  # Technology - specific areas only
+  - "React and Frontend development"
+  - "Python and Data Science"
+  - "DevOps and Cloud infrastructure"
 
-  # Creative hobbies (with subcategories)
-  - "Photography (Street photography, Portraits)"
-  - "Music production (Electronic, Beat making)"
+  # Music - specific genres (each as separate interest)
+  - "Jazz music and jazz concerts"
+  - "Drum and Bass"
+  - "Electro Swing"
 
-  # Social activities (context matters)
-  - "Board games (Strategy games, D&D)"
-  - "Professional networking (Tech meetups)"
-  - "Language exchange (English, Spanish)"
+  # Creative hobbies - with clarifications
+  - "Street photography"
+  - "Portrait photography"
+  - "Electronic music production (beat making, DAW workshops)"
 
-  # Wellness & Sports
-  - "Yoga and meditation"
-  - "Running (Trail running, Marathons)"
+  # Social activities - context clarified
+  - "Board games and tabletop gaming (strategy games, D&D)"
+  - "Professional networking events (Tech industry)"
+  - "English language exchange meetups"
+  - "Spanish language exchange meetups"
 
-  # Arts & Culture
+  # Wellness & Sports - specific activities
+  - "Yoga and meditation classes"
+  - "Trail running events"
+  - "Marathon running"
+
+  # Arts & Culture - specific types
   - "Contemporary art exhibitions"
-  - "Jazz concerts"
+  - "Classical music concerts"
 
 # COMMON PITFALLS TO AVOID:
-# ❌ Too broad: "Technology", "Music", "Sports"
-#    → Results in too many matches, hard to filter
-# ✅ Specific: "React/Frontend", "Jazz concerts", "Trail running"
-#    → Better precision, fewer false positives
+# ❌ Expecting OR matching: "Music (Jazz, Rock)" won't match both Jazz AND Rock
+#    → Parentheses are for clarification only, not alternatives
+# ✅ Create separate interests: "Jazz concerts" and "Rock concerts"
+#
+# ❌ Too broad: "Music", "Programming", "Sports"
+# ✅ Specific: "Jazz concerts", "React development", "Trail running"
 #
 # ❌ Mixing contexts: "Networking" (unclear: professional or social?)
 # ✅ Clear context: "Professional networking (Tech industry)" or "Social gatherings"
 #
-# ❌ Single word: "Photography"
-# ✅ With context: "Photography (Street photography, Event photography)"
-#
-# NOTE: You can always check debug/interest_matching.json (when writeDebugFiles: true)
-#       to see how your interests are being matched and adjust accordingly
+# NOTE: Enable writeDebugFiles: true to generate debug/interest_matching.json
+#       This shows exactly how your interests are matched and helps you refine them
 
 # Weekly availability timeslots
 # Format: "DAY_OF_WEEK TIME" where DAY_OF_WEEK is 0-6 (0=Sunday, 6=Saturday)
@@ -243,13 +271,16 @@ weeklyTimeslots:
 # interestMatchingPrompt: |
 #   Match events to interests with confidence scores (0.0-1.0).
 #
-#   HIERARCHICAL MATCHING: Interests may contain parent categories with examples in parentheses.
-#   Match if event relates to the category OR any specific example.
+#   EXACT TOPIC MATCHING: Events must explicitly discuss or feature the specific interest topic.
+#   - "Drum and Bass" matches ONLY if event explicitly mentions "Drum and Bass" or "DnB"
+#   - Generic "electronic music party" does NOT match "Drum and Bass"
+#   - Parentheses in interests are for clarification, NOT alternatives
 #
 #   STRICT RELEVANCE:
 #   - "Professional networking" ≠ "Social gatherings" (professional ≠ casual)
 #   - "Frontend/React" ≠ "Backend/database" (different tech stacks)
 #   - "Music concerts" ≠ "Music production workshops" (consumption ≠ creation)
+#   - When uncertain, prefer NO MATCH over questionable match
 #
 #   EVENTS:
 #   {{EVENTS}}
@@ -257,7 +288,7 @@ weeklyTimeslots:
 #   {{INTERESTS}}
 #
 #   Format: INDEX:CONFIDENCE, INDEX:CONFIDENCE
-#   Example: 19:0.95, 6:0.72
+#   Example: 19:0.95, 6:0.82
 #   If no matches: none
 
 # Custom GPT prompt for event type classification (optional)

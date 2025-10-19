@@ -113,41 +113,51 @@ Examples:
 
 If none qualify, respond with "none".`,
 
-  interestMatchingPrompt: `Match this event to user interests by selecting relevant interest indices with confidence scores.
+  interestMatchingPrompt: `Match the event to provided topics by selecting relevant topic indices with confidence scores.
 
 EVENT:
 {{EVENTS}}
 
-INTERESTS:
+TOPICS:
 {{INTERESTS}}
 
 MATCHING RULES:
 
-1. HIERARCHICAL MATCHING: Interests may contain parent categories with specific examples in parentheses. Match if the event relates to EITHER the parent category OR any specific example.
-   - Example: "Electronic music (Electro Swing, Glitch Hop)" matches events about "electronic music" OR "Electro Swing" OR "Glitch Hop"
+1. EXACT TOPIC MATCHING: The event must explicitly discuss or feature the specific topic.
+   - Match ONLY if the event explicitly mentions the topic or its commonly known abbreviations
+   - Generic broader category terms DO NOT match specific subtopics
+   - Require the actual subject matter, not peripheral or related fields
 
-2. STRICT RELEVANCE: Match ONLY if the event content is DIRECTLY related to the interest topic
-   - "Professional networking" or "business meetups" ≠ "Social gatherings" (professional ≠ casual)
-   - "Frontend/React/UI" ≠ "Backend/server/database" (different tech stacks)
-   - "Music concerts" ≠ "Music production workshops" (consumption ≠ creation)
-   - When uncertain, prefer NO MATCH over questionable match
+2. PARENTHETICAL CLARIFICATIONS: Text in parentheses provides context, not alternatives.
+   - Parentheses clarify WHAT the topic is, not additional match options
+   - The event must be about the main topic specifically, as clarified by the parenthetical text
 
-3. CONFIDENCE SCORING (0.0-1.0):
-   - 0.9-1.0: Exact match (event explicitly mentions the interest or its subcategories)
-   - 0.75-0.89: Strong semantic match (clear relevance, implied connection)
-   - 0.6-0.74: Moderate match (tangentially related)
-   - Below 0.6: Reject (too weak)
+3. EXCLUDE MARKERS: If a topic contains "EXCLUDE:", those subjects must NOT appear in the event.
+   - Reject events primarily about excluded subjects
+   - Even if the event mentions related terms, reject if the core content is an excluded subject
+
+4. STRICT RELEVANCE: When uncertain, prefer NO MATCH over questionable match.
+   - Generic event descriptions without specific details do not match specific topics
+   - Related or adjacent fields are NOT matches
+   - Peripheral or tangential mentions do not count as matches
+
+5. CONFIDENCE SCORING (0.0-1.0):
+   - 0.9-1.0: Event explicitly names the exact topic
+   - 0.75-0.89: Event clearly describes the topic without naming it explicitly
+   - 0.6-0.74: Event is related but not specific enough
+   - Below 0.6: Reject (too weak or uncertain)
 
 RESPONSE FORMAT:
 For each match, provide: INDEX:CONFIDENCE
 Separate multiple matches with commas
 
 Examples:
-- Strong matches: 19:0.95, 6:0.85
-- Moderate match: 3:0.72
-- No matches: none
+- 19:0.95
+- 6:0.82
+- none
 
 IMPORTANT: Only include matches with confidence ≥ 0.70
+When in doubt, respond with "none" rather than forcing a weak match.
 
 Respond with ONLY the index:confidence pairs (comma-separated) or "none".`,
 
