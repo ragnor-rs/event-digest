@@ -151,7 +151,6 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(
     `  eventDescriptionBatchSize: ${finalConfig.eventDescriptionBatchSize}${!providedEventDescriptionBatchSize ? ' (default)' : ''}`
   );
-  console.log(`  lastGenerationTimestamp: ${finalConfig.lastGenerationTimestamp || 'not set'}`);
   console.log(
     `  eventMessageCues: ${Object.values(finalConfig.eventMessageCues).flat().length} cues${!providedEventMessageCues ? ' (default)' : ''}`
   );

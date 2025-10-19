@@ -59,7 +59,6 @@ Usage:
       [--event-classification-batch-size 16] \\
       [--schedule-extraction-batch-size 16] \\
       [--event-description-batch-size 5] \\
-      [--last-timestamp "2011-08-12T20:17:46.384Z"] \\
       [--max-messages 100]
 
   Option 3 - Default config file (config.yaml or config.yml in project root)
