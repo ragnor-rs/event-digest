@@ -301,6 +301,22 @@ export class TelegramClient implements IMessageSource {
     return sortedMessages;
   }
 
+  async sendMessage(recipient: string, message: string): Promise<void> {
+    try {
+      // Remove leading @ if present (Telegram API doesn't require it)
+      const cleanRecipient = recipient.startsWith('@') ? recipient.slice(1) : recipient;
+
+      // Resolve the recipient entity (can be username, phone number, or chat ID)
+      const entity = await this.client.getEntity(cleanRecipient);
+
+      // Send the message
+      await this.client.sendMessage(entity, { message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to send message to ${recipient}: ${errorMessage}`);
+    }
+  }
+
   async disconnect(): Promise<void> {
     try {
       // Give a brief moment for any ongoing operations to complete

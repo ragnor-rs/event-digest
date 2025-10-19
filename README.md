@@ -22,6 +22,7 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **Multi-Language Support**: Handles events in different languages with configurable cues
 - **Debug Mode**: Optional detailed debug files for troubleshooting and analysis
 - **Configurable Batch Processing**: Tune GPT batch sizes for optimal speed/accuracy balance
+- **Event Delivery**: Send events directly to Telegram recipients or print to console
 
 ## Prerequisites
 
@@ -135,6 +136,14 @@ eventClassificationBatchSize: 16 # Step 4: Event type classification
 scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
 eventDescriptionBatchSize: 5     # Step 7: Event description generation
 
+# Optional: Send events to Telegram recipient instead of printing to console
+# Format: @username or chat ID (e.g., -1001234567890)
+# If not set, events are printed to console (default behavior)
+sendEventsRecipient: "@myusername"
+
+# Number of events to send per message batch (default: 5)
+sendEventsBatchSize: 5
+
 # Optional: Custom GPT prompts for AI filtering steps
 # See config.example.yaml for detailed placeholder docs and examples
 # eventDetectionPrompt: |
@@ -175,7 +184,9 @@ npm run dev -- \
   --event-detection-batch-size 16 \
   --event-classification-batch-size 16 \
   --schedule-extraction-batch-size 16 \
-  --event-description-batch-size 5
+  --event-description-batch-size 5 \
+  --send-events-recipient "@myusername" \
+  --send-events-batch-size 5
 ```
 
 #### Option 4: Mix YAML and CLI (Override Specific Values)
@@ -245,6 +256,8 @@ See `config.example.yaml` for more examples and detailed guidance.
   - `interestMatchingPrompt`: Custom prompt for interest matching (step 6) - uses `{{EVENTS}}`, `{{INTERESTS}}` placeholders
   - `eventDescriptionPrompt`: Custom prompt for event description generation (step 7) - uses `{{EVENTS}}` placeholder
   - See config.example.yaml for detailed documentation and examples
+- `sendEventsRecipient`/`--send-events-recipient`: Telegram recipient for event delivery (e.g., @username or chat ID); when set, events are sent instead of printed (default: none - prints to console)
+- `sendEventsBatchSize`/`--send-events-batch-size`: Number of events to send per Telegram message batch (default: 5)
 - `maxInputMessages`/`--max-messages`: Legacy parameter for backward compatibility
 
 ## Authentication & Session Management
@@ -327,7 +340,8 @@ src/
 │   └── types/                  # Shared types
 │       └── debug-entries.ts    # Debug entry type definitions
 ├── presentation/               # Output formatting
-│   └── event-printer.ts        # Console event output
+│   ├── event-printer.ts        # Console event output
+│   └── event-sender.ts         # Telegram message sending
 └── index.ts                    # Application bootstrap
 ```
 
@@ -342,6 +356,10 @@ src/
 
 ## Output Format
 
+### Console Output
+
+When no `sendEventsRecipient` is configured (default behavior), events are printed to console:
+
 ```
 === EVENT DIGEST ===
 
@@ -353,6 +371,28 @@ src/
 
 Total events found: 1
 ```
+
+### Telegram Message Format
+
+When `sendEventsRecipient` is configured, events are sent as formatted Telegram messages:
+
+```
+📅 EVENT DIGEST
+
+1. Tech Meetup
+📅 30 Sep 2025 19:00
+🏷️ Technology
+📝 Monthly meetup for tech enthusiasts to share knowledge and network.
+🔗 https://t.me/tech_meetups/12345
+
+2. Photography Workshop
+📅 01 Oct 2025 14:00
+🏷️ Photography (Street photography)
+📝 Learn street photography techniques with hands-on practice.
+🔗 https://t.me/city_events/67890
+```
+
+Events are grouped into batches of `sendEventsBatchSize` (default: 5) per message.
 
 ## Development
 

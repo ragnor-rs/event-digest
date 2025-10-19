@@ -19,6 +19,8 @@ const VALID_OPTIONS = [
   '--event-classification-batch-size',
   '--schedule-extraction-batch-size',
   '--event-description-batch-size',
+  '--send-events-recipient',
+  '--send-events-batch-size',
 ];
 
 export function parseCommandLineArgs(args: string[]): Partial<Config> {
@@ -150,6 +152,17 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
           );
         }
         config.eventDescriptionBatchSize = parsed;
+        break;
+      }
+      case '--send-events-recipient':
+        config.sendEventsRecipient = value.trim();
+        break;
+      case '--send-events-batch-size': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(`Invalid value for --send-events-batch-size: "${value}". Must be a positive integer.`);
+        }
+        config.sendEventsBatchSize = parsed;
         break;
       }
     }
