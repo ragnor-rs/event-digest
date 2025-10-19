@@ -26,6 +26,13 @@ export interface IMessageSource {
   ): Promise<SourceMessage[]>;
 
   /**
+   * Send a message to a specified recipient
+   * @param recipient Identifier of the recipient (e.g., username, chat ID)
+   * @param message Message content to send
+   */
+  sendMessage(recipient: string, message: string): Promise<void>;
+
+  /**
    * Disconnect from the message source
    */
   disconnect(): Promise<void>;

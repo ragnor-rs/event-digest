@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG = {
   eventClassificationBatchSize: 16,
   scheduleExtractionBatchSize: 16,
   eventDescriptionBatchSize: 5,
+  sendEventsBatchSize: 5,
 
   eventMessageCues: {
     ru: [

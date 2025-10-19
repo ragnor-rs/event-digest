@@ -1,6 +1,10 @@
 export class Logger {
   constructor(private isVerbose: boolean) {}
 
+  setVerbose(verbose: boolean): void {
+    this.isVerbose = verbose;
+  }
+
   log(message: string): void {
     console.log(message);
   }

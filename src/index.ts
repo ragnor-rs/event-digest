@@ -5,7 +5,7 @@ dotenv.config();
 import { EventPipeline } from './application';
 import { parseArgs } from './config';
 import { OpenAIClient, Cache, TelegramClient } from './data';
-import { printEvents } from './presentation';
+import { printEvents, EventSender } from './presentation';
 import { Logger, DebugWriter } from './shared';
 
 function validateEnvironmentVariables(): void {
@@ -22,25 +22,46 @@ function validateEnvironmentVariables(): void {
 }
 
 async function main() {
+  const logger = new Logger(false);
+  let messageSource: TelegramClient | undefined;
+
   try {
     validateEnvironmentVariables();
     const config = parseArgs();
 
-    const logger = new Logger(config.verboseLogging);
+    logger.setVerbose(config.verboseLogging);
     const cache = new Cache(logger);
     const openaiClient = new OpenAIClient(logger);
-    const messageSource = new TelegramClient(cache, logger);
+    messageSource = new TelegramClient(cache, logger);
     const debugWriter = new DebugWriter(logger);
+
+    // Connect to Telegram
+    await messageSource.connect();
+    logger.log('');
 
     const pipeline = new EventPipeline(config, openaiClient, cache, messageSource, debugWriter, logger);
     const events = await pipeline.execute();
 
-    printEvents(events);
+    // Send events to recipient if configured, otherwise print to console
+    if (config.sendEventsRecipient) {
+      const eventSender = new EventSender(config, messageSource, logger);
+      await eventSender.sendEvents(events);
+    } else {
+      printEvents(events);
+    }
     logger.log('');
   } catch (error) {
-    const logger = new Logger(false);
     logger.error('Fatal error:', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
+  } finally {
+    // Always disconnect from Telegram if connected
+    if (messageSource) {
+      try {
+        await messageSource.disconnect();
+      } catch (error) {
+        logger.error('Telegram disconnect failed:', error);
+      }
+    }
   }
 }
 

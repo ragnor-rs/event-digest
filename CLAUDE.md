@@ -43,7 +43,9 @@ npm run dev -- \
   --event-detection-batch-size 16 \
   --event-classification-batch-size 16 \
   --schedule-extraction-batch-size 16 \
-  --event-description-batch-size 5
+  --event-description-batch-size 5 \
+  --send-events-recipient "@myusername" \
+  --send-events-batch-size 5
 ```
 
 Option 4 - Override YAML config with CLI arguments:
@@ -115,7 +117,8 @@ src/
 │   │   └── index.ts                # Barrel export
 │   └── index.ts                    # Barrel export
 ├── presentation/                   # Output formatting
-│   └── event-printer.ts            # Console event output formatting
+│   ├── event-printer.ts            # Console event output formatting
+│   └── event-sender.ts             # Telegram message sending
 └── index.ts                        # Application bootstrap
 ```
 
@@ -159,7 +162,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Data Layer** (`data/`):
 - `openai-client.ts`: OpenAI GPT API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0)
-- `telegram-client.ts`: Telegram API client implementing IMessageSource interface, session management, uses readline-helper for authentication prompts
+- `telegram-client.ts`: Telegram API client implementing IMessageSource interface (fetchMessages and sendMessage methods), session management, uses readline-helper for authentication prompts
 - `cache.ts`: Six-tier caching system implementing ICache interface, messages and GPT results with preference-aware keys
 
 **Configuration** (`config/`):
@@ -190,6 +193,9 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
   - `interestMatchingPrompt`: Customizes interest matching logic (step 6) - uses `{{EVENTS}}` and `{{INTERESTS}}` placeholders
   - `eventDescriptionPrompt`: Customizes event description generation (step 7) - uses `{{EVENTS}}` placeholder
   - See config.example.yaml for placeholder documentation and example prompts
+- **Event Delivery** (optional):
+  - `sendEventsRecipient` (no default): Telegram recipient for event delivery (e.g., @username or chat ID); when configured, events are sent to this recipient instead of being printed to console. When undefined (default), events are printed to console.
+  - `sendEventsBatchSize` (default: 5): Number of events to send per Telegram message batch
 
 **Shared Layer** (`shared/`):
 - `date-utils.ts`: Single source of truth for date normalization, handles GPT's inconsistent formats, exports DATE_FORMAT and MAX_FUTURE_YEARS constants
@@ -201,6 +207,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Presentation Layer** (`presentation/`):
 - `event-printer.ts`: Console output formatting with emoji icons, sorts events by datetime
+- `event-sender.ts`: Telegram message sending with batch support, formats events as structured Telegram messages
 
 **Authentication** (`data/telegram-client.ts`):
 - Uses persistent session storage in `.telegram-session` file
@@ -323,6 +330,7 @@ When working with specific functionality, refer to these files:
 - **Update OpenAI integration**: `data/openai-client.ts` (implements IAIClient)
 - **Change pipeline orchestration**: `application/event-pipeline.ts` (uses all domain interfaces)
 - **Modify output formatting**: `presentation/event-printer.ts`
+- **Modify event sending logic**: `presentation/event-sender.ts`
 - **Change debug file output**: `shared/debug-writer.ts`
 - **Add environment variable validation**: `src/index.ts` (validateEnvironmentVariables function)
 

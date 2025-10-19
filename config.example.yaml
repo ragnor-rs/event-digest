@@ -145,6 +145,17 @@ weeklyTimeslots:
 # scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
 # eventDescriptionBatchSize: 5     # Step 7: Event description generation
 
+# Optional: Send events to a Telegram recipient instead of printing to console
+# When configured, events will be sent as formatted messages to the specified recipient
+# Format: @username (e.g., @myusername) or chat ID (e.g., -1001234567890)
+# If not set, events will be printed to console (default behavior)
+# sendEventsRecipient: "@myusername"
+
+# Optional: Number of events to send per message batch (default: 5)
+# Controls how many events are grouped into each Telegram message
+# Useful for avoiding very long messages when many events are found
+# sendEventsBatchSize: 5
+
 # Optional: Custom event message cues (words that indicate event announcements)
 # If not specified, built-in cues will be used
 # eventMessageCues:

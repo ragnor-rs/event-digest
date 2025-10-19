@@ -30,11 +30,6 @@ export class EventPipeline {
 
   async execute(): Promise<DigestEvent[]> {
     try {
-
-      // Connect to message source
-      await this.messageSource.connect();
-      this.logger.log('');
-
       // Step 1: Fetch messages from message source
       this.logger.log('Step 1/7: Fetching messages from message source...');
       const allMessages = await this.messageSource.fetchMessages(
@@ -133,25 +128,11 @@ export class EventPipeline {
       this.logger.error('Pipeline execution failed:', error);
       throw error;
     } finally {
-      // Always ensure both cache save and Telegram disconnect are attempted
-      const cleanupErrors: Error[] = [];
-
+      // Save cache before cleanup
       try {
         this.cache.save();
       } catch (error) {
-        cleanupErrors.push(new Error(`Cache save failed: ${error instanceof Error ? error.message : String(error)}`));
-      }
-
-      try {
-        await this.messageSource.disconnect();
-      } catch (error) {
-        cleanupErrors.push(
-          new Error(`Telegram disconnect failed: ${error instanceof Error ? error.message : String(error)}`)
-        );
-      }
-
-      if (cleanupErrors.length > 0) {
-        this.logger.error('Cleanup encountered errors:', cleanupErrors.map((e) => e.message).join('; '));
+        this.logger.error('Cache save failed:', error);
       }
     }
   }

@@ -21,6 +21,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedEventClassificationBatchSize = config.eventClassificationBatchSize !== undefined;
   const providedScheduleExtractionBatchSize = config.scheduleExtractionBatchSize !== undefined;
   const providedEventDescriptionBatchSize = config.eventDescriptionBatchSize !== undefined;
+  const providedSendEventsBatchSize = config.sendEventsBatchSize !== undefined;
   const providedEventDetectionPrompt = config.eventDetectionPrompt !== undefined;
   const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
   const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
@@ -84,6 +85,9 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   }
   if (config.eventDescriptionBatchSize === undefined) {
     config.eventDescriptionBatchSize = DEFAULT_CONFIG.eventDescriptionBatchSize;
+  }
+  if (config.sendEventsBatchSize === undefined) {
+    config.sendEventsBatchSize = DEFAULT_CONFIG.sendEventsBatchSize;
   }
 
   // Set default prompts
@@ -166,6 +170,12 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   );
   console.log(
     `  eventDescriptionBatchSize: ${finalConfig.eventDescriptionBatchSize}${!providedEventDescriptionBatchSize ? ' (default)' : ''}`
+  );
+  console.log(
+    `  sendEventsRecipient: ${finalConfig.sendEventsRecipient || 'not set (print to console)'}`
+  );
+  console.log(
+    `  sendEventsBatchSize: ${finalConfig.sendEventsBatchSize}${!providedSendEventsBatchSize ? ' (default)' : ''}`
   );
   console.log(
     `  eventMessageCues: ${Object.values(finalConfig.eventMessageCues).flat().length} cues${!providedEventMessageCues ? ' (default)' : ''}`

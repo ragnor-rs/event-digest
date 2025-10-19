@@ -22,4 +22,6 @@ export interface Config {
   eventTypeClassificationPrompt?: string;
   scheduleExtractionPrompt?: string;
   eventDescriptionPrompt?: string;
+  sendEventsRecipient?: string; // Recipient account for sending events (e.g., @username or chat ID)
+  sendEventsBatchSize: number; // Number of events to send per message batch
 }
