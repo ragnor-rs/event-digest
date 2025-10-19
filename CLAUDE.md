@@ -81,10 +81,10 @@ src/
 │   │   └── index.ts                # Barrel export
 │   ├── services/                   # Business logic services (filtering, matching, etc.)
 │   │   ├── event-cues-filter.ts    # Step 2: Text-based event filtering
-│   │   ├── event-detector.ts       # Step 3: GPT event detection (~174 lines)
+│   │   ├── event-detector.ts       # Step 3: GPT event detection (~205 lines)
 │   │   ├── event-classifier.ts     # Step 4: Event type classification
-│   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~417 lines, longest service)
-│   │   ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~245 lines, processes individually)
+│   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~418 lines, longest service)
+│   │   ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~246 lines, processes individually)
 │   │   ├── event-describer.ts      # Step 7: Event description generation
 │   │   └── index.ts                # Barrel export
 │   └── constants.ts                # Domain constants (DATETIME_UNKNOWN)
@@ -137,7 +137,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `SourceMessage`: Raw message data from any source (timestamp, content, link)
 - `InterestMatch`: Interest matching result with confidence score (0.0-1.0)
 - `EventTypeClassification`: Event type classification result with type (AttendanceMode) and confidence (0.0-1.0)
-- `DigestEventDescription`: Structured event information (date_time, met_interests, title, short_summary, link)
+- `DigestEventDescription`: Structured event information (title, short_summary)
 - `DigestEvent`: Single event type with optional fields populated through pipeline stages:
   - Step 3 adds: `message: SourceMessage` and `event_detection_confidence?: number` (0.0-1.0 confidence score)
   - Step 4 adds: `event_type_classification?: EventTypeClassification` (contains type: AttendanceMode enum and confidence: number)
@@ -148,10 +148,10 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
-- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (~204 lines)
-- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (~265 lines)
-- `schedule-matcher.ts`: Schedule extraction and availability matching (~417 lines, longest service)
-- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~245 lines, processes individually for accuracy)
+- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (~205 lines)
+- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (~266 lines)
+- `schedule-matcher.ts`: Schedule extraction and availability matching (~418 lines, longest service)
+- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~246 lines, processes individually for accuracy)
 - `event-describer.ts`: Event description generation (uses same temperature 1.0 as other operations)
 
 **Application Layer** (`application/`):
@@ -211,7 +211,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - Comprehensive caching with descriptive cache store names
 - Six separate cache stores:
   - `telegram_messages`: Raw Telegram messages per source (step 1) - assumes message immutability
-  - `messages`: Basic event detection results (step 3)
+  - `messages`: Event detection boolean decisions (step 3) - stores whether each message is an event
   - `event_type_classification`: Event type classification results (step 4)
   - `scheduled_events`: Schedule filtering and datetime extraction (step 5)
   - `matching_interests`: Interest matching results (step 6)
@@ -260,7 +260,7 @@ The `.telegram-session` file is automatically created and managed for persistent
 
 Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/telegram_messages.json`: Raw Telegram messages per source (step 1, assumes immutability)
-- `.cache/messages.json`: Basic event detection results (step 3, no preferences needed)
+- `.cache/messages.json`: Event detection boolean decisions (step 3, no preferences needed) - stores whether each message is an event
 - `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed)
 - `.cache/scheduled_events.json`: Schedule filtering results (step 5, no preferences in cache key)
 - `.cache/matching_interests.json`: Interest matching results (step 6, includes interests hash)

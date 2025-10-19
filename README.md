@@ -259,7 +259,7 @@ The tool processes messages through a 7-step pipeline:
 4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type_classification field (EventTypeClassification with type and confidence)
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field (Date object)
 6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores)
-7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field (DigestEventDescription type)
+7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles and summaries using GPT, adds event_description field (DigestEventDescription type with title and short_summary)
 
 ## Architecture
 

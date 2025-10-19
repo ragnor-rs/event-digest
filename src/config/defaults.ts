@@ -120,24 +120,33 @@ EVENT:
 INTERESTS:
 {{INTERESTS}}
 
-STRICT MATCHING RULES:
-- Match ONLY if the event content is DIRECTLY related to the interest topic
-- "Communication skills" or "public speaking" ≠ "Speed dating" (professional ≠ romantic)
-- "Frontend/React/UI" ≠ "Backend/server/database" (different tech stacks)
-- "Networking (professional meetups)" ≠ "Social events (casual parties)"
-- When uncertain, prefer NO MATCH over questionable match
+MATCHING RULES:
+
+1. HIERARCHICAL MATCHING: Interests may contain parent categories with specific examples in parentheses. Match if the event relates to EITHER the parent category OR any specific example.
+   - Example: "Electronic music (Electro Swing, Glitch Hop)" matches events about "electronic music" OR "Electro Swing" OR "Glitch Hop"
+
+2. STRICT RELEVANCE: Match ONLY if the event content is DIRECTLY related to the interest topic
+   - "Professional networking" or "business meetups" ≠ "Social gatherings" (professional ≠ casual)
+   - "Frontend/React/UI" ≠ "Backend/server/database" (different tech stacks)
+   - "Music concerts" ≠ "Music production workshops" (consumption ≠ creation)
+   - When uncertain, prefer NO MATCH over questionable match
+
+3. CONFIDENCE SCORING (0.0-1.0):
+   - 0.9-1.0: Exact match (event explicitly mentions the interest or its subcategories)
+   - 0.75-0.89: Strong semantic match (clear relevance, implied connection)
+   - 0.6-0.74: Moderate match (tangentially related)
+   - Below 0.6: Reject (too weak)
 
 RESPONSE FORMAT:
 For each match, provide: INDEX:CONFIDENCE
-Confidence must be between 0.0 (no match) and 1.0 (perfect match)
 Separate multiple matches with commas
 
 Examples:
 - Strong matches: 19:0.95, 6:0.85
-- Uncertain match: 3:0.60
+- Moderate match: 3:0.72
 - No matches: none
 
-IMPORTANT: Only include matches with confidence ≥ 0.75
+IMPORTANT: Only include matches with confidence ≥ 0.70
 
 Respond with ONLY the index:confidence pairs (comma-separated) or "none".`,
 
