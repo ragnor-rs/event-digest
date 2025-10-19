@@ -25,13 +25,13 @@ export async function classifyEventTypes(
   logger.verbose('  Processing cache...');
 
   for (const event of events) {
-    const cachedType = cache.getEventTypeCache(event.message.link);
-    if (cachedType !== undefined) {
+    const cachedClassification = cache.getEventTypeCache(event.message.link);
+    if (cachedClassification !== undefined) {
       cacheHits++;
 
       // Check if we should include this event based on skipOnlineEvents
-      if (cachedType === AttendanceMode.ONLINE && config.skipOnlineEvents) {
-        logger.verbose(`    ✗ Discarded: ${event.message.link} [${cachedType}] - skipping online events (cached)`);
+      if (cachedClassification.type === AttendanceMode.ONLINE && config.skipOnlineEvents) {
+        logger.verbose(`    ✗ Discarded: ${event.message.link} [${cachedClassification.type}] - skipping online events (cached)`);
         debugEntries.push({
           message: {
             timestamp: event.message.timestamp,
@@ -39,14 +39,15 @@ export async function classifyEventTypes(
             link: event.message.link,
           },
           ai_prompt: '[CACHED]',
-          ai_response: `[CACHED: ${cachedType}]`,
+          ai_response: `[CACHED: ${cachedClassification.type}, confidence: ${cachedClassification.confidence}]`,
+          type_classifications: [{ type: cachedClassification.type as 'offline' | 'online' | 'hybrid', confidence: cachedClassification.confidence }],
           result: 'discarded',
           cached: true,
         });
       } else {
         classifiedEvents.push({
           ...event,
-          event_type: cachedType,
+          event_type_classification: cachedClassification,
         });
         debugEntries.push({
           message: {
@@ -55,8 +56,9 @@ export async function classifyEventTypes(
             link: event.message.link,
           },
           ai_prompt: '[CACHED]',
-          ai_response: `[CACHED: ${cachedType}]`,
-          result: cachedType as 'offline' | 'online' | 'hybrid',
+          ai_response: `[CACHED: ${cachedClassification.type}, confidence: ${cachedClassification.confidence}]`,
+          type_classifications: [{ type: cachedClassification.type as 'offline' | 'online' | 'hybrid', confidence: cachedClassification.confidence }],
+          result: 'matched',
           cached: true,
         });
       }
@@ -96,11 +98,15 @@ export async function classifyEventTypes(
       const invalidClassifications: Array<{ index: number; value: number }> = [];
       const duplicateIndices: number[] = [];
 
+      const lowConfidenceFiltered: Array<{ messageNum: number; confidence: number }> = [];
+
       for (const line of lines) {
-        const match = line.trim().match(/^(\d+)\s*:\s*(\d+)$/);
+        // Try to match "NUMBER:INDEX:CONFIDENCE" format
+        const match = line.trim().match(/^(\d+)\s*:\s*(\d+)\s*:\s*([0-9.]+)$/);
         if (match) {
           const messageNum = parseInt(match[1]);
           const classificationIdx = parseInt(match[2]);
+          const confidence = parseFloat(match[3]);
           const messageIdx = messageNum - 1;
 
           // Validate message index
@@ -121,6 +127,12 @@ export async function classifyEventTypes(
             continue;
           }
 
+          // Validate confidence is in valid range
+          if (isNaN(confidence) || confidence < 0 || confidence > 1) {
+            malformedLines.push(line);
+            continue;
+          }
+
           // Validate no duplicate indices
           if (processedIndices.has(messageIdx)) {
             duplicateIndices.push(messageNum);
@@ -130,8 +142,32 @@ export async function classifyEventTypes(
           const eventType =
             classificationIdx === 0 ? AttendanceMode.OFFLINE : classificationIdx === 1 ? AttendanceMode.ONLINE : AttendanceMode.HYBRID;
 
+          const classification = { type: eventType, confidence };
+
+          // Filter by minimum confidence threshold
+          if (confidence < config.minEventClassificationConfidence) {
+            lowConfidenceFiltered.push({ messageNum, confidence });
+            logger.verbose(
+              `    ✗ Discarded: ${chunk[messageIdx].message.link} [${eventType}] - classification confidence ${confidence.toFixed(2)} below threshold ${config.minEventClassificationConfidence}`
+            );
+            debugEntries.push({
+              message: {
+                timestamp: chunk[messageIdx].message.timestamp,
+                content: chunk[messageIdx].message.content,
+                link: chunk[messageIdx].message.link,
+              },
+              ai_prompt: prompt,
+              ai_response: result,
+              type_classifications: [{ type: eventType as 'offline' | 'online' | 'hybrid', confidence }],
+              result: 'discarded',
+              cached: false,
+            });
+            processedIndices.add(messageIdx);
+            continue;
+          }
+
           // Cache the result
-          cache.cacheEventType(chunk[messageIdx].message.link, eventType, false);
+          cache.cacheEventType(chunk[messageIdx].message.link, classification, false);
           processedIndices.add(messageIdx);
 
           // Check if we should include this event
@@ -145,13 +181,14 @@ export async function classifyEventTypes(
               },
               ai_prompt: prompt,
               ai_response: result,
+              type_classifications: [{ type: eventType as 'offline' | 'online' | 'hybrid', confidence }],
               result: 'discarded',
               cached: false,
             });
           } else {
             classifiedEvents.push({
               ...chunk[messageIdx],
-              event_type: eventType,
+              event_type_classification: classification,
             });
             debugEntries.push({
               message: {
@@ -161,7 +198,8 @@ export async function classifyEventTypes(
               },
               ai_prompt: prompt,
               ai_response: result,
-              result: eventType as 'offline' | 'online' | 'hybrid',
+              type_classifications: [{ type: eventType as 'offline' | 'online' | 'hybrid', confidence }],
+              result: 'matched',
               cached: false,
             });
           }
@@ -178,10 +216,14 @@ export async function classifyEventTypes(
       }
       if (invalidClassifications.length > 0) {
         const details = invalidClassifications.map((c) => `${c.index}:${c.value}`).join(', ');
-        logger.verbose(`    WARNING: AI returned invalid classification values (valid: 0-2): ${details}`);
+        logger.verbose(
+          `    WARNING: AI returned invalid classification values (valid: 0-2): ${details}`
+        );
       }
       if (duplicateIndices.length > 0) {
-        logger.verbose(`    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`);
+        logger.verbose(
+          `    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`
+        );
       }
       if (malformedLines.length > 0) {
         logger.verbose(
@@ -194,11 +236,11 @@ export async function classifyEventTypes(
     for (let idx = 0; idx < chunk.length; idx++) {
       if (!processedIndices.has(idx)) {
         logger.verbose(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
-        const eventType = AttendanceMode.OFFLINE;
-        cache.cacheEventType(chunk[idx].message.link, eventType, false);
+        const classification = { type: AttendanceMode.OFFLINE, confidence: 0.5 };
+        cache.cacheEventType(chunk[idx].message.link, classification, false);
         classifiedEvents.push({
           ...chunk[idx],
-          event_type: eventType,
+          event_type_classification: classification,
         });
         debugEntries.push({
           message: {
@@ -208,7 +250,8 @@ export async function classifyEventTypes(
           },
           ai_prompt: prompt,
           ai_response: result || '[NO RESPONSE]',
-          result: eventType as 'offline' | 'online' | 'hybrid',
+          type_classifications: [{ type: 'offline', confidence: 0.5 }],
+          result: 'matched',
           cached: false,
         });
       }

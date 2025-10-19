@@ -68,9 +68,23 @@ weeklyTimeslots:
 # When disabled, only prints step names and final statistics
 # verboseLogging: false
 
-# Optional: Minimum confidence threshold for interest matching (default: 0.75)
-# GPT assigns confidence scores (0.0-1.0) to each interest match
-# Only matches with confidence >= this threshold are included
+# Optional: Minimum confidence thresholds for AI filtering (0.0-1.0)
+# GPT assigns confidence scores to predictions; only results above threshold are included
+
+# Minimum confidence for event detection (default: 0.7)
+# Controls which messages are classified as events
+# Higher values (0.8-0.9) = fewer but more certain events
+# Lower values (0.5-0.7) = more events but may include questionable ones
+# minEventDetectionConfidence: 0.7
+
+# Minimum confidence for event type classification (default: 0.7)
+# Controls confidence in offline/online/hybrid classification
+# Higher values = stricter classification
+# Lower values = more lenient classification
+# minEventClassificationConfidence: 0.7
+
+# Minimum confidence for interest matching (default: 0.75)
+# Controls which interests are matched to events
 # Higher values (0.8-0.9) = fewer but more certain matches
 # Lower values (0.5-0.7) = more matches but may include questionable ones
 # Recommended: 0.75 for balanced precision/recall

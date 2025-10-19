@@ -106,7 +106,18 @@ writeDebugFiles: false
 # batch numbers, DISCARDED messages with links, and event creation status
 verboseLogging: false
 
-# Minimum confidence threshold for interest matching (default: 0.75)
+# Minimum confidence thresholds for AI filtering (0.0-1.0)
+# GPT assigns confidence scores to predictions; only results above threshold are included
+
+# Minimum confidence for event detection (default: 0.7)
+# Controls which messages are classified as events
+minEventDetectionConfidence: 0.7
+
+# Minimum confidence for event type classification (default: 0.7)
+# Controls confidence in offline/online/hybrid classification
+minEventClassificationConfidence: 0.7
+
+# Minimum confidence for interest matching (default: 0.75)
 # GPT assigns 0.0-1.0 confidence scores to each interest match
 # Only matches with confidence ≥ this threshold are included
 minInterestConfidence: 0.75
@@ -153,6 +164,8 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files false \
   --verbose-logging false \
+  --min-event-detection-confidence 0.7 \
+  --min-event-classification-confidence 0.7 \
   --min-interest-confidence 0.75 \
   --event-detection-batch-size 16 \
   --event-classification-batch-size 16 \
@@ -183,7 +196,10 @@ npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
-- `minInterestConfidence`/`--min-interest-confidence`: Minimum confidence threshold (0.0-1.0) for interest matching; GPT assigns scores, only matches ≥ threshold included (default: 0.75)
+- **Confidence Thresholds** (optional - controls AI quality filtering):
+  - `minEventDetectionConfidence`/`--min-event-detection-confidence`: Minimum confidence (0.0-1.0) for event detection; higher values = fewer but more certain events (default: 0.7)
+  - `minEventClassificationConfidence`/`--min-event-classification-confidence`: Minimum confidence (0.0-1.0) for event type classification; higher values = stricter classification (default: 0.7)
+  - `minInterestConfidence`/`--min-interest-confidence`: Minimum confidence (0.0-1.0) for interest matching; higher values = fewer but more certain matches (default: 0.75)
 - **GPT Batch Sizes** (optional - controls processing efficiency):
   - `eventDetectionBatchSize`/`--event-detection-batch-size`: Items per batch for event detection (default: 16)
   - `eventClassificationBatchSize`/`--event-classification-batch-size`: Items per batch for event type classification (default: 16)
@@ -239,10 +255,10 @@ The tool processes messages through a 7-step pipeline:
 
 1. **Fetch Messages** (`data/telegram-client.ts`) - Retrieves recent messages from specified Telegram sources
 2. **Event Cue Filter** (`domain/services/event-cues-filter.ts`) - Filters messages containing date/event keywords
-3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates DigestEvent objects with message field
-4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type field (AttendanceMode enum)
+3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates DigestEvent objects with message field and event_detection_confidence (0.0-1.0 score)
+4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type_classification field (EventTypeClassification with type and confidence)
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field (Date object)
-6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interests_matched and interest_matches fields (with confidence scores)
+6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores)
 7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles, summaries, and details using GPT, adds event_description field (DigestEventDescription type)
 
 ## Architecture

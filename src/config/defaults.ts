@@ -4,6 +4,8 @@ export const DEFAULT_CONFIG = {
   skipOnlineEvents: true,
   writeDebugFiles: false,
   verboseLogging: false,
+  minEventDetectionConfidence: 0.7,
+  minEventClassificationConfidence: 0.7,
   minInterestConfidence: 0.75,
   eventDetectionBatchSize: 16,
   eventClassificationBatchSize: 16,
@@ -98,7 +100,17 @@ EXAMPLE of what should be INCLUDED:
 Messages:
 {{MESSAGES}}
 
-CRITICAL: Respond with each qualifying message number, one per line (e.g., "1", "3", "7"). If none qualify, respond with "none".`,
+RESPONSE FORMAT:
+For each qualifying message, provide: MESSAGE_NUMBER:CONFIDENCE
+Confidence must be between 0.0 (uncertain) and 1.0 (certain it's an event)
+One per line, or "none" if no messages qualify.
+
+Examples:
+1:0.95
+3:0.80
+7:0.70
+
+If none qualify, respond with "none".`,
 
   interestMatchingPrompt: `Match this event to user interests by selecting relevant interest indices with confidence scores.
 
@@ -154,8 +166,16 @@ HYBRID (2):
 Messages:
 {{MESSAGES}}
 
-Respond with ONLY the message number and classification index (0, 1, or 2), one per line.
-Format: MESSAGE_NUMBER: INDEX`,
+RESPONSE FORMAT:
+For each message, provide: MESSAGE_NUMBER:INDEX:CONFIDENCE
+- INDEX: 0 (offline), 1 (online), or 2 (hybrid)
+- CONFIDENCE: 0.0-1.0 (how certain you are about the classification)
+One per line.
+
+Examples:
+1:0:0.95
+2:1:0.85
+3:2:0.70`,
 
   scheduleExtractionPrompt: `Extract the start date and time for each event. Today's date is {{TODAY_DATE}}.
 

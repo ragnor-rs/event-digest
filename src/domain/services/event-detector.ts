@@ -78,15 +78,24 @@ export async function detectEventAnnouncements(
       const malformedLines: string[] = [];
       const outOfRangeIndices: number[] = [];
       const duplicateIndices: number[] = [];
+      const lowConfidenceFiltered: Array<{ messageNum: number; confidence: number }> = [];
 
       for (const line of lines) {
-        const match = line.trim().match(/^(\d+)$/);
-        if (match) {
-          const messageNum = parseInt(match[1]);
+        // Try to match "NUMBER:CONFIDENCE" format
+        const matchWithConfidence = line.trim().match(/^(\d+):([0-9.]+)$/);
+        if (matchWithConfidence) {
+          const messageNum = parseInt(matchWithConfidence[1]);
+          const confidence = parseFloat(matchWithConfidence[2]);
           const idx = messageNum - 1;
 
           // Validate index is a positive integer
           if (!Number.isInteger(messageNum) || messageNum < 1) {
+            malformedLines.push(line);
+            continue;
+          }
+
+          // Validate confidence is in valid range
+          if (isNaN(confidence) || confidence < 0 || confidence > 1) {
             malformedLines.push(line);
             continue;
           }
@@ -103,13 +112,32 @@ export async function detectEventAnnouncements(
             continue;
           }
 
-          events.push({ message: chunk[idx] });
+          // Filter by minimum confidence threshold
+          if (confidence < config.minEventDetectionConfidence) {
+            lowConfidenceFiltered.push({ messageNum, confidence });
+            logger.verbose(
+              `    ✗ Discarded: ${chunk[idx].link} - event confidence ${confidence.toFixed(2)} below threshold ${config.minEventDetectionConfidence}`
+            );
+            cache.cacheEventMessage(chunk[idx].link, false, false);
+            debugEntries.push({
+              messageLink: chunk[idx].link,
+              isEvent: false,
+              cached: false,
+              prompt,
+              aiResponse: result,
+            });
+            processedIndices.add(idx);
+            continue;
+          }
+
+          events.push({ message: chunk[idx], event_detection_confidence: confidence });
           cache.cacheEventMessage(chunk[idx].link, true, false);
           processedIndices.add(idx);
 
           debugEntries.push({
             messageLink: chunk[idx].link,
             isEvent: true,
+            confidence,
             cached: false,
             prompt,
             aiResponse: result,
@@ -126,7 +154,9 @@ export async function detectEventAnnouncements(
         );
       }
       if (duplicateIndices.length > 0) {
-        logger.verbose(`    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`);
+        logger.verbose(
+          `    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`
+        );
       }
       if (malformedLines.length > 0) {
         logger.verbose(

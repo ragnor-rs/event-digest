@@ -12,6 +12,8 @@ const VALID_OPTIONS = [
   '--write-debug-files',
   '--skip-online-events',
   '--verbose-logging',
+  '--min-event-detection-confidence',
+  '--min-event-classification-confidence',
   '--min-interest-confidence',
   '--event-detection-batch-size',
   '--event-classification-batch-size',
@@ -86,6 +88,22 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--verbose-logging':
         config.verboseLogging = value.toLowerCase() === 'true';
         break;
+      case '--min-event-detection-confidence': {
+        const parsed = parseFloat(value);
+        if (isNaN(parsed) || parsed < 0 || parsed > 1) {
+          throw new Error(`Invalid value for --min-event-detection-confidence: "${value}". Must be between 0.0 and 1.0.`);
+        }
+        config.minEventDetectionConfidence = parsed;
+        break;
+      }
+      case '--min-event-classification-confidence': {
+        const parsed = parseFloat(value);
+        if (isNaN(parsed) || parsed < 0 || parsed > 1) {
+          throw new Error(`Invalid value for --min-event-classification-confidence: "${value}". Must be between 0.0 and 1.0.`);
+        }
+        config.minEventClassificationConfidence = parsed;
+        break;
+      }
       case '--min-interest-confidence': {
         const parsed = parseFloat(value);
         if (isNaN(parsed) || parsed < 0 || parsed > 1) {

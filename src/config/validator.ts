@@ -13,6 +13,8 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedSkipOnlineEvents = config.skipOnlineEvents !== undefined;
   const providedWriteDebugFiles = config.writeDebugFiles !== undefined;
   const providedVerboseLogging = config.verboseLogging !== undefined;
+  const providedMinEventDetectionConfidence = config.minEventDetectionConfidence !== undefined;
+  const providedMinEventClassificationConfidence = config.minEventClassificationConfidence !== undefined;
   const providedMinInterestConfidence = config.minInterestConfidence !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
   const providedEventDetectionBatchSize = config.eventDetectionBatchSize !== undefined;
@@ -56,6 +58,14 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
 
   if (config.verboseLogging === undefined) {
     config.verboseLogging = DEFAULT_CONFIG.verboseLogging;
+  }
+
+  if (config.minEventDetectionConfidence === undefined) {
+    config.minEventDetectionConfidence = DEFAULT_CONFIG.minEventDetectionConfidence;
+  }
+
+  if (config.minEventClassificationConfidence === undefined) {
+    config.minEventClassificationConfidence = DEFAULT_CONFIG.minEventClassificationConfidence;
   }
 
   if (config.minInterestConfidence === undefined) {
@@ -136,6 +146,12 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}${!providedSkipOnlineEvents ? ' (default)' : ''}`);
   console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
   console.log(`  verboseLogging: ${finalConfig.verboseLogging}${!providedVerboseLogging ? ' (default)' : ''}`);
+  console.log(
+    `  minEventDetectionConfidence: ${finalConfig.minEventDetectionConfidence}${!providedMinEventDetectionConfidence ? ' (default)' : ''}`
+  );
+  console.log(
+    `  minEventClassificationConfidence: ${finalConfig.minEventClassificationConfidence}${!providedMinEventClassificationConfidence ? ' (default)' : ''}`
+  );
   console.log(
     `  minInterestConfidence: ${finalConfig.minInterestConfidence}${!providedMinInterestConfidence ? ' (default)' : ''}`
   );
