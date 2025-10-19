@@ -340,6 +340,7 @@ src/
 │   └── types/                  # Shared types
 │       └── debug-entries.ts    # Debug entry type definitions
 ├── presentation/               # Output formatting
+│   ├── event-reporter.interface.ts  # IEventReporter interface
 │   ├── event-printer.ts        # Console event output
 │   └── event-sender.ts         # Telegram message sending
 └── index.ts                    # Application bootstrap
@@ -409,7 +410,7 @@ npm run dev
 
 ## Cost Optimization
 
-- Uses GPT-5-mini with temperature 1.0 for optimal balance of creativity and accuracy
+- Uses GPT-5-mini with temperature 1.0 for optimal balance of speed, cost, and accuracy
 - Intelligent six-tier caching prevents redundant API calls
 - Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 5)
 - Individual processing for interest matching to ensure accurate validation

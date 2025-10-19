@@ -117,6 +117,7 @@ src/
 │   │   └── index.ts                # Barrel export
 │   └── index.ts                    # Barrel export
 ├── presentation/                   # Output formatting
+│   ├── event-reporter.interface.ts # IEventReporter interface for output
 │   ├── event-printer.ts            # Console event output formatting
 │   └── event-sender.ts             # Telegram message sending
 └── index.ts                        # Application bootstrap
@@ -151,17 +152,17 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
-- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (~204 lines)
-- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (~265 lines)
-- `schedule-matcher.ts`: Schedule extraction and availability matching (~417 lines, longest service)
-- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~245 lines, processes individually for accuracy)
-- `event-describer.ts`: Event description generation (uses same temperature 1.0 as other operations)
+- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (~205 lines), uses aiClient.call()
+- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (~266 lines), uses aiClient.call()
+- `schedule-matcher.ts`: Schedule extraction and availability matching (~418 lines, longest service), uses aiClient.call()
+- `interest-matcher.ts`: Interest matching with confidence scoring and validation (~246 lines, processes individually for accuracy), uses aiClient.call()
+- `event-describer.ts`: Event description generation (~191 lines), uses aiClient.callCreative() (same temperature 1.0 as other operations)
 
 **Application Layer** (`application/`):
 - `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, DebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
 
 **Data Layer** (`data/`):
-- `openai-client.ts`: OpenAI GPT API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0)
+- `openai-client.ts`: OpenAI GPT API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0), includes retry logic with exponential backoff for rate limit errors (max 3 retries: 2s, 4s, 8s delays)
 - `telegram-client.ts`: Telegram API client implementing IMessageSource interface (fetchMessages and sendMessage methods), session management, uses readline-helper for authentication prompts
 - `cache.ts`: Six-tier caching system implementing ICache interface, messages and GPT results with preference-aware keys
 
@@ -206,8 +207,9 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `types/debug-entries.ts`: Debug entry type definitions using primitive types (DebugEventDetectionEntry, DebugTypeClassificationEntry, DebugScheduleFilteringEntry, DebugInterestMatchingEntry, DebugEventDescriptionEntry) - uses primitives instead of domain entities to maintain clean architecture boundaries
 
 **Presentation Layer** (`presentation/`):
-- `event-printer.ts`: Console output formatting with emoji icons, sorts events by datetime
-- `event-sender.ts`: Telegram message sending with batch support, formats events as structured Telegram messages
+- `event-reporter.interface.ts`: IEventReporter interface defining report() method for event output
+- `event-printer.ts`: Console output formatting with emoji icons, sorts events by datetime, implements IEventReporter
+- `event-sender.ts`: Telegram message sending with batch support, formats events as structured Telegram messages, implements IEventReporter
 
 **Authentication** (`data/telegram-client.ts`):
 - Uses persistent session storage in `.telegram-session` file
@@ -257,7 +259,7 @@ This filtering happens during the type classification stage in `domain/services/
 
 Required environment variables (see `.env.example`):
 - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_PHONE_NUMBER` - Telegram API credentials
-- `OPENAI_API_KEY` - OpenAI API key for GPT-5-mini
+- `OPENAI_API_KEY` - OpenAI API key for GPT-5-mini model
 
 **Environment Variable Validation:** The application validates all required environment variables at startup before initializing clients. Missing variables will cause immediate failure with a clear error message referencing `.env.example`.
 
@@ -329,8 +331,9 @@ When working with specific functionality, refer to these files:
 - **Modify Telegram fetching**: `data/telegram-client.ts` (implements IMessageSource)
 - **Update OpenAI integration**: `data/openai-client.ts` (implements IAIClient)
 - **Change pipeline orchestration**: `application/event-pipeline.ts` (uses all domain interfaces)
-- **Modify output formatting**: `presentation/event-printer.ts`
-- **Modify event sending logic**: `presentation/event-sender.ts`
+- **Add new presentation interfaces**: `presentation/event-reporter.interface.ts` (IEventReporter)
+- **Modify output formatting**: `presentation/event-printer.ts` (implements IEventReporter)
+- **Modify event sending logic**: `presentation/event-sender.ts` (implements IEventReporter)
 - **Change debug file output**: `shared/debug-writer.ts`
 - **Add environment variable validation**: `src/index.ts` (validateEnvironmentVariables function)
 

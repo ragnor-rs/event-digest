@@ -1,5 +1,6 @@
 import { DigestEvent } from '../domain/entities';
 import { IMessageSource } from '../domain/interfaces';
+import { IEventReporter } from './event-reporter.interface';
 import { Config } from '../config/types';
 import { formatDateTime } from '../shared/date-utils';
 import { Logger } from '../shared';
@@ -7,7 +8,7 @@ import { Logger } from '../shared';
 /**
  * Sends events as messages to a specified recipient in batches
  */
-export class EventSender {
+export class EventSender implements IEventReporter {
   constructor(
     private config: Config,
     private messageSource: IMessageSource,
@@ -15,9 +16,9 @@ export class EventSender {
   ) {}
 
   /**
-   * Send events to the configured recipient
+   * Report events by sending them to the configured recipient
    */
-  async sendEvents(events: DigestEvent[]): Promise<void> {
+  async report(events: DigestEvent[]): Promise<void> {
     if (!this.config.sendEventsRecipient) {
       throw new Error('sendEventsRecipient is not configured');
     }
@@ -30,23 +31,23 @@ export class EventSender {
     // Validate all events have required fields
     const validEvents = events.filter((event) => {
       if (!event.event_description) {
-        this.logger.verbose(`  Skipping event without description: ${event.message?.link || 'unknown'}`);
+        this.logger.verbose(`Skipping event without description: ${event.message?.link || 'unknown'}`);
         return false;
       }
       if (!event.start_datetime) {
-        this.logger.verbose(`  Skipping event without start_datetime: ${event.message?.link || 'unknown'}`);
+        this.logger.verbose(`Skipping event without start_datetime: ${event.message?.link || 'unknown'}`);
         return false;
       }
       if (!event.event_description.title) {
-        this.logger.verbose(`  Skipping event without title: ${event.message?.link || 'unknown'}`);
+        this.logger.verbose(`Skipping event without title: ${event.message?.link || 'unknown'}`);
         return false;
       }
       if (!event.event_description.short_summary) {
-        this.logger.verbose(`  Skipping event without short_summary: ${event.message?.link || 'unknown'}`);
+        this.logger.verbose(`Skipping event without short_summary: ${event.message?.link || 'unknown'}`);
         return false;
       }
       if (!event.interest_matches || event.interest_matches.length === 0) {
-        this.logger.verbose(`  Skipping event without interest_matches: ${event.message?.link || 'unknown'}`);
+        this.logger.verbose(`Skipping event without interest_matches: ${event.message?.link || 'unknown'}`);
         return false;
       }
       return true;
@@ -77,7 +78,7 @@ export class EventSender {
 
       try {
         await this.messageSource.sendMessage(this.config.sendEventsRecipient, message);
-        this.logger.log(`  Sent batch ${batchIndex + 1}/${batches.length} (${batch.length} events)`);
+        this.logger.log(`Sent batch ${batchIndex + 1}/${batches.length} (${batch.length} events)`);
       } catch (error) {
         this.logger.error(`Failed to send batch ${batchIndex + 1}/${batches.length}`, error);
         throw error;
