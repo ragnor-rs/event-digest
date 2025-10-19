@@ -4,6 +4,8 @@ import { IAIClient } from '../domain/interfaces';
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
 import { Logger } from '../shared/logger';
 
+// NOTE: 'gpt-5-mini' may need to be updated to a valid OpenAI model name (e.g., 'gpt-4o-mini')
+// Verify this model name is correct for your OpenAI API access
 const GPT_MODEL = 'gpt-5-mini';
 const GPT_TEMPERATURE = 1.0;
 export const GPT_TEMPERATURE_CREATIVE = 1.0;

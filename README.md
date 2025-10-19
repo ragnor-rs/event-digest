@@ -73,11 +73,15 @@ groupsToParse:
   - "My Private Group"  # Display name search works for both public and private
 
 # Your interests - events will be matched against these topics
+# Use specific interests for better accuracy
+# Hierarchical format: "Music (Jazz, Classical)" matches any subcategory
 userInterests:
-  - "Technology"
-  - "Music"
-  - "Photography"
-  - "Board games"
+  - "React/Frontend development"
+  - "Photography (Street photography, Portraits)"
+  - "Board games (Strategy games, D&D)"
+  - "Professional networking (Tech meetups)"
+  - "Jazz concerts"
+# See config.example.yaml for detailed tips and examples
 
 # Weekly availability timeslots
 # Format: "DAY_OF_WEEK TIME" where DAY_OF_WEEK is 0-6 (0=Sunday, 6=Saturday)
@@ -86,7 +90,8 @@ weeklyTimeslots:
   - "0 14:00"  # Sunday after 14:00
 
 # Maximum number of messages to fetch from groups
-# Default: 200 (or 300 if both limits unspecified, calculated via GROUP_MESSAGE_MULTIPLIER)
+# Default: 200 (when only this value is unspecified but maxChannelMessages is specified)
+#          300 (when both limits unspecified: base value 200 is multiplied by GROUP_MESSAGE_MULTIPLIER=1.5)
 maxGroupMessages: 200
 
 # Maximum number of messages to fetch from channels
@@ -184,6 +189,34 @@ npm run dev -- --verbose-logging true
 # Use config.yaml but change batch sizes for testing
 npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 ```
+
+### Interest Matching Best Practices
+
+The tool uses AI to match events to your interests with confidence scoring. For best results:
+
+**Be Specific**
+- ❌ Too broad: `"Technology"`, `"Music"`, `"Sports"`
+- ✅ Specific: `"React/Frontend development"`, `"Jazz concerts"`, `"Trail running"`
+
+**Use Hierarchical Format**
+- Format: `"Parent category (Subcategory 1, Subcategory 2)"`
+- Example: `"Electronic music (Electro Swing, Glitch Hop)"`
+- Matches events about the parent OR any subcategory
+
+**Distinguish Context**
+- ❌ Unclear: `"Networking"`
+- ✅ Clear: `"Professional networking (Tech industry)"` vs `"Social gatherings"`
+
+**Separate Similar Interests**
+- Consumption vs Creation: `"Music concerts"` vs `"Music production workshops"`
+- Different stacks: `"React/Frontend"` vs `"Python/Backend"`
+
+**Debug Your Matches**
+- Enable `writeDebugFiles: true` to generate `debug/interest_matching.json`
+- Review confidence scores and adjust interests for better precision
+- Only matches with confidence ≥ `minInterestConfidence` (default: 0.75) are included
+
+See `config.example.yaml` for more examples and detailed guidance.
 
 ### Configuration Parameters
 
