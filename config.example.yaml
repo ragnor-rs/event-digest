@@ -20,12 +20,59 @@ channelsToParse:
   - "Private Event Channel"      # Display name search (private channel)
 
 # Your interests - events will be matched against these topics
+#
+# MATCHING BEHAVIOR:
+# - Events are matched using AI with confidence scoring (0.0-1.0)
+# - Only matches with confidence ≥ minInterestConfidence (default: 0.75) are included
+# - Use specific interests for better matching accuracy
+#
+# TIPS FOR WRITING INTERESTS:
+# 1. Be specific: "React/Frontend development" > "Programming"
+# 2. Use hierarchical format: "Electronic music (Electro Swing, Glitch Hop)"
+#    - Matches events about "electronic music" OR "Electro Swing" OR "Glitch Hop"
+# 3. Separate similar interests: "Music concerts" vs "Music production workshops"
+#    - Different interests = consumption vs creation
+# 4. Distinguish context: "Professional networking" vs "Social gatherings"
+#    - Different interests = professional vs casual
+#
+# EXAMPLES:
 userInterests:
-  - "Technology"
-  - "Cooking"
-  - "Photography"
-  - "Board games"
-  - "Music"
+  # Technology (specific areas)
+  - "React/Frontend development"
+  - "Python/Data Science"
+  - "DevOps/Cloud infrastructure"
+
+  # Creative hobbies (with subcategories)
+  - "Photography (Street photography, Portraits)"
+  - "Music production (Electronic, Beat making)"
+
+  # Social activities (context matters)
+  - "Board games (Strategy games, D&D)"
+  - "Professional networking (Tech meetups)"
+  - "Language exchange (English, Spanish)"
+
+  # Wellness & Sports
+  - "Yoga and meditation"
+  - "Running (Trail running, Marathons)"
+
+  # Arts & Culture
+  - "Contemporary art exhibitions"
+  - "Jazz concerts"
+
+# COMMON PITFALLS TO AVOID:
+# ❌ Too broad: "Technology", "Music", "Sports"
+#    → Results in too many matches, hard to filter
+# ✅ Specific: "React/Frontend", "Jazz concerts", "Trail running"
+#    → Better precision, fewer false positives
+#
+# ❌ Mixing contexts: "Networking" (unclear: professional or social?)
+# ✅ Clear context: "Professional networking (Tech industry)" or "Social gatherings"
+#
+# ❌ Single word: "Photography"
+# ✅ With context: "Photography (Street photography, Event photography)"
+#
+# NOTE: You can always check debug/interest_matching.json (when writeDebugFiles: true)
+#       to see how your interests are being matched and adjust accordingly
 
 # Weekly availability timeslots
 # Format: "DAY_OF_WEEK TIME" where DAY_OF_WEEK is 0-6 (0=Sunday, 6=Saturday)
@@ -37,7 +84,7 @@ weeklyTimeslots:
 # Optional: Maximum number of messages to fetch from groups
 # Groups typically have more conversational noise, so need more messages
 # Default: 200 (when only this value is unspecified but maxChannelMessages is specified)
-#          300 (when both limits unspecified: maxChannelMessages becomes 200, maxGroupMessages becomes 300 via GROUP_MESSAGE_MULTIPLIER=1.5)
+#          300 (when both limits unspecified: base value 200 is multiplied by GROUP_MESSAGE_MULTIPLIER=1.5)
 # maxGroupMessages: 200
 
 # Optional: Maximum number of messages to fetch from channels
