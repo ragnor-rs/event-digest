@@ -92,9 +92,14 @@ export class EventSender implements IEventReporter {
    * Format a batch of events into a single message
    */
   private formatBatchMessage(events: DigestEvent[], batchIndex: number, totalBatches: number): string {
+    const today = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
     const header = totalBatches > 1
-      ? `📅 EVENT DIGEST (${batchIndex + 1}/${totalBatches})\n\n`
-      : `📅 EVENT DIGEST\n\n`;
+      ? `📅 EVENT DIGEST (${today}) — Batch ${batchIndex + 1}/${totalBatches}\n\n`
+      : `📅 EVENT DIGEST (${today})\n\n`;
 
     const eventTexts = events.map((event, index) => {
       const globalIndex = batchIndex * this.config.sendEventsBatchSize + index + 1;

@@ -10,7 +10,12 @@ export class EventPrinter implements IEventReporter {
    * Print events to console
    */
   async report(events: DigestEvent[]): Promise<void> {
-    console.log('=== EVENT DIGEST ===');
+    const today = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    console.log(`=== EVENT DIGEST (${today}) ===`);
 
     if (events.length === 0) {
       console.log('No events found matching your criteria.');

@@ -94,7 +94,7 @@ weeklyTimeslots:
 
 # Maximum number of messages to fetch from groups
 # Default: 200 (when only this value is unspecified but maxChannelMessages is specified)
-#          300 (when both limits unspecified: base value 200 is multiplied by GROUP_MESSAGE_MULTIPLIER=1.5)
+#          800 (when both limits unspecified: base value 200 is multiplied by GROUP_MESSAGE_MULTIPLIER=4.0)
 maxGroupMessages: 200
 
 # Maximum number of messages to fetch from channels
@@ -251,7 +251,7 @@ See `config.example.yaml` for more examples and detailed guidance.
 - `channelsToParse`/`--channels`: Telegram channels - supports @username (direct lookup) or "Display Name" (searches joined channels)
 - `userInterests`/`--interests`: Your interests (events must be directly about these topics)
 - `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
-- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200, or 300 if both limits unspecified)
+- `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200, or 800 if both limits unspecified)
 - `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)

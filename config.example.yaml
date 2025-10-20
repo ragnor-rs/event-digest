@@ -112,7 +112,7 @@ weeklyTimeslots:
 # Optional: Maximum number of messages to fetch from groups
 # Groups typically have more conversational noise, so need more messages
 # Default: 200 (when only this value is unspecified but maxChannelMessages is specified)
-#          300 (when both limits unspecified: base value 200 is multiplied by GROUP_MESSAGE_MULTIPLIER=1.5)
+#          800 (when both limits unspecified: base value 200 is multiplied by GROUP_MESSAGE_MULTIPLIER=4.0)
 # maxGroupMessages: 200
 
 # Optional: Maximum number of messages to fetch from channels
