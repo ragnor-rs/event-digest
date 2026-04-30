@@ -4,9 +4,10 @@ import { IAIClient } from '../domain/interfaces';
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
 import { Logger } from '../shared/logger';
 
-// GPT-5-mini: OpenAI's faster, cost-efficient variant of GPT-5 (released August 2025)
-// Alternative models: 'gpt-5', 'gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'
-const GPT_MODEL = 'gpt-5-mini';
+// GPT-5.4-nano: OpenAI's most cost-efficient current-generation model (March 2026),
+// designed for classification, data extraction, ranking, and sub-agent workloads —
+// which matches every GPT step in this pipeline.
+const GPT_MODEL = 'gpt-5.4-nano';
 const GPT_TEMPERATURE = 1.0;
 export const GPT_TEMPERATURE_CREATIVE = 1.0;
 
