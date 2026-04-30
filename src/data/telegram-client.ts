@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
+import bigInt from 'big-integer';
 import { TelegramClient as GramJSClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { Api } from 'telegram';
@@ -11,6 +12,7 @@ import { SourceMessage } from '../domain/entities';
 import { Logger } from '../shared/logger';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
 import { Username } from 'telegram/define';
+import { EntityCache } from './entity-cache';
 
 const TELEGRAM_DISCONNECT_DELAY_MS = 100; // ms to wait before disconnect
 
@@ -19,11 +21,13 @@ export class TelegramClient implements IMessageSource {
   private session: StringSession;
   private sessionFile: string;
   private cache: ICache;
+  private entityCache: EntityCache;
   private logger: Logger;
   private dialogs: Dialog[] | null = null;
 
   constructor(cache: ICache, logger: Logger) {
     this.cache = cache;
+    this.entityCache = new EntityCache(logger);
     this.logger = logger;
 
     const apiIdStr = process.env.TELEGRAM_API_ID;
@@ -180,8 +184,8 @@ export class TelegramClient implements IMessageSource {
     // Determine how to fetch the entity
     if (isUsername) {
       actualSourceName = sourceName.slice(1)
-      // Username provided, use direct lookup
-      entity = await this.client.getEntity(actualSourceName as Username);
+      // Username provided, use cache-first lookup to avoid contacts.ResolveUsername floods
+      entity = await this.resolveUsername(actualSourceName as string);
     } else {
       // Display name provided, search by display name
       this.logger.verbose(`    Searching by display name...`);
@@ -306,8 +310,9 @@ export class TelegramClient implements IMessageSource {
       // Remove leading @ if present (Telegram API doesn't require it)
       const cleanRecipient = recipient.startsWith('@') ? recipient.slice(1) : recipient;
 
-      // Resolve the recipient entity (can be username, phone number, or chat ID)
-      const entity = await this.client.getEntity(cleanRecipient);
+      const entity = recipient.startsWith('@')
+        ? await this.resolveUsername(cleanRecipient)
+        : await this.client.getEntity(cleanRecipient);
 
       // Send the message with link preview disabled
       await this.client.sendMessage(entity, {
@@ -318,6 +323,28 @@ export class TelegramClient implements IMessageSource {
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to send message to ${recipient}: ${errorMessage}`);
     }
+  }
+
+  // Resolves a Telegram @username via persistent cache to avoid contacts.ResolveUsername
+  // floods. On hit, builds an InputPeerChannel locally; on miss, calls getEntity once.
+  private async resolveUsername(username: string): Promise<Api.TypeEntityLike> {
+    const cached = this.entityCache.get(username);
+    if (cached) {
+      return new Api.InputPeerChannel({
+        channelId: bigInt(cached.id),
+        accessHash: bigInt(cached.accessHash),
+      });
+    }
+
+    const entity = await this.client.getEntity(username as Username);
+    const e = entity as { id?: { toString(): string }; accessHash?: { toString(): string } };
+    if (e.id && e.accessHash) {
+      this.entityCache.set(username, {
+        id: e.id.toString(),
+        accessHash: e.accessHash.toString(),
+      });
+    }
+    return entity;
   }
 
   async disconnect(): Promise<void> {
