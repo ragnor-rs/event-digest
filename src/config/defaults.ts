@@ -10,7 +10,7 @@ export const DEFAULT_CONFIG = {
   eventDetectionBatchSize: 16,
   eventClassificationBatchSize: 16,
   scheduleExtractionBatchSize: 16,
-  eventDescriptionBatchSize: 5,
+  eventDescriptionBatchSize: 3,
   sendEventsBatchSize: 5,
 
   eventMessageCues: {
@@ -232,20 +232,29 @@ IMPORTANT:
 - Always ensure the event date is in the future relative to message timestamp
 - NEVER return just a time like "19:00" or just a number like "00" - always include the full date`,
 
-  eventDescriptionPrompt: `Convert these event messages into structured event information. Respond in English.
+  eventDescriptionPrompt: `You will receive N numbered event messages. Output exactly N structured blocks — one per message, in input order. Do not stop until every numbered message has a block.
 
 Messages:
 {{EVENTS}}
 
-CRITICAL: For each message, respond with EXACTLY this format (including the exact keywords TITLE:, SUMMARY:, DESCRIPTION:):
-MESSAGE_NUMBER:
+For each message, output a block in EXACTLY this format (use the exact keywords TITLE:, SUMMARY:, DESCRIPTION:; replace [number] with the actual message number):
+[number]:
 TITLE: [short catchy title in English]
-SUMMARY: [1-2 sentence summary in English - DO NOT mention dates/times as they are displayed separately]
+SUMMARY: [1-2 sentence summary in English — DO NOT mention dates/times as they are displayed separately]
 DESCRIPTION: [full description from the message, can be original language]
 
-Example:
+Output ONLY the blocks. No preamble, no commentary, no closing remarks. Respond in English.
+
+Example for 2 input messages:
 1:
 TITLE: JavaScript Meetup
 SUMMARY: Monthly meetup for JS developers to share knowledge and network.
-DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest trends, share projects, and network with fellow developers.`,
+DESCRIPTION: Join us for our monthly JavaScript meetup where we discuss latest trends, share projects, and network with fellow developers.
+
+2:
+TITLE: Tea Tasting Workshop
+SUMMARY: Hands-on tea tasting with explanations of brewing rules and types.
+DESCRIPTION: An engaging tea meetup featuring guided tastings and curated selections.
+
+The number of blocks in your response MUST equal the number of messages above. After the final block, stop.`,
 };

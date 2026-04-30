@@ -56,6 +56,11 @@ export class OpenAIClient implements IAIClient {
           model: GPT_MODEL,
           messages: [{ role: 'user', content: prompt }],
           temperature,
+          // gpt-5.4-nano is a reasoning model: 'low' keeps reasoning tokens
+          // in check so they don't consume the completion-token budget before
+          // the visible message is emitted (truncating multi-block outputs).
+          // Supported values for this model: 'none', 'low', 'medium', 'high', 'xhigh'.
+          reasoning_effort: 'low',
         });
 
         const result = response.choices[0].message.content?.trim();

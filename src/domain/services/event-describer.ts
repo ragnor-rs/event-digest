@@ -102,17 +102,9 @@ Link: ${event.message.link}`
         const block = blockMap.get(eventIdx);
 
         if (!block) {
-          // AI didn't return a response for this event
+          // AI didn't return a block for this event — skip it (do not push,
+          // do not cache). Next run will re-attempt; transient failures heal.
           logger.verbose(`    ✗ No AI response for event ${eventIdx + 1}: ${event.message.link}`);
-
-          // Create fallback event description
-          const fallbackDescription = {
-            title: 'Event',
-            short_summary: 'Event details not available',
-          };
-
-          describedEvents.push({ ...event, event_description: fallbackDescription });
-          cache.cacheConvertedEvent(event.message.link, fallbackDescription, config.userInterests, false);
 
           if (config.writeDebugFiles) {
             debugEntries.push({
@@ -126,8 +118,8 @@ Link: ${event.message.link}`
               interest_matches: event.interest_matches!.map((m) => ({ interest: m.interest, confidence: m.confidence })),
               ai_prompt: prompt,
               ai_response: '[NO RESPONSE]',
-              extracted_title: 'Event',
-              extracted_summary: 'Event details not available',
+              extracted_title: '',
+              extracted_summary: '',
               extraction_success: false,
               cached: false,
             });
