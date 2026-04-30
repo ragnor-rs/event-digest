@@ -310,9 +310,9 @@ export class TelegramClient implements IMessageSource {
       // Remove leading @ if present (Telegram API doesn't require it)
       const cleanRecipient = recipient.startsWith('@') ? recipient.slice(1) : recipient;
 
-      const entity = recipient.startsWith('@')
-        ? await this.resolveUsername(cleanRecipient)
-        : await this.client.getEntity(cleanRecipient);
+      // Direct resolve — sendMessage runs once per recipient; the persistent
+      // entity cache is only needed for the channel-fetch burst.
+      const entity = await this.client.getEntity(cleanRecipient);
 
       // Send the message with link preview disabled
       await this.client.sendMessage(entity, {
