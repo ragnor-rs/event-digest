@@ -152,9 +152,11 @@ weeklyTimeslots:
 # includeEventsWithoutTime: false
 
 # Optional: Collapse the same event announced by several sources (default: true)
-# Compares events within a calendar day by word overlap on titles or on the
-# source message text, keeps the earliest posting, and lists the other links
-# under the kept event.
+# Runs as step 7, before descriptions are generated, so merged-away copies cost no
+# AI calls. Compares events within a calendar day by word overlap on the source
+# message text, keeps the earliest posting, and lists the other links under it.
+# Near-verbatim cross-posts collapse; two independently written announcements of
+# the same event do not.
 # deduplicateEvents: true
 
 # Optional: Minimum confidence thresholds for AI filtering (0.0-1.0)
@@ -185,7 +187,7 @@ weeklyTimeslots:
 # eventDetectionBatchSize: 16      # Step 3: Event detection
 # eventClassificationBatchSize: 16 # Step 4: Event type classification
 # scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
-# eventDescriptionBatchSize: 3     # Step 7: Event description generation
+# eventDescriptionBatchSize: 3     # Step 8: Event description generation
 
 # Optional: Reasoning effort for AI calls (default: low)
 # One of: none, low, medium, high, xhigh
@@ -202,7 +204,7 @@ weeklyTimeslots:
 # eventClassificationReasoningEffort: none   # Step 4: Event type classification
 # scheduleExtractionReasoningEffort: low     # Step 5: Schedule extraction
 # interestMatchingReasoningEffort: low       # Step 6: Interest matching
-# eventDescriptionReasoningEffort: low       # Step 7: Event description generation
+# eventDescriptionReasoningEffort: low       # Step 8: Event description generation
 
 # Optional: Send events to a Telegram recipient instead of printing to console
 # When configured, events will be sent as formatted messages to the specified recipient

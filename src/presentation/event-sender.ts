@@ -108,7 +108,7 @@ export class EventSender implements IEventReporter {
       const interests = event.interest_matches!.map((m) => m.interest).join(', ');
       const summary = event.event_description!.short_summary;
       const link = event.message.link;
-      // Duplicates were collapsed in step 8; keep their links so a merged event
+      // Duplicates were collapsed in step 7; keep their links so a merged event
       // still shows everywhere it was announced.
       const alsoIn = event.duplicate_sources?.length
         ? `\n↔️ also: ${event.duplicate_sources.map((m) => m.link).join(', ')}`

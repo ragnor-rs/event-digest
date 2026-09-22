@@ -8,7 +8,7 @@
  * `grade`   — steps 3-6. The referee sees the source message and a decision and
  *             judges whether the decision is right. It is never told which arm
  *             produced it, so it cannot favour one systematically.
- * `compare` — step 7 only. Generative output scores poorly on absolute scales,
+ * `compare` — step 8 only. Generative output scores poorly on absolute scales,
  *             so arms are compared pairwise with the presentation order flipped
  *             on alternate items to cancel position bias.
  * `metrics` — no API calls. Counts how often each prompt workaround fired, which
@@ -279,7 +279,7 @@ async function grade(arms: string[], onlyStep?: string): Promise<void> {
 }
 
 async function compare(armA: string, armB: string): Promise<void> {
-  console.log(`\n=== step 7 pairwise: ${armA} vs ${armB} ===`);
+  console.log(`\n=== step 8 pairwise: ${armA} vs ${armB} ===`);
 
   const indexByLink = (arm: string) => {
     const map = new Map<string, any>();
@@ -361,7 +361,7 @@ function metrics(arms: string[]): void {
     const description = entriesOf('event_description', readArmFile(arm, 'event_description'));
     const failed = description.filter((e) => !e.extraction_success).length;
     console.log(
-      `  step 7 block/field extraction failures : ${failed}/${description.length}` +
+      `  step 8 block/field extraction failures : ${failed}/${description.length}` +
         (description.length ? ` (${((failed / description.length) * 100).toFixed(1)}%)` : '')
     );
 
@@ -410,7 +410,7 @@ async function main(): Promise<void> {
       console.log(
         'usage:\n' +
           '  npx ts-node scripts/referee.ts grade   <arm> [...arms]   # steps 3-6, blind\n' +
-          '  npx ts-node scripts/referee.ts compare <armA> <armB>     # step 7, pairwise\n' +
+          '  npx ts-node scripts/referee.ts compare <armA> <armB>     # step 8, pairwise\n' +
           '  npx ts-node scripts/referee.ts metrics <arm> [...arms]   # workaround trigger rates, no API calls'
       );
       process.exit(1);

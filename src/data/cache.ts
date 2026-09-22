@@ -58,7 +58,7 @@ export class Cache implements ICache {
     event_type_classification: Record<string, EventTypeClassification>; // message link -> type + confidence (step 4)
     matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 6)
     scheduled_events: Record<string, CachedSchedule | null>; // message link -> extracted schedule or null if unknown (step 5)
-    events: Record<string, DigestEventDescription>; // message link -> event description object (step 7)
+    events: Record<string, DigestEventDescription>; // message link -> event description object (step 8)
   };
 
   constructor(logger: Logger, variant: CacheVariant) {
@@ -330,7 +330,7 @@ export class Cache implements ICache {
     }
   }
 
-  // Event conversion (step 7)
+  // Event conversion (step 8)
   getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined {
     const cacheKey = this.createInterestCacheKey('events', messageLink, userInterests);
     return this.cache.events[cacheKey];
