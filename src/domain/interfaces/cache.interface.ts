@@ -14,6 +14,22 @@ export interface CachedSchedule {
   timeKnown: boolean;
 }
 
+/**
+ * A step-3 result: what the model said, before any threshold was applied.
+ *
+ * Storing the post-threshold boolean instead made minEventDetectionConfidence
+ * unadjustable — the decision was frozen at the threshold in force when the
+ * message was first seen, and the score that would allow re-judging it was
+ * thrown away. Keeping the score lets the threshold be applied on read, so
+ * retuning it costs nothing and re-runs no GPT.
+ */
+export interface CachedEventDetection {
+  /** The model's verdict that this is an event announcement at all. */
+  isEvent: boolean;
+  /** The model's 0.0-1.0 score. Undefined for entries cached before the score was kept. */
+  confidence?: number;
+}
+
 export interface ICache {
   /**
    * Save all cache stores to persistent storage
@@ -26,8 +42,8 @@ export interface ICache {
   getLastMessageTimestamp(sourceName: string): Date | undefined;
 
   // Event message detection (step 3)
-  isEventMessageCached(messageLink: string): boolean | undefined;
-  cacheEventMessage(messageLink: string, isEvent: boolean, autoSave?: boolean): void;
+  getEventDetectionCache(messageLink: string): CachedEventDetection | undefined;
+  cacheEventDetection(messageLink: string, detection: CachedEventDetection, autoSave?: boolean): void;
 
   // Event type classification (step 4)
   getEventTypeCache(messageLink: string): EventTypeClassification | undefined;

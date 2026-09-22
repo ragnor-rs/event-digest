@@ -27,23 +27,36 @@ export async function detectEventAnnouncements(
   let cacheHits = 0;
 
   for (const message of messages) {
-    const cachedResult = cache.isEventMessageCached(message.link);
-    if (cachedResult !== undefined) {
+    const cached = cache.getEventDetectionCache(message.link);
+    if (cached !== undefined) {
       cacheHits++;
-      if (cachedResult) {
-        events.push({ message });
+
+      // The threshold is applied here rather than before the write, so changing
+      // minEventDetectionConfidence takes effect on already-seen messages
+      // without re-running the step. Entries predating the stored score have no
+      // confidence and are taken at their recorded verdict.
+      const confidence = cached.confidence;
+      const meetsThreshold = (confidence ?? 1) >= config.minEventDetectionConfidence;
+
+      if (cached.isEvent && meetsThreshold) {
+        events.push({ message, event_detection_confidence: confidence });
         debugEntries.push({
           messageLink: message.link,
           messageContent: message.content,
           isEvent: true,
+          confidence,
           cached: true,
         });
       } else {
-        logger.verbose(`    ✗ Discarded: ${message.link} - not an event announcement (cached)`);
+        const reason = cached.isEvent
+          ? `event confidence ${confidence!.toFixed(2)} below threshold ${config.minEventDetectionConfidence}`
+          : 'not an event announcement';
+        logger.verbose(`    ✗ Discarded: ${message.link} - ${reason} (cached)`);
         debugEntries.push({
           messageLink: message.link,
           messageContent: message.content,
           isEvent: false,
+          confidence,
           cached: true,
         });
       }
@@ -123,11 +136,14 @@ export async function detectEventAnnouncements(
             logger.verbose(
               `    ✗ Discarded: ${chunk[idx].link} - event confidence ${confidence.toFixed(2)} below threshold ${config.minEventDetectionConfidence}`
             );
-            cache.cacheEventMessage(chunk[idx].link, false, false);
+            // Cached as the model saw it — an event, with its score. The
+            // threshold that rejected it is policy, and policy is applied on read.
+            cache.cacheEventDetection(chunk[idx].link, { isEvent: true, confidence }, false);
             debugEntries.push({
               messageLink: chunk[idx].link,
               messageContent: chunk[idx].content,
               isEvent: false,
+              confidence,
               cached: false,
               prompt,
               aiResponse: result,
@@ -137,7 +153,7 @@ export async function detectEventAnnouncements(
           }
 
           events.push({ message: chunk[idx], event_detection_confidence: confidence });
-          cache.cacheEventMessage(chunk[idx].link, true, false);
+          cache.cacheEventDetection(chunk[idx].link, { isEvent: true, confidence }, false);
           processedIndices.add(idx);
 
           debugEntries.push({
@@ -175,7 +191,7 @@ export async function detectEventAnnouncements(
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedIndices.has(idx)) {
           logger.verbose(`    ✗ Discarded: ${chunk[idx].link} - not an event announcement`);
-          cache.cacheEventMessage(chunk[idx].link, false, false);
+          cache.cacheEventDetection(chunk[idx].link, { isEvent: false }, false);
 
           debugEntries.push({
             messageLink: chunk[idx].link,
@@ -191,7 +207,7 @@ export async function detectEventAnnouncements(
       // All messages in chunk are not events
       for (const message of chunk) {
         logger.verbose(`    ✗ Discarded: ${message.link} - not an event announcement`);
-        cache.cacheEventMessage(message.link, false, false);
+        cache.cacheEventDetection(message.link, { isEvent: false }, false);
 
         debugEntries.push({
           messageLink: message.link,

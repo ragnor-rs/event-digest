@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { CachedSchedule, ICache } from '../domain/interfaces';
+import { CachedEventDetection, CachedSchedule, ICache } from '../domain/interfaces';
 import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
@@ -54,7 +54,7 @@ export class Cache implements ICache {
   };
   private cache: {
     telegram_messages: Record<string, SourceMessage[]>; // source name -> source messages (step 1)
-    messages: Record<string, boolean>; // message link -> is event (step 3)
+    messages: Record<string, CachedEventDetection>; // message link -> model verdict + score (step 3)
     event_type_classification: Record<string, EventTypeClassification>; // message link -> type + confidence (step 4)
     matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 6)
     scheduled_events: Record<string, CachedSchedule | null>; // message link -> extracted schedule or null if unknown (step 5)
@@ -86,7 +86,7 @@ export class Cache implements ICache {
 
   private loadCache(): {
     telegram_messages: Record<string, SourceMessage[]>;
-    messages: Record<string, boolean>;
+    messages: Record<string, CachedEventDetection>;
     event_type_classification: Record<string, EventTypeClassification>;
     matching_interests: Record<string, InterestMatch[]>;
     scheduled_events: Record<string, CachedSchedule | null>;
@@ -116,6 +116,19 @@ export class Cache implements ICache {
       if (fs.existsSync(filePath)) {
         const data = fs.readFileSync(filePath, 'utf-8');
         const parsed = JSON.parse(data);
+
+        // Entries written before the confidence score was kept are bare
+        // booleans. They are read as a verdict with no score, which means a
+        // legacy discard cannot be re-judged against a lowered threshold —
+        // the score that would allow it was never stored.
+        if (storeName === 'messages') {
+          const converted: Record<string, CachedEventDetection> = {};
+          for (const [key, value] of Object.entries(parsed)) {
+            converted[key] =
+              typeof value === 'boolean' ? { isEvent: value } : (value as CachedEventDetection);
+          }
+          return converted as T;
+        }
 
         // Convert serialized dates back to Date objects for scheduled_events.
         // Entries written before time-unknown support are bare ISO strings and
@@ -240,12 +253,12 @@ export class Cache implements ICache {
   }
 
   // Event message detection (step 3)
-  isEventMessageCached(messageLink: string): boolean | undefined {
+  getEventDetectionCache(messageLink: string): CachedEventDetection | undefined {
     return this.cache.messages[this.variantKey('messages', messageLink)];
   }
 
-  cacheEventMessage(messageLink: string, isEvent: boolean, autoSave: boolean = true): void {
-    this.cache.messages[this.variantKey('messages', messageLink)] = isEvent;
+  cacheEventDetection(messageLink: string, detection: CachedEventDetection, autoSave: boolean = true): void {
+    this.cache.messages[this.variantKey('messages', messageLink)] = detection;
     if (autoSave) {
       try {
         this.saveCacheFile('messages');
