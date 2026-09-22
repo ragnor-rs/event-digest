@@ -6,6 +6,8 @@
 
 export interface DebugEventDetectionEntry {
   messageLink: string;
+  /** Source text the decision was made from; needed to review or grade the call */
+  messageContent: string;
   isEvent: boolean;
   confidence?: number; // 0.0-1.0 confidence score from AI
   cached: boolean;

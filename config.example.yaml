@@ -171,7 +171,24 @@ weeklyTimeslots:
 # eventDetectionBatchSize: 16      # Step 3: Event detection
 # eventClassificationBatchSize: 16 # Step 4: Event type classification
 # scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
-# eventDescriptionBatchSize: 5     # Step 7: Event description generation
+# eventDescriptionBatchSize: 3     # Step 7: Event description generation
+
+# Optional: Reasoning effort for AI calls (default: low)
+# One of: none, low, medium, high, xhigh
+# Higher effort spends more reasoning tokens before the visible answer. Those tokens
+# share the completion budget, so raising effort on steps that emit one block per
+# input message (event description) risks truncating the response.
+# 'none' is the cheapest and fastest and is often sufficient for classification steps.
+# reasoningEffort: low
+
+# Optional: per-step reasoning effort overrides
+# Each falls back to reasoningEffort above when unset. Changing any value invalidates
+# that step's cache only, so the other steps keep their cached results.
+# eventDetectionReasoningEffort: none        # Step 3: Event detection
+# eventClassificationReasoningEffort: none   # Step 4: Event type classification
+# scheduleExtractionReasoningEffort: low     # Step 5: Schedule extraction
+# interestMatchingReasoningEffort: low       # Step 6: Interest matching
+# eventDescriptionReasoningEffort: low       # Step 7: Event description generation
 
 # Optional: Send events to a Telegram recipient instead of printing to console
 # When configured, events will be sent as formatted messages to the specified recipient

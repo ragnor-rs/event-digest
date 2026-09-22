@@ -136,7 +136,20 @@ minInterestConfidence: 0.75
 eventDetectionBatchSize: 16      # Step 3: Event detection
 eventClassificationBatchSize: 16 # Step 4: Event type classification
 scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
-eventDescriptionBatchSize: 5     # Step 7: Event description generation
+eventDescriptionBatchSize: 3     # Step 7: Event description generation
+
+# Reasoning effort for GPT calls (default: low)
+# One of: none, low, medium, high, xhigh
+# Higher effort spends more reasoning tokens before the visible answer, which costs
+# more and can truncate steps that emit one output block per input message.
+reasoningEffort: low
+
+# Optional per-step overrides; each falls back to reasoningEffort above
+# eventDetectionReasoningEffort: none
+# eventClassificationReasoningEffort: none
+# scheduleExtractionReasoningEffort: low
+# interestMatchingReasoningEffort: low
+# eventDescriptionReasoningEffort: low
 
 # Optional: Send events to Telegram recipient instead of printing to console
 # Format: @username or chat ID (e.g., -1001234567890)
@@ -186,7 +199,9 @@ npm run dev -- \
   --event-detection-batch-size 16 \
   --event-classification-batch-size 16 \
   --schedule-extraction-batch-size 16 \
-  --event-description-batch-size 5 \
+  --event-description-batch-size 3 \
+  --reasoning-effort low \
+  --event-detection-reasoning-effort none \
   --send-events-recipient "@myusername" \
   --send-events-batch-size 5
 ```
@@ -264,7 +279,11 @@ See `config.example.yaml` for more examples and detailed guidance.
   - `eventDetectionBatchSize`/`--event-detection-batch-size`: Items per batch for event detection (default: 16)
   - `eventClassificationBatchSize`/`--event-classification-batch-size`: Items per batch for event type classification (default: 16)
   - `scheduleExtractionBatchSize`/`--schedule-extraction-batch-size`: Items per batch for schedule extraction (default: 16)
-  - `eventDescriptionBatchSize`/`--event-description-batch-size`: Items per batch for event description generation (default: 5)
+  - `eventDescriptionBatchSize`/`--event-description-batch-size`: Items per batch for event description generation (default: 3)
+- **Reasoning Effort** (optional - trades accuracy against cost and latency):
+  - `reasoningEffort`/`--reasoning-effort`: Effort for every GPT step; one of `none`, `low`, `medium`, `high`, `xhigh` (default: `low`)
+  - Per-step overrides, each falling back to `reasoningEffort`: `eventDetectionReasoningEffort`/`--event-detection-reasoning-effort`, `eventClassificationReasoningEffort`/`--event-classification-reasoning-effort`, `scheduleExtractionReasoningEffort`/`--schedule-extraction-reasoning-effort`, `interestMatchingReasoningEffort`/`--interest-matching-reasoning-effort`, `eventDescriptionReasoningEffort`/`--event-description-reasoning-effort`
+  - Changing any of these invalidates the affected step's cache, so only that step re-runs
 - **Custom GPT Prompts** (optional, YAML only - all 5 AI steps configurable):
   - `eventDetectionPrompt`: Custom prompt for event detection (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Custom prompt for event type classification (step 4) - uses `{{MESSAGES}}` placeholder
@@ -366,7 +385,7 @@ src/
 
 - **TypeScript** with strict type checking
 - **GramJS** for Telegram API integration
-- **OpenAI GPT-5-mini** for intelligent filtering with temperature 1.0
+- **OpenAI gpt-6-luna** for intelligent filtering, with configurable reasoning effort
 - **date-fns** for date parsing and manipulation
 - **js-yaml** for YAML configuration support
 - **Comprehensive caching** to minimize API costs
@@ -426,9 +445,11 @@ npm run dev
 
 ## Cost Optimization
 
-- Uses GPT-5-mini with temperature 1.0 for optimal balance of speed, cost, and accuracy
-- Intelligent six-tier caching prevents redundant API calls
-- Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 5)
+- Uses gpt-6-luna, OpenAI's most cost-efficient tier, for optimal balance of speed, cost, and accuracy
+- `reasoningEffort` (default: `low`) trades accuracy against cost and latency, globally or per step
+- Intelligent six-tier caching prevents redundant API calls; GPT results are keyed by model and
+  reasoning effort, so changing either re-runs only the affected steps
+- Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 3)
 - Individual processing for interest matching to ensure accurate validation
 - Preference-aware cache invalidation
 - Incremental message fetching reduces Telegram API calls

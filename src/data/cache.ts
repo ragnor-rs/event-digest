@@ -6,9 +6,31 @@ import { ICache } from '../domain/interfaces';
 import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
+/**
+ * Identifies the AI configuration that produced a cached result.
+ *
+ * GPT results are only valid for the model and reasoning effort that generated
+ * them, so both are folded into the cache key. Changing either self-invalidates
+ * the affected store instead of silently serving stale answers, and lets
+ * different configurations coexist in the same cache file.
+ */
+export interface CacheVariant {
+  model: string;
+  /** Effective reasoning effort per GPT store */
+  efforts: {
+    messages: string;
+    event_type_classification: string;
+    scheduled_events: string;
+    matching_interests: string;
+    events: string;
+  };
+}
+
 export class Cache implements ICache {
   private logger: Logger;
   private cacheDir: string;
+  /** Short hash per GPT store, derived from the model and that store's effort */
+  private variantHashes: Record<keyof CacheVariant['efforts'], string>;
   private cacheFiles: {
     telegram_messages: string;
     messages: string;
@@ -26,8 +48,17 @@ export class Cache implements ICache {
     events: Record<string, DigestEventDescription>; // message link -> event description object (step 7)
   };
 
-  constructor(logger: Logger) {
+  constructor(logger: Logger, variant: CacheVariant) {
     this.logger = logger;
+    this.variantHashes = {
+      messages: this.hashPreferences(`${variant.model}|${variant.efforts.messages}`),
+      event_type_classification: this.hashPreferences(
+        `${variant.model}|${variant.efforts.event_type_classification}`
+      ),
+      scheduled_events: this.hashPreferences(`${variant.model}|${variant.efforts.scheduled_events}`),
+      matching_interests: this.hashPreferences(`${variant.model}|${variant.efforts.matching_interests}`),
+      events: this.hashPreferences(`${variant.model}|${variant.efforts.events}`),
+    };
     this.cacheDir = path.join(process.cwd(), '.cache');
     this.cacheFiles = {
       telegram_messages: path.join(this.cacheDir, 'telegram_messages.json'),
@@ -181,13 +212,18 @@ export class Cache implements ICache {
     return lastMessage?.timestamp;
   }
 
+  /** Scopes a key to the model + reasoning effort that produced the cached result */
+  private variantKey(store: keyof CacheVariant['efforts'], baseKey: string): string {
+    return `${baseKey}|ai:${this.variantHashes[store]}`;
+  }
+
   // Event message detection (step 3)
   isEventMessageCached(messageLink: string): boolean | undefined {
-    return this.cache.messages[messageLink];
+    return this.cache.messages[this.variantKey('messages', messageLink)];
   }
 
   cacheEventMessage(messageLink: string, isEvent: boolean, autoSave: boolean = true): void {
-    this.cache.messages[messageLink] = isEvent;
+    this.cache.messages[this.variantKey('messages', messageLink)] = isEvent;
     if (autoSave) {
       try {
         this.saveCacheFile('messages');
@@ -200,7 +236,7 @@ export class Cache implements ICache {
 
   // Interest matching (step 6)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined {
-    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    const cacheKey = this.createInterestCacheKey('matching_interests', messageLink, userInterests);
     return this.cache.matching_interests[cacheKey];
   }
 
@@ -210,7 +246,7 @@ export class Cache implements ICache {
     userInterests: string[],
     autoSave: boolean = true
   ): void {
-    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    const cacheKey = this.createInterestCacheKey('matching_interests', messageLink, userInterests);
     this.cache.matching_interests[cacheKey] = interests;
     if (autoSave) {
       try {
@@ -222,7 +258,11 @@ export class Cache implements ICache {
     }
   }
 
-  private createInterestCacheKey(messageLink: string, userInterests: string[]): string {
+  private createInterestCacheKey(
+    store: 'matching_interests' | 'events',
+    messageLink: string,
+    userInterests: string[]
+  ): string {
     // Normalize interests: lowercase and sort alphabetically
     const normalizedInterests = userInterests
       .map((interest) => interest.toLowerCase().trim())
@@ -231,12 +271,12 @@ export class Cache implements ICache {
 
     // Hash the normalized interests for shorter, consistent cache keys
     const preferencesHash = this.hashPreferences(normalizedInterests);
-    return `${messageLink}|interests:${preferencesHash}`;
+    return this.variantKey(store, `${messageLink}|interests:${preferencesHash}`);
   }
 
   // Schedule filtering (datetime extraction) (step 5)
   getScheduledEventCache(messageLink: string): Date | null | undefined {
-    return this.cache.scheduled_events[messageLink];
+    return this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)];
   }
 
   cacheScheduledEvent(
@@ -244,7 +284,7 @@ export class Cache implements ICache {
     datetime: Date | null,
     autoSave: boolean = true
   ): void {
-    this.cache.scheduled_events[messageLink] = datetime;
+    this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)] = datetime;
     if (autoSave) {
       try {
         this.saveCacheFile('scheduled_events');
@@ -257,7 +297,7 @@ export class Cache implements ICache {
 
   // Event conversion (step 7)
   getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined {
-    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    const cacheKey = this.createInterestCacheKey('events', messageLink, userInterests);
     return this.cache.events[cacheKey];
   }
 
@@ -267,7 +307,7 @@ export class Cache implements ICache {
     userInterests: string[],
     autoSave: boolean = true
   ): void {
-    const cacheKey = this.createInterestCacheKey(messageLink, userInterests);
+    const cacheKey = this.createInterestCacheKey('events', messageLink, userInterests);
     this.cache.events[cacheKey] = event;
     if (autoSave) {
       try {
@@ -312,11 +352,11 @@ export class Cache implements ICache {
 
   // Event type classification (step 4)
   getEventTypeCache(messageLink: string): EventTypeClassification | undefined {
-    return this.cache.event_type_classification[messageLink];
+    return this.cache.event_type_classification[this.variantKey('event_type_classification', messageLink)];
   }
 
   cacheEventType(messageLink: string, classification: EventTypeClassification, autoSave: boolean = true): void {
-    this.cache.event_type_classification[messageLink] = classification;
+    this.cache.event_type_classification[this.variantKey('event_type_classification', messageLink)] = classification;
     if (autoSave) {
       try {
         this.saveCacheFile('event_type_classification');

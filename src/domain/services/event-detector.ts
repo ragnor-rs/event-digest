@@ -1,4 +1,5 @@
 import { Config } from '../../config/types';
+import { getStepReasoningEffort } from '../../config/validator';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugEventDetectionEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
@@ -33,6 +34,7 @@ export async function detectEventAnnouncements(
         events.push({ message });
         debugEntries.push({
           messageLink: message.link,
+          messageContent: message.content,
           isEvent: true,
           cached: true,
         });
@@ -40,6 +42,7 @@ export async function detectEventAnnouncements(
         logger.verbose(`    ✗ Discarded: ${message.link} - not an event announcement (cached)`);
         debugEntries.push({
           messageLink: message.link,
+          messageContent: message.content,
           isEvent: false,
           cached: true,
         });
@@ -70,7 +73,9 @@ export async function detectEventAnnouncements(
       chunk.map((message, idx) => `${idx + 1}. ${message.content.replace(/\n/g, ' ')}`).join('\n\n')
     );
 
-    const result = await aiClient.call(prompt);
+    const result = await aiClient.call(prompt, {
+      reasoningEffort: getStepReasoningEffort(config, 'eventDetection'),
+    });
 
     if (result && result !== 'none') {
       const lines = result.split('\n').filter((line) => line.trim());
@@ -121,6 +126,7 @@ export async function detectEventAnnouncements(
             cache.cacheEventMessage(chunk[idx].link, false, false);
             debugEntries.push({
               messageLink: chunk[idx].link,
+              messageContent: chunk[idx].content,
               isEvent: false,
               cached: false,
               prompt,
@@ -136,6 +142,7 @@ export async function detectEventAnnouncements(
 
           debugEntries.push({
             messageLink: chunk[idx].link,
+            messageContent: chunk[idx].content,
             isEvent: true,
             confidence,
             cached: false,
@@ -172,6 +179,7 @@ export async function detectEventAnnouncements(
 
           debugEntries.push({
             messageLink: chunk[idx].link,
+            messageContent: chunk[idx].content,
             isEvent: false,
             cached: false,
             prompt,
@@ -187,6 +195,7 @@ export async function detectEventAnnouncements(
 
         debugEntries.push({
           messageLink: message.link,
+          messageContent: message.content,
           isEvent: false,
           cached: false,
           prompt,

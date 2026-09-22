@@ -1,4 +1,5 @@
 import { Config } from '../../config/types';
+import { getStepReasoningEffort } from '../../config/validator';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugEventDescriptionEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
@@ -81,7 +82,9 @@ Link: ${event.message.link}`
 
     const prompt = config.eventDescriptionPrompt!.replace('{{EVENTS}}', eventsText);
 
-    const result = await aiClient.callCreative(prompt);
+    const result = await aiClient.call(prompt, {
+      reasoningEffort: getStepReasoningEffort(config, 'eventDescription'),
+    });
 
     if (result) {
       const eventBlocks = result.split(/^\d+:/m).filter((block) => block.trim());
@@ -115,7 +118,10 @@ Link: ${event.message.link}`
               },
               event_type: event.event_type_classification!.type,
               start_datetime: event.start_datetime!,
-              interest_matches: event.interest_matches!.map((m) => ({ interest: m.interest, confidence: m.confidence })),
+              interest_matches: event.interest_matches!.map((m) => ({
+                interest: m.interest,
+                confidence: m.confidence,
+              })),
               ai_prompt: prompt,
               ai_response: '[NO RESPONSE]',
               extracted_title: '',

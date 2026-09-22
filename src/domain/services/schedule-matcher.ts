@@ -2,6 +2,7 @@ import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
 
 import { DATETIME_UNKNOWN } from '../constants';
 import { Config } from '../../config/types';
+import { getStepReasoningEffort } from '../../config/validator';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugScheduleFilteringEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
@@ -326,7 +327,9 @@ export async function filterBySchedule(
       .scheduleExtractionPrompt!.replace('{{TODAY_DATE}}', new Date().toDateString())
       .replace('{{MESSAGES}}', messagesText);
 
-    const result = await aiClient.call(prompt);
+    const result = await aiClient.call(prompt, {
+      reasoningEffort: getStepReasoningEffort(config, 'scheduleExtraction'),
+    });
 
     if (result) {
       const lines = result.split('\n').filter((line) => line.includes(':'));
