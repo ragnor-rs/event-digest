@@ -114,6 +114,13 @@ writeDebugFiles: false
 # batch numbers, DISCARDED messages with links, and event creation status
 verboseLogging: false
 
+# Keep events whose date is known but whose time is not (default: false)
+# Shown as "27 Sep 2026 (time TBA)"; they bypass the weeklyTimeslots check
+includeEventsWithoutTime: false
+
+# Collapse the same event announced by several sources (default: true)
+deduplicateEvents: true
+
 # Minimum confidence thresholds for AI filtering (0.0-1.0)
 # GPT assigns confidence scores to predictions; only results above threshold are included
 
@@ -193,6 +200,8 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files false \
   --verbose-logging false \
+  --include-events-without-time false \
+  --deduplicate-events true \
   --min-event-detection-confidence 0.7 \
   --min-event-classification-confidence 0.7 \
   --min-interest-confidence 0.75 \
@@ -271,6 +280,8 @@ See `config.example.yaml` for more examples and detailed guidance.
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
+- `includeEventsWithoutTime`/`--include-events-without-time`: Keep events whose date is known but whose time is not, shown as "27 Sep 2026 (time TBA)". They cannot be checked against `weeklyTimeslots`, so they bypass that filter. Toggling this re-runs step 5 (default: false)
+- `deduplicateEvents`/`--deduplicate-events`: Collapse the same event announced by several sources into one entry (default: true)
 - **Confidence Thresholds** (optional - controls AI quality filtering):
   - `minEventDetectionConfidence`/`--min-event-detection-confidence`: Minimum confidence (0.0-1.0) for event detection; higher values = fewer but more certain events (default: 0.7)
   - `minEventClassificationConfidence`/`--min-event-classification-confidence`: Minimum confidence (0.0-1.0) for event type classification; higher values = stricter classification (default: 0.7)
@@ -332,7 +343,7 @@ The tool supports accessing both public and private channels/groups:
 
 ## How It Works
 
-The tool processes messages through a 7-step pipeline:
+The tool processes messages through an 8-step pipeline:
 
 1. **Fetch Messages** (`data/telegram-client.ts`) - Retrieves recent messages from specified Telegram sources
 2. **Event Cue Filter** (`domain/services/event-cues-filter.ts`) - Filters messages containing date/event keywords
@@ -341,6 +352,7 @@ The tool processes messages through a 7-step pipeline:
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field (Date object)
 6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores)
 7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles and summaries using GPT, adds event_description field (DigestEventDescription type with title and short_summary)
+8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry, keeping the earliest posting and listing the others in duplicate_sources. Uses no GPT calls
 
 ## Architecture
 
@@ -354,7 +366,7 @@ src/
 │   ├── services/               # Business logic services (filtering, matching, etc.)
 │   └── constants.ts            # Domain constants (DATETIME_UNKNOWN)
 ├── application/                # Use case orchestration
-│   └── event-pipeline.ts       # 7-step pipeline orchestrator
+│   └── event-pipeline.ts       # 8-step pipeline orchestrator
 ├── data/                       # External systems (infrastructure layer)
 │   ├── openai-client.ts        # OpenAI API client
 │   ├── telegram-client.ts      # Telegram API client

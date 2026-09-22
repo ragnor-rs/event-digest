@@ -143,6 +143,20 @@ weeklyTimeslots:
 # When disabled, only prints step names and final statistics
 # verboseLogging: false
 
+# Optional: Keep events whose date is known but whose time is not (default: false)
+# GPT reports these as "27 Sep 2026 unknown"; they used to fail to parse and be
+# discarded. Such an event cannot be checked against weeklyTimeslots, so enabling
+# this admits events that may fall outside your availability. They are shown as
+# "27 Sep 2026 (time TBA)".
+# Toggling this re-runs step 5, since that step caches the parsed outcome.
+# includeEventsWithoutTime: false
+
+# Optional: Collapse the same event announced by several sources (default: true)
+# Compares events within a calendar day by word overlap on titles or on the
+# source message text, keeps the earliest posting, and lists the other links
+# under the kept event.
+# deduplicateEvents: true
+
 # Optional: Minimum confidence thresholds for AI filtering (0.0-1.0)
 # GPT assigns confidence scores to predictions; only results above threshold are included
 
