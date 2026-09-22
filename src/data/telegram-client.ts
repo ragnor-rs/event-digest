@@ -16,6 +16,11 @@ import { EntityCache } from './entity-cache';
 
 const TELEGRAM_DISCONNECT_DELAY_MS = 100; // ms to wait before disconnect
 
+// Display-name sources are matched against this window of most-recent dialogs.
+// Anything outside it is silently unfindable, so the limit is a hard ceiling on
+// how many private groups can be configured by name.
+const DIALOG_FETCH_LIMIT = 500;
+
 export class TelegramClient implements IMessageSource {
   private client: GramJSClient;
   private session: StringSession;
@@ -24,6 +29,8 @@ export class TelegramClient implements IMessageSource {
   private entityCache: EntityCache;
   private logger: Logger;
   private dialogs: Dialog[] | null = null;
+  private unresolvedSources: string[] = [];
+  private emptySources: string[] = [];
 
   constructor(cache: ICache, logger: Logger) {
     this.cache = cache;
@@ -106,7 +113,7 @@ export class TelegramClient implements IMessageSource {
    */
   private async loadDialogs(): Promise<Dialog[]> {
     if (this.dialogs === null) {
-      const dialogList = await this.client.getDialogs({ limit: 200 });
+      const dialogList = await this.client.getDialogs({ limit: DIALOG_FETCH_LIMIT });
       this.dialogs = Array.from(dialogList);
     }
     return this.dialogs;
@@ -184,8 +191,20 @@ export class TelegramClient implements IMessageSource {
     // Determine how to fetch the entity
     if (isUsername) {
       actualSourceName = sourceName.slice(1)
-      // Username provided, use cache-first lookup to avoid contacts.ResolveUsername floods
-      entity = await this.resolveUsername(actualSourceName as string);
+      // Username provided, use cache-first lookup to avoid contacts.ResolveUsername floods.
+      // A bad handle must not abort the run: this resolve happens before the fetch
+      // try/catch, so one typo or deleted channel would otherwise kill every
+      // remaining source.
+      try {
+        entity = await this.resolveUsername(actualSourceName as string);
+      } catch (error) {
+        this.logger.log(
+          `  ⚠ ${sourceType} "${sourceName}" could not be resolved — skipping ` +
+            `(${error instanceof Error ? error.message : String(error)})`
+        );
+        this.unresolvedSources.push(`${sourceName} (${sourceType})`);
+        return [];
+      }
     } else {
       // Display name provided, search by display name
       this.logger.verbose(`    Searching by display name...`);
@@ -195,7 +214,10 @@ export class TelegramClient implements IMessageSource {
         actualSourceName = found.actualName;
         this.logger.verbose(`    Using ${sourceType}: "${found.displayName || sourceName}" → ${actualSourceName}`);
       } else {
-        this.logger.verbose(`    Display name not found`);
+        // Not verbose: an unresolvable source yields nothing on every run, and
+        // staying quiet about it is how a dead config entry survives for months.
+        this.logger.log(`  ⚠ ${sourceType} "${sourceName}" not found among your dialogs — skipping`);
+        this.unresolvedSources.push(`${sourceName} (${sourceType})`);
         return [];
       }
     }
@@ -283,16 +305,20 @@ export class TelegramClient implements IMessageSource {
     maxChannelMessages: number
   ): Promise<SourceMessage[]> {
     const allMessages: SourceMessage[] = [];
+    this.unresolvedSources = [];
+    this.emptySources = [];
 
     // Process groups with higher message limit
     for (const groupName of groupsToParse) {
       const messages = await this.fetchMessagesFromSource(groupName, 'group', maxGroupMessages);
+      if (messages.length === 0) this.emptySources.push(`${groupName} (group)`);
       allMessages.push(...messages);
     }
 
     // Process channels with separate limit
     for (const channelName of channelsToParse) {
       const messages = await this.fetchMessagesFromSource(channelName, 'channel', maxChannelMessages);
+      if (messages.length === 0) this.emptySources.push(`${channelName} (channel)`);
       allMessages.push(...messages);
     }
 
@@ -301,8 +327,24 @@ export class TelegramClient implements IMessageSource {
     );
 
     this.logger.log(`  Fetched ${sortedMessages.length} total messages`);
+    this.reportDeadSources();
 
     return sortedMessages;
+  }
+
+  /**
+   * Surfaces configured sources that contributed nothing this run. A source can
+   * be dead for two reasons — it never resolved, or it resolved but returned no
+   * messages — and both cost a slot in the config while producing no events.
+   */
+  private reportDeadSources(): void {
+    if (this.emptySources.length === 0) return;
+
+    this.logger.log(`  ⚠ ${this.emptySources.length} source(s) returned no messages:`);
+    for (const source of this.emptySources) {
+      const reason = this.unresolvedSources.includes(source) ? 'not found in dialogs' : 'resolved but empty';
+      this.logger.log(`      ${source} — ${reason}`);
+    }
   }
 
   async sendMessage(recipient: string, message: string): Promise<void> {
