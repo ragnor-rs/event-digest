@@ -61,7 +61,8 @@ Usage:
       [--event-detection-batch-size 16] \\
       [--event-classification-batch-size 16] \\
       [--schedule-extraction-batch-size 16] \\
-      [--event-description-batch-size 5] \\
+      [--event-description-batch-size 3] \\
+      [--reasoning-effort low] \\
       [--max-messages 100]
 
   Option 3 - Default config file (config.yaml or config.yml in project root)
@@ -74,3 +75,4 @@ Usage:
 }
 
 export * from './types';
+export { getStepReasoningEffort, ReasoningStep } from './validator';

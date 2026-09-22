@@ -1,3 +1,5 @@
+import { ReasoningEffort } from '../domain/interfaces';
+
 export interface Config {
   groupsToParse: string[];
   channelsToParse: string[];
@@ -17,6 +19,13 @@ export interface Config {
   eventClassificationBatchSize: number;
   scheduleExtractionBatchSize: number;
   eventDescriptionBatchSize: number;
+  reasoningEffort: ReasoningEffort; // Default reasoning effort for every GPT step
+  // Per-step overrides; each falls back to reasoningEffort when unset
+  eventDetectionReasoningEffort?: ReasoningEffort;
+  eventClassificationReasoningEffort?: ReasoningEffort;
+  scheduleExtractionReasoningEffort?: ReasoningEffort;
+  interestMatchingReasoningEffort?: ReasoningEffort;
+  eventDescriptionReasoningEffort?: ReasoningEffort;
   eventDetectionPrompt?: string;
   interestMatchingPrompt?: string;
   eventTypeClassificationPrompt?: string;

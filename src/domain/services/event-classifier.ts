@@ -1,4 +1,5 @@
 import { Config } from '../../config/types';
+import { getStepReasoningEffort } from '../../config/validator';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugTypeClassificationEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
@@ -31,7 +32,9 @@ export async function classifyEventTypes(
 
       // Check if we should include this event based on skipOnlineEvents
       if (cachedClassification.type === AttendanceMode.ONLINE && config.skipOnlineEvents) {
-        logger.verbose(`    ✗ Discarded: ${event.message.link} [${cachedClassification.type}] - skipping online events (cached)`);
+        logger.verbose(
+          `    ✗ Discarded: ${event.message.link} [${cachedClassification.type}] - skipping online events (cached)`
+        );
         debugEntries.push({
           message: {
             timestamp: event.message.timestamp,
@@ -40,7 +43,12 @@ export async function classifyEventTypes(
           },
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: ${cachedClassification.type}, confidence: ${cachedClassification.confidence}]`,
-          type_classifications: [{ type: cachedClassification.type as 'offline' | 'online' | 'hybrid', confidence: cachedClassification.confidence }],
+          type_classifications: [
+            {
+              type: cachedClassification.type as 'offline' | 'online' | 'hybrid',
+              confidence: cachedClassification.confidence,
+            },
+          ],
           result: 'discarded',
           cached: true,
         });
@@ -57,7 +65,12 @@ export async function classifyEventTypes(
           },
           ai_prompt: '[CACHED]',
           ai_response: `[CACHED: ${cachedClassification.type}, confidence: ${cachedClassification.confidence}]`,
-          type_classifications: [{ type: cachedClassification.type as 'offline' | 'online' | 'hybrid', confidence: cachedClassification.confidence }],
+          type_classifications: [
+            {
+              type: cachedClassification.type as 'offline' | 'online' | 'hybrid',
+              confidence: cachedClassification.confidence,
+            },
+          ],
           result: 'matched',
           cached: true,
         });
@@ -88,7 +101,9 @@ export async function classifyEventTypes(
       .join('\n\n');
     const prompt = (config.eventTypeClassificationPrompt || '').replace('{{MESSAGES}}', messagesText);
 
-    const result = await aiClient.call(prompt);
+    const result = await aiClient.call(prompt, {
+      reasoningEffort: getStepReasoningEffort(config, 'eventClassification'),
+    });
     const processedIndices = new Set<number>();
 
     if (result) {
@@ -140,7 +155,11 @@ export async function classifyEventTypes(
           }
 
           const eventType =
-            classificationIdx === 0 ? AttendanceMode.OFFLINE : classificationIdx === 1 ? AttendanceMode.ONLINE : AttendanceMode.HYBRID;
+            classificationIdx === 0
+              ? AttendanceMode.OFFLINE
+              : classificationIdx === 1
+                ? AttendanceMode.ONLINE
+                : AttendanceMode.HYBRID;
 
           const classification = { type: eventType, confidence };
 
@@ -172,7 +191,9 @@ export async function classifyEventTypes(
 
           // Check if we should include this event
           if (eventType === AttendanceMode.ONLINE && config.skipOnlineEvents) {
-            logger.verbose(`    ✗ Discarded: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`);
+            logger.verbose(
+              `    ✗ Discarded: ${chunk[messageIdx].message.link} [${eventType}] - skipping online events`
+            );
             debugEntries.push({
               message: {
                 timestamp: chunk[messageIdx].message.timestamp,
@@ -216,14 +237,10 @@ export async function classifyEventTypes(
       }
       if (invalidClassifications.length > 0) {
         const details = invalidClassifications.map((c) => `${c.index}:${c.value}`).join(', ');
-        logger.verbose(
-          `    WARNING: AI returned invalid classification values (valid: 0-2): ${details}`
-        );
+        logger.verbose(`    WARNING: AI returned invalid classification values (valid: 0-2): ${details}`);
       }
       if (duplicateIndices.length > 0) {
-        logger.verbose(
-          `    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`
-        );
+        logger.verbose(`    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`);
       }
       if (malformedLines.length > 0) {
         logger.verbose(

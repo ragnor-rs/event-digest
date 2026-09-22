@@ -1,4 +1,5 @@
 import { Config } from '../../config/types';
+import { getStepReasoningEffort } from '../../config/validator';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugInterestMatchingEntry } from '../../shared/types';
 import { Logger } from '../../shared/logger';
@@ -93,7 +94,9 @@ export async function filterByInterests(
       .replace('{{EVENTS}}', eventsText)
       .replace('{{INTERESTS}}', interestsText);
 
-    const result = await aiClient.call(prompt);
+    const result = await aiClient.call(prompt, {
+      reasoningEffort: getStepReasoningEffort(config, 'interestMatching'),
+    });
 
     if (!result) {
       // AI returned undefined/empty - technical issue

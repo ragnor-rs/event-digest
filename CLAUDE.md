@@ -43,7 +43,9 @@ npm run dev -- \
   --event-detection-batch-size 16 \
   --event-classification-batch-size 16 \
   --schedule-extraction-batch-size 16 \
-  --event-description-batch-size 5 \
+  --event-description-batch-size 3 \
+  --reasoning-effort low \
+  --event-detection-reasoning-effort none \
   --send-events-recipient "@myusername" \
   --send-events-batch-size 5
 ```
@@ -156,15 +158,18 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (265 lines), uses aiClient.call()
 - `schedule-matcher.ts`: Schedule extraction and availability matching (417 lines, longest service), uses aiClient.call()
 - `interest-matcher.ts`: Interest matching with confidence scoring and validation (245 lines, processes individually for accuracy), uses aiClient.call()
-- `event-describer.ts`: Event description generation (190 lines), uses aiClient.callCreative() (same temperature 1.0 as other operations)
+- `event-describer.ts`: Event description generation (190 lines), uses aiClient.call()
+
+All five services resolve their reasoning effort via `getStepReasoningEffort(config, step)` (`config/validator.ts`) and pass it as `aiClient.call(prompt, { reasoningEffort })`.
 
 **Application Layer** (`application/`):
 - `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, DebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
 
 **Data Layer** (`data/`):
-- `openai-client.ts`: OpenAI GPT API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses GPT-5-mini model with temperature 1.0 for all operations (both standard and creative), exposes GPT_TEMPERATURE_CREATIVE constant (also 1.0), includes retry logic with exponential backoff for rate limit errors (max 3 retries: 2s, 4s, 8s delays)
+- `openai-client.ts`: OpenAI API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses the **gpt-6-luna** model (exported as `GPT_MODEL` so cache keys can be scoped to it). Passes no `temperature` — gpt-6-luna is a reasoning model and rejects it. `reasoning_effort` comes from the caller, defaulting to `'low'`. Includes retry logic with exponential backoff for rate limit errors (max 3 retries: 2s, 4s, 8s delays)
 - `telegram-client.ts`: Telegram API client implementing IMessageSource interface (fetchMessages and sendMessage methods), session management, uses readline-helper for authentication prompts
-- `cache.ts`: Six-tier caching system implementing ICache interface, messages and GPT results with preference-aware keys
+- `cache.ts`: Six-tier caching system implementing ICache interface, messages and GPT results with preference-aware keys. Takes a `CacheVariant` (model + per-step reasoning effort) at construction and folds it into every GPT cache key, so changing the model or a step's effort re-runs that step instead of serving stale results
+- `entity-cache.ts`: Resolved Telegram channel entities (`.cache/resolved_entities.json`), kept separate from the six GPT/message stores. Exists to avoid repeated ResolveUsername calls and the flood-wait bans they trigger — **do not delete this file when clearing caches**
 
 **Configuration** (`config/`):
 - Supports YAML configuration files (config.yaml/config.yml) or command-line arguments
@@ -186,7 +191,12 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
   - `eventDetectionBatchSize` (default: 16): Controls batch size for step 3 event detection
   - `eventClassificationBatchSize` (default: 16): Controls batch size for step 4 event type classification
   - `scheduleExtractionBatchSize` (default: 16): Controls batch size for step 5 schedule extraction
-  - `eventDescriptionBatchSize` (default: 5): Controls batch size for step 7 event description generation
+  - `eventDescriptionBatchSize` (default: 3): Controls batch size for step 7 event description generation
+- **Configurable reasoning effort** (trades accuracy against cost and latency):
+  - `reasoningEffort` (default: `low`): Effort for every GPT step; one of `none`, `low`, `medium`, `high`, `xhigh` (values defined by `REASONING_EFFORTS` in `domain/interfaces/ai-client.interface.ts`; `max` is excluded because openai@6's type union omits it)
+  - Per-step overrides, each falling back to `reasoningEffort`: `eventDetectionReasoningEffort`, `eventClassificationReasoningEffort`, `scheduleExtractionReasoningEffort`, `interestMatchingReasoningEffort`, `eventDescriptionReasoningEffort`
+  - Resolved through `getStepReasoningEffort(config, step)` in `config/validator.ts` — the single source of truth used by both the AI calls and the cache keys
+  - Reasoning tokens share the completion-token budget, so raising effort on step 7 (one output block per input message) risks truncating the response
 - **Configurable GPT prompts** (all optional with sensible defaults in config/defaults.ts):
   - `eventDetectionPrompt`: Customizes event detection logic (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Customizes event type classification (step 4) - uses `{{MESSAGES}}` placeholder
@@ -237,7 +247,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **GPT Response Parsing:** Robust parsing handles both structured responses and prose responses like "No messages match any interests."
 
-**Rate Limiting:** 1-second delays between GPT calls via `delay()` function in `shared/batch-processor.ts`. Batch processing with configurable batch sizes (defaults: event detection 16, event type classification 16, schedule filtering 16, event description 5). Interest matching processes events individually for accurate validation.
+**Rate Limiting:** 1-second delays between GPT calls via `delay()` function in `shared/batch-processor.ts`. Batch processing with configurable batch sizes (defaults: event detection 16, event type classification 16, schedule filtering 16, event description 3). Interest matching processes events individually for accurate validation.
 
 **Two-Stage GPT Processing:**
 1. Basic event detection (`domain/services/event-detector.ts`) - Identifies genuine event announcements
@@ -259,7 +269,7 @@ This filtering happens during the type classification stage in `domain/services/
 
 Required environment variables (see `.env.example`):
 - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_PHONE_NUMBER` - Telegram API credentials
-- `OPENAI_API_KEY` - OpenAI API key for GPT-5-mini model
+- `OPENAI_API_KEY` - OpenAI API key for the gpt-6-luna model
 
 **Environment Variable Validation:** The application validates all required environment variables at startup before initializing clients. Missing variables will cause immediate failure with a clear error message referencing `.env.example`.
 
@@ -274,6 +284,11 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/scheduled_events.json`: Schedule filtering results (step 5, no preferences in cache key)
 - `.cache/matching_interests.json`: Interest matching results (step 6, includes interests hash)
 - `.cache/events.json`: Final event objects (step 7, includes interests hash)
+- `.cache/resolved_entities.json`: Resolved Telegram channel entities, owned by `data/entity-cache.ts` (not part of the `Cache` class)
+
+**Clearing the cache:** delete only the five GPT stores (`messages`, `event_type_classification`, `scheduled_events`, `matching_interests`, `events`). Keep `telegram_messages.json` — re-fetching all sources is slow and risks Telegram FLOOD_WAIT. Keep `resolved_entities.json` — deleting it re-resolves every channel and triggers the ResolveUsername flood it was added to prevent.
+
+**AI-variant cache keys:** every GPT store's key includes a hash of the model (`GPT_MODEL`) and that step's effective reasoning effort. Changing either re-runs only the affected step, and different configurations coexist in the same file — which is what makes reasoning-effort A/B runs cheap to repeat.
 
 **Message Caching Strategy:**
 - Messages are assumed to be immutable once published
@@ -309,7 +324,7 @@ The codebase follows **Clean Architecture** and **DDD** principles:
 3. **Dependency Injection**: Domain services accept interfaces as parameters, application layer uses constructor injection, bootstrap layer instantiates concrete implementations
 4. **Dependency Inversion**: Domain defines interfaces (`IAIClient`, `ICache`, `IMessageSource`), outer layers implement them
 5. **No Code Duplication**: Shared logic extracted to utilities and services
-6. **Constants Management**: Configuration constants are centralized in `config/constants.ts` with documented rationale. Operation-specific constants (like `GPT_TEMPERATURE_CREATIVE`, `RATE_LIMIT_DELAY`, `DATE_FORMAT`) stay co-located with their usage context for better maintainability
+6. **Constants Management**: Configuration constants are centralized in `config/constants.ts` with documented rationale. Operation-specific constants (like `GPT_MODEL`, `RATE_LIMIT_DELAY`, `DATE_FORMAT`) stay co-located with their usage context for better maintainability
 7. **YAGNI Principle**: No DI containers (simple constructor injection suffices), Config type not abstracted (stable, unlikely to change)
 
 **Note on Architecture:** This codebase follows Clean Architecture principles with dependency injection for all infrastructure concerns. Domain services accept interfaces (`IAIClient`, `ICache`) as parameters, the application layer (`EventPipeline`) receives interface instances via constructor injection, and the bootstrap layer (`index.ts`) instantiates concrete implementations. The only pragmatic deviation is that domain services directly import the `Config` type from outer layers rather than abstracting it behind an interface, as configuration is stable and unlikely to change implementation.

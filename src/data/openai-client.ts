@@ -1,15 +1,22 @@
 import OpenAI from 'openai';
 
-import { IAIClient } from '../domain/interfaces';
+import { AICallOptions, IAIClient, ReasoningEffort } from '../domain/interfaces';
 import { delay, RATE_LIMIT_DELAY } from '../shared/batch-processor';
 import { Logger } from '../shared/logger';
 
-// GPT-5.4-nano: OpenAI's most cost-efficient current-generation model (March 2026),
-// designed for classification, data extraction, ranking, and sub-agent workloads —
-// which matches every GPT step in this pipeline.
-const GPT_MODEL = 'gpt-5.4-nano';
-const GPT_TEMPERATURE = 1.0;
-export const GPT_TEMPERATURE_CREATIVE = 1.0;
+// GPT-6-luna: OpenAI's most cost-efficient current-generation model, positioned for
+// "focused, high-volume tasks" — classification, extraction, ranking and summarization,
+// which is every GPT step in this pipeline. Half the price of the gpt-5.4-nano it
+// replaced ($0.10/$0.50 vs $0.20/$1.25 per 1M tokens) with a 1.05M context window.
+//
+// Exported so cache keys can be scoped to the model that produced each entry.
+export const GPT_MODEL = 'gpt-6-luna';
+
+/**
+ * Reasoning effort used when a caller does not specify one.
+ * Callers normally pass the per-step value resolved from config.
+ */
+const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'low';
 
 /**
  * Maximum number of retry attempts for OpenAI API calls when rate limited.
@@ -39,15 +46,11 @@ export class OpenAIClient implements IAIClient {
     });
   }
 
-  async call(prompt: string): Promise<string | undefined> {
-    return this.callWithTemperature(prompt, GPT_TEMPERATURE);
+  async call(prompt: string, options?: AICallOptions): Promise<string | undefined> {
+    return this.callWithEffort(prompt, options?.reasoningEffort ?? DEFAULT_REASONING_EFFORT);
   }
 
-  async callCreative(prompt: string): Promise<string | undefined> {
-    return this.callWithTemperature(prompt, GPT_TEMPERATURE_CREATIVE);
-  }
-
-  private async callWithTemperature(prompt: string, temperature: number): Promise<string | undefined> {
+  private async callWithEffort(prompt: string, effort: ReasoningEffort): Promise<string | undefined> {
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= OPENAI_MAX_RETRIES; attempt++) {
@@ -55,12 +58,12 @@ export class OpenAIClient implements IAIClient {
         const response = await this.client.chat.completions.create({
           model: GPT_MODEL,
           messages: [{ role: 'user', content: prompt }],
-          temperature,
-          // gpt-5.4-nano is a reasoning model: 'low' keeps reasoning tokens
-          // in check so they don't consume the completion-token budget before
-          // the visible message is emitted (truncating multi-block outputs).
-          // Supported values for this model: 'none', 'low', 'medium', 'high', 'xhigh'.
-          reasoning_effort: 'low',
+          // No temperature: gpt-6-luna is a reasoning model and does not accept it.
+          //
+          // gpt-6-luna supports 'none', 'low', 'medium', 'high' and 'xhigh'. Reasoning
+          // tokens share the completion-token budget, so steps that emit one block per
+          // input message (event description) can truncate at higher effort levels.
+          reasoning_effort: effort,
         });
 
         const result = response.choices[0].message.content?.trim();

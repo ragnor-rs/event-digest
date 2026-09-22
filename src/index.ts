@@ -3,8 +3,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { EventPipeline } from './application';
-import { parseArgs } from './config';
-import { OpenAIClient, Cache, TelegramClient } from './data';
+import { parseArgs, getStepReasoningEffort } from './config';
+import { OpenAIClient, Cache, TelegramClient, GPT_MODEL } from './data';
 import { EventPrinter, EventSender, IEventReporter } from './presentation';
 import { Logger, DebugWriter } from './shared';
 
@@ -30,7 +30,19 @@ async function main() {
     const config = parseArgs();
 
     logger.setVerbose(config.verboseLogging);
-    const cache = new Cache(logger);
+    // Scope cached GPT results to the model and per-step reasoning effort that
+    // produced them, so changing either re-runs the affected step instead of
+    // serving answers from a previous configuration.
+    const cache = new Cache(logger, {
+      model: GPT_MODEL,
+      efforts: {
+        messages: getStepReasoningEffort(config, 'eventDetection'),
+        event_type_classification: getStepReasoningEffort(config, 'eventClassification'),
+        scheduled_events: getStepReasoningEffort(config, 'scheduleExtraction'),
+        matching_interests: getStepReasoningEffort(config, 'interestMatching'),
+        events: getStepReasoningEffort(config, 'eventDescription'),
+      },
+    });
     const openaiClient = new OpenAIClient(logger);
     messageSource = new TelegramClient(cache, logger);
     const debugWriter = new DebugWriter(logger);

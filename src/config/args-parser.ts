@@ -1,4 +1,24 @@
+import { REASONING_EFFORTS, ReasoningEffort } from '../domain/interfaces';
+
 import { Config } from './types';
+
+type ReasoningEffortField =
+  | 'reasoningEffort'
+  | 'eventDetectionReasoningEffort'
+  | 'eventClassificationReasoningEffort'
+  | 'scheduleExtractionReasoningEffort'
+  | 'interestMatchingReasoningEffort'
+  | 'eventDescriptionReasoningEffort';
+
+/** Maps --*-reasoning-effort flags to their Config field */
+const REASONING_EFFORT_OPTIONS: Record<string, ReasoningEffortField> = {
+  '--reasoning-effort': 'reasoningEffort',
+  '--event-detection-reasoning-effort': 'eventDetectionReasoningEffort',
+  '--event-classification-reasoning-effort': 'eventClassificationReasoningEffort',
+  '--schedule-extraction-reasoning-effort': 'scheduleExtractionReasoningEffort',
+  '--interest-matching-reasoning-effort': 'interestMatchingReasoningEffort',
+  '--event-description-reasoning-effort': 'eventDescriptionReasoningEffort',
+};
 
 const VALID_OPTIONS = [
   '--config',
@@ -21,6 +41,7 @@ const VALID_OPTIONS = [
   '--event-description-batch-size',
   '--send-events-recipient',
   '--send-events-batch-size',
+  ...Object.keys(REASONING_EFFORT_OPTIONS),
 ];
 
 export function parseCommandLineArgs(args: string[]): Partial<Config> {
@@ -42,6 +63,19 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       throw new Error(
         `Unrecognized option '${key}'\n\nValid options:\n  ${validOptionsStr}\n\nSee README.md for usage examples.`
       );
+    }
+
+    // All --*-reasoning-effort flags parse identically
+    const effortField = REASONING_EFFORT_OPTIONS[key];
+    if (effortField) {
+      const effort = value.trim().toLowerCase();
+      if (!REASONING_EFFORTS.includes(effort as ReasoningEffort)) {
+        throw new Error(
+          `Invalid value for ${key}: "${value}". Must be one of: ${REASONING_EFFORTS.join(', ')}`
+        );
+      }
+      config[effortField] = effort as ReasoningEffort;
+      continue;
     }
 
     switch (key) {

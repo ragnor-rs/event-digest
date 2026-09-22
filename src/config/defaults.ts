@@ -1,3 +1,5 @@
+import { ReasoningEffort } from '../domain/interfaces';
+
 export const DEFAULT_CONFIG = {
   maxGroupMessages: 200,
   maxChannelMessages: 100,
@@ -12,6 +14,10 @@ export const DEFAULT_CONFIG = {
   scheduleExtractionBatchSize: 16,
   eventDescriptionBatchSize: 3,
   sendEventsBatchSize: 5,
+
+  // 'low' keeps reasoning tokens from eating the completion budget on steps that
+  // emit one output block per input message. Per-step overrides are unset by default.
+  reasoningEffort: 'low' as ReasoningEffort,
 
   eventMessageCues: {
     ru: [

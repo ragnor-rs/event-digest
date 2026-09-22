@@ -1,6 +1,50 @@
+import { REASONING_EFFORTS, ReasoningEffort } from '../domain/interfaces';
+
 import { GROUP_MESSAGE_MULTIPLIER } from './constants';
 import { DEFAULT_CONFIG } from './defaults';
 import { Config } from './types';
+
+/** Per-step reasoning effort overrides, in pipeline order */
+const REASONING_EFFORT_OVERRIDES = [
+  'eventDetectionReasoningEffort',
+  'eventClassificationReasoningEffort',
+  'scheduleExtractionReasoningEffort',
+  'interestMatchingReasoningEffort',
+  'eventDescriptionReasoningEffort',
+] as const;
+
+/** Pipeline steps that issue GPT calls */
+export type ReasoningStep =
+  | 'eventDetection'
+  | 'eventClassification'
+  | 'scheduleExtraction'
+  | 'interestMatching'
+  | 'eventDescription';
+
+const STEP_OVERRIDE_FIELD: Record<ReasoningStep, (typeof REASONING_EFFORT_OVERRIDES)[number]> = {
+  eventDetection: 'eventDetectionReasoningEffort',
+  eventClassification: 'eventClassificationReasoningEffort',
+  scheduleExtraction: 'scheduleExtractionReasoningEffort',
+  interestMatching: 'interestMatchingReasoningEffort',
+  eventDescription: 'eventDescriptionReasoningEffort',
+};
+
+/**
+ * Resolves the reasoning effort for a pipeline step: its override if set,
+ * otherwise the global default. Single source of truth for both the AI calls
+ * and the cache keys that scope results to the effort that produced them.
+ */
+export function getStepReasoningEffort(config: Config, step: ReasoningStep): ReasoningEffort {
+  return config[STEP_OVERRIDE_FIELD[step]] ?? config.reasoningEffort;
+}
+
+function assertValidReasoningEffort(fieldName: string, value: unknown): void {
+  if (!REASONING_EFFORTS.includes(value as ReasoningEffort)) {
+    throw new Error(
+      `Invalid value for ${fieldName}: "${value}". Must be one of: ${REASONING_EFFORTS.join(', ')}`
+    );
+  }
+}
 
 /**
  * Validates and completes the configuration with defaults
@@ -22,6 +66,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedScheduleExtractionBatchSize = config.scheduleExtractionBatchSize !== undefined;
   const providedEventDescriptionBatchSize = config.eventDescriptionBatchSize !== undefined;
   const providedSendEventsBatchSize = config.sendEventsBatchSize !== undefined;
+  const providedReasoningEffort = config.reasoningEffort !== undefined;
   const providedEventDetectionPrompt = config.eventDetectionPrompt !== undefined;
   const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
   const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
@@ -88,6 +133,20 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   }
   if (config.sendEventsBatchSize === undefined) {
     config.sendEventsBatchSize = DEFAULT_CONFIG.sendEventsBatchSize;
+  }
+
+  // Resolve reasoning effort: validate the global value, then each per-step override.
+  // Overrides left unset stay undefined so services fall back to the global value.
+  if (config.reasoningEffort === undefined) {
+    config.reasoningEffort = DEFAULT_CONFIG.reasoningEffort;
+  } else {
+    assertValidReasoningEffort('reasoningEffort', config.reasoningEffort);
+  }
+
+  for (const field of REASONING_EFFORT_OVERRIDES) {
+    if (config[field] !== undefined) {
+      assertValidReasoningEffort(field, config[field]);
+    }
   }
 
   // Set default prompts
@@ -171,6 +230,11 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(
     `  eventDescriptionBatchSize: ${finalConfig.eventDescriptionBatchSize}${!providedEventDescriptionBatchSize ? ' (default)' : ''}`
   );
+  console.log(`  reasoningEffort: ${finalConfig.reasoningEffort}${!providedReasoningEffort ? ' (default)' : ''}`);
+  const effortOverrides = REASONING_EFFORT_OVERRIDES.filter((field) => finalConfig[field] !== undefined)
+    .map((field) => `${field}=${finalConfig[field]}`)
+    .join(', ');
+  console.log(`  reasoningEffort overrides: ${effortOverrides || 'none'}`);
   console.log(
     `  sendEventsRecipient: ${finalConfig.sendEventsRecipient || 'not set (print to console)'}`
   );

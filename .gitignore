@@ -9,3 +9,6 @@ session/
 .telegram-session
 config.yaml*
 debug/
+
+# Experiment arm snapshots (scripts/run-arm.sh)
+eval/
