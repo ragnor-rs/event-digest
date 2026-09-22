@@ -37,6 +37,8 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files true \
   --verbose-logging false \
+  --include-events-without-time false \
+  --deduplicate-events true \
   --min-event-detection-confidence 0.7 \
   --min-event-classification-confidence 0.7 \
   --min-interest-confidence 0.75 \
