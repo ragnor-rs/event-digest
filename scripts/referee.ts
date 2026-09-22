@@ -70,13 +70,30 @@ function sample<T>(items: T[], size: number, keyOf: (item: T) => string): T[] {
   return Array.from({ length: size }, (_, i) => sorted[Math.floor(i * stride)]);
 }
 
-async function ask(prompt: string): Promise<string> {
-  const response = await client.chat.completions.create({
-    model: REFEREE_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    reasoning_effort: REFEREE_EFFORT,
-  });
-  return response.choices[0].message.content?.trim() ?? '';
+/**
+ * One judgement. Returns null instead of throwing: a single unusable item must
+ * not discard a whole arm's grading run, which costs real money to redo.
+ */
+async function ask(prompt: string): Promise<string | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await client.chat.completions.create({
+        model: REFEREE_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        reasoning_effort: REFEREE_EFFORT,
+      });
+      return response.choices[0].message.content?.trim() ?? '';
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // A malformed body will fail identically every time — don't burn retries.
+      if (message.includes('Invalid body') || attempt === 2) {
+        console.warn(`    ! skipped one item: ${message.slice(0, 120)}`);
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** attempt));
+    }
+  }
+  return null;
 }
 
 /** Runs judgements with bounded concurrency so a 150-item step is not serial. */
@@ -102,8 +119,18 @@ const VERDICT_RULE =
   'WRONG if it is not. On a second line give a short reason. If the message is genuinely ' +
   'ambiguous, answer CORRECT — only call a decision WRONG when it is clearly mistaken.';
 
+/**
+ * Truncates by code point, not UTF-16 code unit.
+ *
+ * Telegram messages are full of emoji. Slicing mid-surrogate-pair leaves a lone
+ * surrogate, which JSON.stringify happily emits and the API rejects with
+ * "Invalid body: failed to parse JSON value". Any stray lone surrogates already
+ * present in the source are dropped for the same reason.
+ */
 function truncate(text: string, max = 1500): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
+  const safe = text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+  const points = Array.from(safe);
+  return points.length > max ? `${points.slice(0, max).join('')}…` : safe;
 }
 
 /** Builds the blind grading prompt for one entry of a given step. */
@@ -190,21 +217,36 @@ async function grade(arms: string[]): Promise<void> {
       }
 
       const picked = sample(entries, SAMPLE_SIZES[step], (e) => keyOf(step, e));
-      const verdicts = await mapWithConcurrency(picked, 6, async (entry) => {
+      const graded = await mapWithConcurrency(picked, 6, async (entry) => {
         const answer = await ask(gradingPrompt(step, entry));
-        const correct = answer.toUpperCase().startsWith('CORRECT');
-        return { key: keyOf(step, entry), correct, answer };
+        if (answer === null) return null;
+        return { key: keyOf(step, entry), correct: answer.toUpperCase().startsWith('CORRECT'), answer };
       });
+
+      const verdicts = graded.filter((v): v is NonNullable<typeof v> => v !== null);
+      const skipped = graded.length - verdicts.length;
+      if (verdicts.length === 0) {
+        console.log(`  ${step.padEnd(22)} all ${graded.length} items failed — skipped`);
+        continue;
+      }
 
       const correct = verdicts.filter((v) => v.correct).length;
       const rate = correct / verdicts.length;
       scorecard[step] = {
         graded: verdicts.length,
+        skipped,
         correct,
         accuracy: Number(rate.toFixed(3)),
         wrong: verdicts.filter((v) => !v.correct),
       };
-      console.log(`  ${step.padEnd(22)} ${correct}/${verdicts.length} correct (${(rate * 100).toFixed(1)}%)`);
+      console.log(
+        `  ${step.padEnd(22)} ${correct}/${verdicts.length} correct (${(rate * 100).toFixed(1)}%)` +
+          (skipped ? `  [${skipped} skipped]` : '')
+      );
+
+      // Persist after every step: grading costs money, so a later failure must
+      // not throw away the steps that already succeeded.
+      fs.writeFileSync(path.join(ARMS_DIR, arm, 'scorecard.json'), JSON.stringify(scorecard, null, 2));
     }
 
     const out = path.join(ARMS_DIR, arm, 'scorecard.json');
@@ -257,6 +299,7 @@ SUMMARY: ${second.extracted_summary}
 
 Answer with exactly one word: 1, 2, or TIE.`);
 
+    if (answer === null) return 'skipped';
     const choice = answer.trim().toUpperCase();
     if (choice.startsWith('TIE')) return 'tie';
     if (choice.startsWith('1')) return aFirst ? armA : armB;
