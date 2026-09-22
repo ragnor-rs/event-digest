@@ -57,6 +57,8 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedSkipOnlineEvents = config.skipOnlineEvents !== undefined;
   const providedWriteDebugFiles = config.writeDebugFiles !== undefined;
   const providedVerboseLogging = config.verboseLogging !== undefined;
+  const providedIncludeEventsWithoutTime = config.includeEventsWithoutTime !== undefined;
+  const providedDeduplicateEvents = config.deduplicateEvents !== undefined;
   const providedMinEventDetectionConfidence = config.minEventDetectionConfidence !== undefined;
   const providedMinEventClassificationConfidence = config.minEventClassificationConfidence !== undefined;
   const providedMinInterestConfidence = config.minInterestConfidence !== undefined;
@@ -104,6 +106,14 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
 
   if (config.verboseLogging === undefined) {
     config.verboseLogging = DEFAULT_CONFIG.verboseLogging;
+  }
+
+  if (config.includeEventsWithoutTime === undefined) {
+    config.includeEventsWithoutTime = DEFAULT_CONFIG.includeEventsWithoutTime;
+  }
+
+  if (config.deduplicateEvents === undefined) {
+    config.deduplicateEvents = DEFAULT_CONFIG.deduplicateEvents;
   }
 
   if (config.minEventDetectionConfidence === undefined) {
@@ -209,6 +219,12 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(`  skipOnlineEvents: ${finalConfig.skipOnlineEvents}${!providedSkipOnlineEvents ? ' (default)' : ''}`);
   console.log(`  writeDebugFiles: ${finalConfig.writeDebugFiles}${!providedWriteDebugFiles ? ' (default)' : ''}`);
   console.log(`  verboseLogging: ${finalConfig.verboseLogging}${!providedVerboseLogging ? ' (default)' : ''}`);
+  console.log(
+    `  includeEventsWithoutTime: ${finalConfig.includeEventsWithoutTime}${!providedIncludeEventsWithoutTime ? ' (default)' : ''}`
+  );
+  console.log(
+    `  deduplicateEvents: ${finalConfig.deduplicateEvents}${!providedDeduplicateEvents ? ' (default)' : ''}`
+  );
   console.log(
     `  minEventDetectionConfidence: ${finalConfig.minEventDetectionConfidence}${!providedMinEventDetectionConfidence ? ' (default)' : ''}`
   );

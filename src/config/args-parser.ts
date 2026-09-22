@@ -32,6 +32,8 @@ const VALID_OPTIONS = [
   '--write-debug-files',
   '--skip-online-events',
   '--verbose-logging',
+  '--include-events-without-time',
+  '--deduplicate-events',
   '--min-event-detection-confidence',
   '--min-event-classification-confidence',
   '--min-interest-confidence',
@@ -123,6 +125,12 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
         break;
       case '--verbose-logging':
         config.verboseLogging = value.toLowerCase() === 'true';
+        break;
+      case '--include-events-without-time':
+        config.includeEventsWithoutTime = value.toLowerCase() === 'true';
+        break;
+      case '--deduplicate-events':
+        config.deduplicateEvents = value.toLowerCase() === 'true';
         break;
       case '--min-event-detection-confidence': {
         const parsed = parseFloat(value);

@@ -1,6 +1,6 @@
 import { DigestEvent } from '../domain/entities';
 import { IEventReporter } from './event-reporter.interface';
-import { formatDateTime } from '../shared/date-utils';
+import { formatEventDateTime } from '../shared/date-utils';
 
 /**
  * Prints events to console in a formatted display
@@ -60,10 +60,13 @@ export class EventPrinter implements IEventReporter {
 
     sortedEvents.forEach((event, index) => {
       console.log(`${index + 1}. ${event.event_description!.title}`);
-      console.log(`   📅 ${formatDateTime(event.start_datetime!)}`);
+      console.log(`   📅 ${formatEventDateTime(event.start_datetime!, event.start_time_known !== false)}`);
       console.log(`   🏷️ ${event.interest_matches!.map((m) => m.interest).join(', ')}`);
       console.log(`   📝 ${event.event_description!.short_summary}`);
       console.log(`   🔗 ${event.message.link}`);
+      if (event.duplicate_sources?.length) {
+        console.log(`   ↔️ also: ${event.duplicate_sources.map((m) => m.link).join(', ')}`);
+      }
       console.log('');
     });
 

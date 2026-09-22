@@ -2,7 +2,7 @@ import { DigestEvent } from '../domain/entities';
 import { IMessageSource } from '../domain/interfaces';
 import { IEventReporter } from './event-reporter.interface';
 import { Config } from '../config/types';
-import { formatDateTime } from '../shared/date-utils';
+import { formatEventDateTime } from '../shared/date-utils';
 import { Logger } from '../shared';
 
 /**
@@ -104,17 +104,22 @@ export class EventSender implements IEventReporter {
     const eventTexts = events.map((event, index) => {
       const globalIndex = batchIndex * this.config.sendEventsBatchSize + index + 1;
       const title = event.event_description!.title;
-      const datetime = formatDateTime(event.start_datetime!);
+      const datetime = formatEventDateTime(event.start_datetime!, event.start_time_known !== false);
       const interests = event.interest_matches!.map((m) => m.interest).join(', ');
       const summary = event.event_description!.short_summary;
       const link = event.message.link;
+      // Duplicates were collapsed in step 8; keep their links so a merged event
+      // still shows everywhere it was announced.
+      const alsoIn = event.duplicate_sources?.length
+        ? `\n↔️ also: ${event.duplicate_sources.map((m) => m.link).join(', ')}`
+        : '';
 
       return (
         `${globalIndex}. ${title}\n` +
         `📅 ${datetime}\n` +
         `🏷️ ${interests}\n` +
         `📝 ${summary}\n` +
-        `🔗 ${link}`
+        `🔗 ${link}${alsoIn}`
       );
     });
 

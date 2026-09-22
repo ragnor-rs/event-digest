@@ -47,6 +47,11 @@ async function main() {
         scheduled_events: {
           effort: getStepReasoningEffort(config, 'scheduleExtraction'),
           prompt: config.scheduleExtractionPrompt ?? '',
+          // Step 5 caches the parsed outcome, and a time-less event is cached as
+          // a discard. Without this, enabling the option would keep serving those
+          // stale discards instead of re-parsing. Left undefined when off, so the
+          // default keeps the signature it had before this option existed.
+          options: config.includeEventsWithoutTime ? 'includeEventsWithoutTime' : undefined,
         },
         matching_interests: {
           effort: getStepReasoningEffort(config, 'interestMatching'),

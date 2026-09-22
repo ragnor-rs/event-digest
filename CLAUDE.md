@@ -63,7 +63,7 @@ npm run dev -- --event-detection-batch-size 8 --verbose-logging true
 
 ## Architecture
 
-This is an event digest CLI that processes Telegram messages through a 7-step filtering pipeline to extract relevant events. The codebase follows **Clean Architecture** and **Domain-Driven Design (DDD)** principles.
+This is an event digest CLI that processes Telegram messages through an 8-step filtering pipeline to extract relevant events. The codebase follows **Clean Architecture** and **Domain-Driven Design (DDD)** principles.
 
 ### Project Structure
 
@@ -90,10 +90,11 @@ src/
 │   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~417 lines, longest service)
 │   │   ├── interest-matcher.ts     # Step 6: Interest matching with confidence (~245 lines, processes individually)
 │   │   ├── event-describer.ts      # Step 7: Event description generation
+│   │   ├── event-deduplicator.ts   # Step 8: Collapse the same event from multiple sources (no GPT)
 │   │   └── index.ts                # Barrel export
 │   └── constants.ts                # Domain constants (DATETIME_UNKNOWN)
 ├── application/                    # Use case orchestration
-│   ├── event-pipeline.ts           # 7-step pipeline orchestrator
+│   ├── event-pipeline.ts           # 8-step pipeline orchestrator
 │   └── index.ts                    # Barrel export
 ├── data/                           # External systems (infrastructure layer)
 │   ├── openai-client.ts            # OpenAI API client wrapper
@@ -136,6 +137,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Extracts datetime with GPT, filters by user availability slots, adds start_datetime field to DigestEvent
 6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to user interests with confidence scoring and validation, adds interest_matches field to DigestEvent
 7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with GPT, adds event_description field (DigestEventDescription type) to DigestEvent
+8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry. Makes no GPT calls, so it is neither cached nor rate-limited. Compares events within a calendar day by token-overlap on titles (threshold 0.6) or on source-message content (0.8); keeps the earliest posting and records the rest in `duplicate_sources`. Controlled by `deduplicateEvents` (default: true)
 
 ### Key Components
 
@@ -150,6 +152,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
   - Step 5 adds: `start_datetime?: Date`
   - Step 6 adds: `interest_matches?: InterestMatch[]` (with confidence scores)
   - Step 7 adds: `event_description?: DigestEventDescription`
+  - Step 8 adds: `duplicate_sources?: SourceMessage[]` (other postings of the same event)
 - `AttendanceMode`: Enum defining how attendees can participate (OFFLINE = 'offline', ONLINE = 'online', HYBRID = 'hybrid')
 
 **Domain Services** (`domain/services/`):
@@ -159,11 +162,12 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 - `schedule-matcher.ts`: Schedule extraction and availability matching (417 lines, longest service), uses aiClient.call()
 - `interest-matcher.ts`: Interest matching with confidence scoring and validation (245 lines, processes individually for accuracy), uses aiClient.call()
 - `event-describer.ts`: Event description generation (190 lines), uses aiClient.call()
+- `event-deduplicator.ts`: Duplicate collapsing (step 8) — pure text comparison, no aiClient
 
-All five services resolve their reasoning effort via `getStepReasoningEffort(config, step)` (`config/validator.ts`) and pass it as `aiClient.call(prompt, { reasoningEffort })`.
+The five GPT services resolve their reasoning effort via `getStepReasoningEffort(config, step)` (`config/validator.ts`) and pass it as `aiClient.call(prompt, { reasoningEffort })`.
 
 **Application Layer** (`application/`):
-- `event-pipeline.ts`: Orchestrates entire 7-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, DebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/7: Detecting event announcements...")
+- `event-pipeline.ts`: Orchestrates entire 8-step pipeline with dependency injection (IAIClient, ICache, IMessageSource, DebugWriter), coordinates all domain services, manages debug file writing, provides step-by-step progress logging (e.g., "Step 3/8: Detecting event announcements...")
 
 **Data Layer** (`data/`):
 - `openai-client.ts`: OpenAI API wrapper implementing IAIClient interface, rate limiting (1-second delays), uses the **gpt-6-luna** model (exported as `GPT_MODEL` so cache keys can be scoped to it). Passes no `temperature` — gpt-6-luna is a reasoning model and rejects it. `reasoning_effort` comes from the caller, defaulting to `'low'`. Includes retry logic with exponential backoff for rate limit errors (max 3 retries: 2s, 4s, 8s delays)
@@ -181,6 +185,8 @@ All five services resolve their reasoning effort via `getStepReasoningEffort(con
 - `validator.ts`: Merges user config with defaults, validates required fields
 - Detailed validation for groups, channels, interests, timeslots, and message limits
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
+- `includeEventsWithoutTime` parameter (default: false) keeps events whose date is known but whose time is not — GPT emits `"27 Sep 2026 unknown"` for these, which previously failed to parse and was discarded. Such events cannot be checked against `weeklyTimeslots`, so they bypass that filter and are rendered as `"27 Sep 2026 (time TBA)"`. Because step 5 caches the *parsed outcome* (a time-less event is cached as a discard), this flag is folded into the `scheduled_events` cache signature via `StepSignature.options` so toggling it re-runs step 5. It is left unset when false, so the default keeps the signature it had before the option existed
+- `deduplicateEvents` parameter (default: true) collapses duplicate events (step 8)
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
 - `verboseLogging` parameter (default: false) enables detailed processing logs with cache stats, batch numbers, and DISCARDED message links
 - **Configurable confidence thresholds** (all optional with defaults optimized for quality filtering):
@@ -349,6 +355,8 @@ When working with specific functionality, refer to these files:
 - **Add new presentation interfaces**: `presentation/event-reporter.interface.ts` (IEventReporter)
 - **Modify output formatting**: `presentation/event-printer.ts` (implements IEventReporter)
 - **Modify event sending logic**: `presentation/event-sender.ts` (implements IEventReporter)
+- **Tune duplicate detection**: `domain/services/event-deduplicator.ts` (similarity thresholds are constants at the top)
+- **Discover new sources**: `scripts/discover-sources.ts` (offline archive mining) and `scripts/expand-sources.ts` (live Telegram discovery APIs)
 - **Change debug file output**: `shared/debug-writer.ts`
 - **Add environment variable validation**: `src/index.ts` (validateEnvironmentVariables function)
 

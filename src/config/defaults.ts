@@ -6,6 +6,12 @@ export const DEFAULT_CONFIG = {
   skipOnlineEvents: true,
   writeDebugFiles: false,
   verboseLogging: false,
+  // Off by default: a time-less event cannot be checked against weeklyTimeslots,
+  // so including one trades precision for recall.
+  includeEventsWithoutTime: false,
+  // On by default: aggregator channels repost the same announcement, and a
+  // duplicate in the digest is always a defect.
+  deduplicateEvents: true,
   minEventDetectionConfidence: 0.7,
   minEventClassificationConfidence: 0.7,
   minInterestConfidence: 0.75,
