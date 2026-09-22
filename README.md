@@ -143,7 +143,7 @@ minInterestConfidence: 0.75
 eventDetectionBatchSize: 16      # Step 3: Event detection
 eventClassificationBatchSize: 16 # Step 4: Event type classification
 scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
-eventDescriptionBatchSize: 3     # Step 7: Event description generation
+eventDescriptionBatchSize: 3     # Step 8: Event description generation
 
 # Reasoning effort for GPT calls (default: low)
 # One of: none, low, medium, high, xhigh
@@ -281,7 +281,7 @@ See `config.example.yaml` for more examples and detailed guidance.
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
 - `includeEventsWithoutTime`/`--include-events-without-time`: Keep events whose date is known but whose time is not, shown as "27 Sep 2026 (time TBA)". They cannot be checked against `weeklyTimeslots`, so they bypass that filter. Toggling this re-runs step 5 (default: false)
-- `deduplicateEvents`/`--deduplicate-events`: Collapse the same event announced by several sources into one entry (default: true)
+- `deduplicateEvents`/`--deduplicate-events`: Collapse the same event announced by several sources into one entry, by word overlap on the source posts (default: true)
 - **Confidence Thresholds** (optional - controls AI quality filtering):
   - `minEventDetectionConfidence`/`--min-event-detection-confidence`: Minimum confidence (0.0-1.0) for event detection; higher values = fewer but more certain events (default: 0.7)
   - `minEventClassificationConfidence`/`--min-event-classification-confidence`: Minimum confidence (0.0-1.0) for event type classification; higher values = stricter classification (default: 0.7)
@@ -300,7 +300,7 @@ See `config.example.yaml` for more examples and detailed guidance.
   - `eventTypeClassificationPrompt`: Custom prompt for event type classification (step 4) - uses `{{MESSAGES}}` placeholder
   - `scheduleExtractionPrompt`: Custom prompt for datetime extraction (step 5) - uses `{{TODAY_DATE}}`, `{{MESSAGES}}` placeholders
   - `interestMatchingPrompt`: Custom prompt for interest matching (step 6) - uses `{{EVENTS}}`, `{{INTERESTS}}` placeholders
-  - `eventDescriptionPrompt`: Custom prompt for event description generation (step 7) - uses `{{EVENTS}}` placeholder
+  - `eventDescriptionPrompt`: Custom prompt for event description generation (step 8) - uses `{{EVENTS}}` placeholder
   - See config.example.yaml for detailed documentation and examples
 - `sendEventsRecipient`/`--send-events-recipient`: Telegram recipient for event delivery (e.g., @username or chat ID); when set, events are sent instead of printed (default: none - prints to console)
 - `sendEventsBatchSize`/`--send-events-batch-size`: Number of events to send per Telegram message batch (default: 5)
@@ -351,8 +351,8 @@ The tool processes messages through an 8-step pipeline:
 4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type_classification field (EventTypeClassification with type and confidence)
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field (Date object)
 6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores)
-7. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles and summaries using GPT, adds event_description field (DigestEventDescription type with title and short_summary)
-8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry, keeping the earliest posting and listing the others in duplicate_sources. Uses no GPT calls
+7. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry, keeping the earliest posting and listing the others in duplicate_sources. Uses no GPT calls, and runs before descriptions so duplicates never reach the describer
+8. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles and summaries using GPT, adds event_description field (DigestEventDescription type with title and short_summary)
 
 ## Architecture
 
@@ -484,7 +484,7 @@ This creates five detailed JSON files in the `debug/` directory:
 - `event_classification.json`: Event type detection (offline/online/hybrid) (step 4)
 - `schedule_filtering.json`: Schedule filtering and datetime extraction (step 5)
 - `interest_matching.json`: Interest matching decisions with GPT prompts/responses (step 6)
-- `event_description.json`: Event description generation with extracted titles and summaries (step 7)
+- `event_description.json`: Event description generation with extracted titles and summaries (step 8)
 
 Each file includes:
 - GPT prompts and responses

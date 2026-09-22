@@ -13,7 +13,7 @@ export interface DigestEvent {
   // events skip the timeslot check, so this flag is what stops them being
   // rendered with a time that was never stated.
   start_time_known?: boolean;
-  event_description?: DigestEventDescription;
-  // Step 8: other postings of the same event, collapsed by the deduplicator.
+  // Step 7: other postings of the same event, collapsed by the deduplicator.
   duplicate_sources?: SourceMessage[];
+  event_description?: DigestEventDescription; // Step 8: title + short summary
 }

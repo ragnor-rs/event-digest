@@ -7,8 +7,8 @@ import {
   classifyEventTypes,
   filterBySchedule,
   filterByInterests,
-  describeEvents,
   deduplicateEvents,
+  describeEvents,
 } from '../domain/services';
 import {
   DebugEventDetectionEntry,
@@ -104,11 +104,17 @@ export class EventPipeline {
       debugInterestMatching.forEach((entry) => this.debugWriter.addInterestMatchingEntry(entry));
       this.logger.log('');
 
-      // Step 7: Generate event descriptions
-      this.logger.log(`Step 7/8: Generating descriptions for ${matchedEvents.length} events...`);
+      // Step 7: Collapse the same event announced by multiple sources, before the
+      // describer spends AI calls on copies that are about to be merged away
+      this.logger.log(`Step 7/8: Deduplicating ${matchedEvents.length} events...`);
+      const uniqueEvents = await deduplicateEvents(matchedEvents, this.config, this.logger);
+      this.logger.log('');
+
+      // Step 8: Generate event descriptions
+      this.logger.log(`Step 8/8: Generating descriptions for ${uniqueEvents.length} events...`);
       const debugEventDescription: DebugEventDescriptionEntry[] = [];
       const describedEvents = await describeEvents(
-        matchedEvents,
+        uniqueEvents,
         this.config,
         this.aiClient,
         this.cache,
@@ -118,18 +124,13 @@ export class EventPipeline {
       debugEventDescription.forEach((entry) => this.debugWriter.addEventDescriptionEntry(entry));
       this.logger.log('');
 
-      // Step 8: Collapse the same event announced by multiple sources
-      this.logger.log(`Step 8/8: Deduplicating ${describedEvents.length} events...`);
-      const uniqueEvents = await deduplicateEvents(describedEvents, this.config, this.logger);
-      this.logger.log('');
-
       // Write debug files if enabled
       if (this.config.writeDebugFiles) {
         this.debugWriter.writeAll();
         this.logger.log('');
       }
 
-      return uniqueEvents;
+      return describedEvents;
     } catch (error) {
       this.logger.error('Pipeline execution failed:', error);
       throw error;

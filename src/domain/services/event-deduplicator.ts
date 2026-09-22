@@ -3,18 +3,11 @@ import { Logger } from '../../shared/logger';
 import { DigestEvent } from '../entities';
 
 /**
- * Share of tokens two titles must have in common to be judged the same event.
- * Titles for one event are written independently by the describer from different
- * source posts, so they rarely match exactly — "Long-Form Improv Jam" against
- * "Improv Jam: Long Form" shares every meaningful token but no substring.
- */
-const TITLE_SIMILARITY_THRESHOLD = 0.6;
-
-/**
  * Share of tokens two source posts must share to count as the same posting.
- * Set higher than the title threshold: aggregator channels copy announcements
- * near-verbatim, so a genuine cross-post looks almost identical, while two
- * different events at one venue can share a lot of boilerplate.
+ * Aggregator channels copy announcements near-verbatim, so a genuine cross-post
+ * looks almost identical. Kept strict even though it is the only signal here:
+ * two different events at one venue share a lot of boilerplate, and a false
+ * merge silently drops an event from the digest.
  */
 const CONTENT_SIMILARITY_THRESHOLD = 0.8;
 
@@ -52,29 +45,23 @@ function dayKey(date: Date): string {
 
 interface Candidate {
   event: DigestEvent;
-  titleTokens: Set<string>;
   contentTokens: Set<string>;
 }
 
-/**
- * Two postings are the same event when either the titles agree or the source
- * posts are near-identical. Titles alone miss verbatim cross-posts the describer
- * happened to summarise differently; content alone misses independent write-ups
- * of one event. Requiring both would miss each in turn.
- */
+/** Two postings are the same event when their source posts are near-identical. */
 function isDuplicate(a: Candidate, b: Candidate): boolean {
-  return (
-    similarity(a.titleTokens, b.titleTokens) >= TITLE_SIMILARITY_THRESHOLD ||
-    similarity(a.contentTokens, b.contentTokens) >= CONTENT_SIMILARITY_THRESHOLD
-  );
+  return similarity(a.contentTokens, b.contentTokens) >= CONTENT_SIMILARITY_THRESHOLD;
 }
 
 /**
- * Step 8: collapses the same event announced by several sources into one entry.
+ * Step 7: collapses the same event announced by several sources into one entry.
  *
- * Runs on descriptions rather than raw messages because that is the first point
- * where every event has a normalised title. Makes no AI calls, so it is neither
- * cached nor rate-limited.
+ * Runs before description so that duplicates never reach the describer, which is
+ * the costliest AI step (one output block per event, batch size 3). The price is
+ * that no normalised title exists yet, so the comparison is on the source posts
+ * alone: verbatim cross-posts collapse, independent write-ups of one event do not.
+ *
+ * Makes no AI calls, so it is neither cached nor rate-limited.
  *
  * The surviving copy is the earliest posting — the original announcement rather
  * than an aggregator's repost — and the others are kept on `duplicate_sources`
@@ -90,15 +77,14 @@ export async function deduplicateEvents(events: DigestEvent[], config: Config, l
   const undated: DigestEvent[] = [];
 
   for (const event of events) {
-    if (!event.start_datetime || !event.event_description?.title) {
-      // Nothing to compare on; pass through untouched rather than guess.
+    if (!event.start_datetime) {
+      // No day to cluster within; pass through untouched rather than guess.
       undated.push(event);
       continue;
     }
     const key = dayKey(event.start_datetime);
     const candidate: Candidate = {
       event,
-      titleTokens: tokenize(event.event_description.title),
       contentTokens: tokenize(event.message.content),
     };
     byDay.set(key, [...(byDay.get(key) ?? []), candidate]);
