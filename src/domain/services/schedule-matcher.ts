@@ -1,12 +1,12 @@
-import { parse, getDay, getHours, getMinutes, isValid } from 'date-fns';
+import { getDay, getHours, getMinutes } from 'date-fns';
 
 import { DATETIME_UNKNOWN } from '../constants';
 import { Config } from '../../config/types';
 import { getStepReasoningEffort } from '../../config/validator';
-import { IAIClient, ICache } from '../interfaces';
+import { CachedSchedule, IAIClient, ICache } from '../interfaces';
 import { DebugScheduleFilteringEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
-import { normalizeDateTime, MAX_FUTURE_YEARS, DATE_FORMAT } from '../../shared/date-utils';
+import { normalizeDateTime, parseEventDateTime, MAX_FUTURE_YEARS } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
 import { DigestEvent } from '../entities';
 
@@ -29,11 +29,22 @@ function matchesTimeslot(eventDate: Date, weeklyTimeslots: string[]): boolean {
 /**
  * Validates if a datetime is in the future and within reasonable bounds
  */
-function isValidEventDateTime(eventDate: Date, messageDate: Date): { valid: boolean; reason?: string } {
+function isValidEventDateTime(
+  eventDate: Date,
+  messageDate: Date,
+  timeKnown: boolean = true
+): { valid: boolean; reason?: string } {
   const now = new Date();
 
-  // Check if the event is in the future relative to current time
-  if (eventDate <= now) {
+  // Check if the event is in the future relative to current time. An event with
+  // no stated time is parked at noon, so comparing that against `now` would
+  // retire it halfway through its own day — judge it by end of day instead.
+  let effectiveEnd = eventDate;
+  if (!timeKnown) {
+    effectiveEnd = new Date(eventDate);
+    effectiveEnd.setHours(23, 59, 59, 999);
+  }
+  if (effectiveEnd <= now) {
     return { valid: false, reason: 'event in the past' };
   }
 
@@ -51,20 +62,28 @@ function isValidEventDateTime(eventDate: Date, messageDate: Date): { valid: bool
  */
 function processCachedEvent(
   event: DigestEvent,
-  cachedDateTime: Date | null,
+  cachedSchedule: CachedSchedule | null,
   config: Config,
   logger: Logger,
   debugEntries: DebugScheduleFilteringEntry[]
 ): DigestEvent | null {
   try {
     // If cached as null (unknown datetime), return null to discard
-    if (cachedDateTime === null) {
+    if (cachedSchedule === null) {
       return null;
     }
 
-    const eventDate = cachedDateTime;
+    const eventDate = cachedSchedule.datetime;
+    const timeKnown = cachedSchedule.timeKnown;
 
-    const validation = isValidEventDateTime(eventDate, new Date());
+    // A cached time-less event is only usable if the option is still enabled;
+    // turning it off must not keep serving them from cache.
+    if (!timeKnown && !config.includeEventsWithoutTime) {
+      logger.verbose(`    ✗ Discarded: ${event.message.link} - no time stated (cached)`);
+      return null;
+    }
+
+    const validation = isValidEventDateTime(eventDate, new Date(), timeKnown);
     if (!validation.valid) {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - ${validation.reason} (cached)`);
       debugEntries.push({
@@ -84,7 +103,9 @@ function processCachedEvent(
       return null;
     }
 
-    if (matchesTimeslot(eventDate, config.weeklyTimeslots)) {
+    // An event with no stated time cannot be checked against timeslots, so it
+    // is admitted on the strength of the option alone.
+    if (!timeKnown || matchesTimeslot(eventDate, config.weeklyTimeslots)) {
       debugEntries.push({
         message: {
           timestamp: event.message.timestamp,
@@ -98,7 +119,7 @@ function processCachedEvent(
         result: 'scheduled',
         cached: true,
       });
-      return { ...event, start_datetime: eventDate };
+      return { ...event, start_datetime: eventDate, start_time_known: timeKnown };
     } else {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - outside desired timeslots (cached)`);
       debugEntries.push({
@@ -140,14 +161,13 @@ function processExtractedDateTime(
   scheduledEvents: DigestEvent[]
 ): void {
   try {
-    // Use normalized date for all processing
-    const normalizedDateTime = normalizeDateTime(dateTime);
-    const eventDate = parse(normalizedDateTime, DATE_FORMAT, new Date());
+    // Handles both "06 Sep 2025 18:00" and the date-known/time-unknown shape
+    // "27 Sep 2026 unknown", which used to parse to Invalid Date and be dropped.
+    const parsed = parseEventDateTime(dateTime);
 
-    // Check if the date is valid
-    if (!isValid(eventDate)) {
+    if (!parsed) {
       logger.verbose(
-        `    ✗ Discarded: ${event.message.link} - could not parse date: "${normalizedDateTime}" (original: "${dateTime}")`
+        `    ✗ Discarded: ${event.message.link} - could not parse date: "${normalizeDateTime(dateTime)}" (original: "${dateTime}")`
       );
       debugEntries.push({
         message: {
@@ -166,9 +186,34 @@ function processExtractedDateTime(
       return;
     }
 
+    const eventDate = parsed.date;
+    const timeKnown = parsed.timeKnown;
+
+    if (!timeKnown && !config.includeEventsWithoutTime) {
+      logger.verbose(
+        `    ✗ Discarded: ${event.message.link} - date known but no time stated ` +
+          '(set includeEventsWithoutTime to keep these)'
+      );
+      debugEntries.push({
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
+        event_type: event.event_type_classification!.type,
+        ai_prompt: prompt,
+        ai_response: result || '',
+        extracted_datetime: dateTime,
+        result: 'discarded',
+        discard_reason: 'no time stated',
+        cached: false,
+      });
+      return;
+    }
+
     // Validate event date
     const messageDate = event.message.timestamp;
-    const validation = isValidEventDateTime(eventDate, messageDate);
+    const validation = isValidEventDateTime(eventDate, messageDate, timeKnown);
     if (!validation.valid) {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - ${validation.reason}`);
       debugEntries.push({
@@ -188,11 +233,12 @@ function processExtractedDateTime(
       return;
     }
 
-    // Check if matches schedule
-    if (matchesTimeslot(eventDate, config.weeklyTimeslots)) {
+    // An event with no stated time cannot be checked against timeslots.
+    if (!timeKnown || matchesTimeslot(eventDate, config.weeklyTimeslots)) {
       scheduledEvents.push({
         ...event,
         start_datetime: eventDate,
+        start_time_known: timeKnown,
       });
       debugEntries.push({
         message: {
@@ -347,9 +393,12 @@ export async function filterBySchedule(
 
         // Cache the extracted datetime
         if (messageIdx >= 0 && messageIdx < chunk.length) {
-          const normalizedDateTime = normalizeDateTime(dateTime);
-          const parsedDate = parse(normalizedDateTime, DATE_FORMAT, new Date());
-          cache.cacheScheduledEvent(chunk[messageIdx].message.link, parsedDate, false);
+          const parsedSchedule = parseEventDateTime(dateTime);
+          cache.cacheScheduledEvent(
+            chunk[messageIdx].message.link,
+            parsedSchedule ? { datetime: parsedSchedule.date, timeKnown: parsedSchedule.timeKnown } : null,
+            false
+          );
           processedMessages.add(messageIdx);
         }
 

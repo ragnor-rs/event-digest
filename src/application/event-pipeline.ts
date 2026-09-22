@@ -8,6 +8,7 @@ import {
   filterBySchedule,
   filterByInterests,
   describeEvents,
+  deduplicateEvents,
 } from '../domain/services';
 import {
   DebugEventDetectionEntry,
@@ -31,7 +32,7 @@ export class EventPipeline {
   async execute(): Promise<DigestEvent[]> {
     try {
       // Step 1: Fetch messages from message source
-      this.logger.log('Step 1/7: Fetching messages from message source...');
+      this.logger.log('Step 1/8: Fetching messages from message source...');
       const allMessages = await this.messageSource.fetchMessages(
         this.config.groupsToParse,
         this.config.channelsToParse,
@@ -41,12 +42,12 @@ export class EventPipeline {
       this.logger.log('');
 
       // Step 2: Filter by event cues
-      this.logger.log(`Step 2/7: Filtering ${allMessages.length} messages by event cues...`);
+      this.logger.log(`Step 2/8: Filtering ${allMessages.length} messages by event cues...`);
       const eventCueMessages = await filterByEventCues(allMessages, this.config, this.logger);
       this.logger.log('');
 
       // Step 3: Detect event announcements
-      this.logger.log(`Step 3/7: Detecting event announcements from ${eventCueMessages.length} messages...`);
+      this.logger.log(`Step 3/8: Detecting event announcements from ${eventCueMessages.length} messages...`);
       const debugEventDetection: DebugEventDetectionEntry[] = [];
       const events = await detectEventAnnouncements(
         eventCueMessages,
@@ -62,7 +63,7 @@ export class EventPipeline {
       this.logger.log('');
 
       // Step 4: Classify event types (offline/online/hybrid)
-      this.logger.log(`Step 4/7: Classifying event types for ${events.length} events...`);
+      this.logger.log(`Step 4/8: Classifying event types for ${events.length} events...`);
       const debugTypeClassification: DebugTypeClassificationEntry[] = [];
       const classifiedEvents = await classifyEventTypes(
         events,
@@ -76,7 +77,7 @@ export class EventPipeline {
       this.logger.log('');
 
       // Step 5: Filter by schedule
-      this.logger.log(`Step 5/7: Filtering ${classifiedEvents.length} events by schedule and availability...`);
+      this.logger.log(`Step 5/8: Filtering ${classifiedEvents.length} events by schedule and availability...`);
       const debugScheduleFiltering: DebugScheduleFilteringEntry[] = [];
       const scheduledEvents = await filterBySchedule(
         classifiedEvents,
@@ -90,7 +91,7 @@ export class EventPipeline {
       this.logger.log('');
 
       // Step 6: Match to user interests
-      this.logger.log(`Step 6/7: Matching ${scheduledEvents.length} events to user interests...`);
+      this.logger.log(`Step 6/8: Matching ${scheduledEvents.length} events to user interests...`);
       const debugInterestMatching: DebugInterestMatchingEntry[] = [];
       const matchedEvents = await filterByInterests(
         scheduledEvents,
@@ -104,7 +105,7 @@ export class EventPipeline {
       this.logger.log('');
 
       // Step 7: Generate event descriptions
-      this.logger.log(`Step 7/7: Generating descriptions for ${matchedEvents.length} events...`);
+      this.logger.log(`Step 7/8: Generating descriptions for ${matchedEvents.length} events...`);
       const debugEventDescription: DebugEventDescriptionEntry[] = [];
       const describedEvents = await describeEvents(
         matchedEvents,
@@ -117,13 +118,18 @@ export class EventPipeline {
       debugEventDescription.forEach((entry) => this.debugWriter.addEventDescriptionEntry(entry));
       this.logger.log('');
 
+      // Step 8: Collapse the same event announced by multiple sources
+      this.logger.log(`Step 8/8: Deduplicating ${describedEvents.length} events...`);
+      const uniqueEvents = await deduplicateEvents(describedEvents, this.config, this.logger);
+      this.logger.log('');
+
       // Write debug files if enabled
       if (this.config.writeDebugFiles) {
         this.debugWriter.writeAll();
         this.logger.log('');
       }
 
-      return describedEvents;
+      return uniqueEvents;
     } catch (error) {
       this.logger.error('Pipeline execution failed:', error);
       throw error;

@@ -2,14 +2,20 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { ICache } from '../domain/interfaces';
+import { CachedSchedule, ICache } from '../domain/interfaces';
 import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
-/** The inputs that determine a step's GPT result, beyond the message itself */
+/** The inputs that determine a step's cached result, beyond the message itself */
 export interface StepSignature {
   effort: string;
   prompt: string;
+  /**
+   * Config that changes how the step's result is derived or stored, even when
+   * the GPT answer is unchanged. Step 5 records a parse outcome rather than the
+   * raw reply, so a setting that alters parsing has to invalidate it too.
+   */
+  options?: string;
 }
 
 /**
@@ -51,14 +57,14 @@ export class Cache implements ICache {
     messages: Record<string, boolean>; // message link -> is event (step 3)
     event_type_classification: Record<string, EventTypeClassification>; // message link -> type + confidence (step 4)
     matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 6)
-    scheduled_events: Record<string, Date | null>; // message link -> extracted datetime or null if unknown (step 5)
+    scheduled_events: Record<string, CachedSchedule | null>; // message link -> extracted schedule or null if unknown (step 5)
     events: Record<string, DigestEventDescription>; // message link -> event description object (step 7)
   };
 
   constructor(logger: Logger, variant: CacheVariant) {
     this.logger = logger;
     const signature = (step: StepSignature): string =>
-      this.hashPreferences(`${variant.model}|${step.effort}|${step.prompt}`);
+      this.hashPreferences(`${variant.model}|${step.effort}|${step.prompt}|${step.options ?? ''}`);
     this.variantHashes = {
       messages: signature(variant.steps.messages),
       event_type_classification: signature(variant.steps.event_type_classification),
@@ -83,7 +89,7 @@ export class Cache implements ICache {
     messages: Record<string, boolean>;
     event_type_classification: Record<string, EventTypeClassification>;
     matching_interests: Record<string, InterestMatch[]>;
-    scheduled_events: Record<string, Date | null>;
+    scheduled_events: Record<string, CachedSchedule | null>;
     events: Record<string, DigestEventDescription>;
   } {
     try {
@@ -111,11 +117,20 @@ export class Cache implements ICache {
         const data = fs.readFileSync(filePath, 'utf-8');
         const parsed = JSON.parse(data);
 
-        // Convert serialized dates back to Date objects for scheduled_events
+        // Convert serialized dates back to Date objects for scheduled_events.
+        // Entries written before time-unknown support are bare ISO strings and
+        // are read as fully-timed, which is what they were.
         if (storeName === 'scheduled_events') {
-          const converted: Record<string, Date | null> = {};
+          const converted: Record<string, CachedSchedule | null> = {};
           for (const [key, value] of Object.entries(parsed)) {
-            converted[key] = value === null ? null : new Date(value as string);
+            if (value === null) {
+              converted[key] = null;
+            } else if (typeof value === 'string') {
+              converted[key] = { datetime: new Date(value), timeKnown: true };
+            } else {
+              const entry = value as { datetime: string; timeKnown?: boolean };
+              converted[key] = { datetime: new Date(entry.datetime), timeKnown: entry.timeKnown !== false };
+            }
           }
           return converted as T;
         }
@@ -282,16 +297,16 @@ export class Cache implements ICache {
   }
 
   // Schedule filtering (datetime extraction) (step 5)
-  getScheduledEventCache(messageLink: string): Date | null | undefined {
+  getScheduledEventCache(messageLink: string): CachedSchedule | null | undefined {
     return this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)];
   }
 
   cacheScheduledEvent(
     messageLink: string,
-    datetime: Date | null,
+    schedule: CachedSchedule | null,
     autoSave: boolean = true
   ): void {
-    this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)] = datetime;
+    this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)] = schedule;
     if (autoSave) {
       try {
         this.saveCacheFile('scheduled_events');

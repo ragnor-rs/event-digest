@@ -4,6 +4,16 @@ import { SourceMessage, DigestEventDescription, EventTypeClassification, Interes
  * Interface for cache operations
  * This allows domain services to remain independent of specific cache implementations
  */
+/**
+ * A step-5 result. `timeKnown` is false when the announcement named a day but
+ * no clock time; it has to be cached alongside the date, or a cache hit would
+ * silently turn a time-less event back into a timed one.
+ */
+export interface CachedSchedule {
+  datetime: Date;
+  timeKnown: boolean;
+}
+
 export interface ICache {
   /**
    * Save all cache stores to persistent storage
@@ -24,8 +34,8 @@ export interface ICache {
   cacheEventType(messageLink: string, classification: EventTypeClassification, autoSave?: boolean): void;
 
   // Schedule filtering (step 5)
-  getScheduledEventCache(messageLink: string): Date | null | undefined;
-  cacheScheduledEvent(messageLink: string, datetime: Date | null, autoSave?: boolean): void;
+  getScheduledEventCache(messageLink: string): CachedSchedule | null | undefined;
+  cacheScheduledEvent(messageLink: string, schedule: CachedSchedule | null, autoSave?: boolean): void;
 
   // Interest matching (step 6)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined;
