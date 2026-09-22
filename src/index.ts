@@ -30,17 +30,32 @@ async function main() {
     const config = parseArgs();
 
     logger.setVerbose(config.verboseLogging);
-    // Scope cached GPT results to the model and per-step reasoning effort that
-    // produced them, so changing either re-runs the affected step instead of
-    // serving answers from a previous configuration.
+    // Scope cached GPT results to the model, reasoning effort and prompt that
+    // produced them, so changing any of these re-runs only the affected step
+    // instead of serving answers from a previous configuration.
     const cache = new Cache(logger, {
       model: GPT_MODEL,
-      efforts: {
-        messages: getStepReasoningEffort(config, 'eventDetection'),
-        event_type_classification: getStepReasoningEffort(config, 'eventClassification'),
-        scheduled_events: getStepReasoningEffort(config, 'scheduleExtraction'),
-        matching_interests: getStepReasoningEffort(config, 'interestMatching'),
-        events: getStepReasoningEffort(config, 'eventDescription'),
+      steps: {
+        messages: {
+          effort: getStepReasoningEffort(config, 'eventDetection'),
+          prompt: config.eventDetectionPrompt ?? '',
+        },
+        event_type_classification: {
+          effort: getStepReasoningEffort(config, 'eventClassification'),
+          prompt: config.eventTypeClassificationPrompt ?? '',
+        },
+        scheduled_events: {
+          effort: getStepReasoningEffort(config, 'scheduleExtraction'),
+          prompt: config.scheduleExtractionPrompt ?? '',
+        },
+        matching_interests: {
+          effort: getStepReasoningEffort(config, 'interestMatching'),
+          prompt: config.interestMatchingPrompt ?? '',
+        },
+        events: {
+          effort: getStepReasoningEffort(config, 'eventDescription'),
+          prompt: config.eventDescriptionPrompt ?? '',
+        },
       },
     });
     const openaiClient = new OpenAIClient(logger);

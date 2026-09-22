@@ -6,31 +6,38 @@ import { ICache } from '../domain/interfaces';
 import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../domain/entities';
 import { Logger } from '../shared/logger';
 
+/** The inputs that determine a step's GPT result, beyond the message itself */
+export interface StepSignature {
+  effort: string;
+  prompt: string;
+}
+
 /**
  * Identifies the AI configuration that produced a cached result.
  *
- * GPT results are only valid for the model and reasoning effort that generated
- * them, so both are folded into the cache key. Changing either self-invalidates
- * the affected store instead of silently serving stale answers, and lets
- * different configurations coexist in the same cache file.
+ * A cached GPT result is only valid for the model, reasoning effort and prompt
+ * that generated it, so all three are folded into the cache key. Changing any
+ * of them self-invalidates the affected store instead of silently serving stale
+ * answers, and lets different configurations coexist in the same cache file —
+ * which is what makes prompt and effort A/B runs cheap to repeat.
  */
 export interface CacheVariant {
   model: string;
-  /** Effective reasoning effort per GPT store */
-  efforts: {
-    messages: string;
-    event_type_classification: string;
-    scheduled_events: string;
-    matching_interests: string;
-    events: string;
+  /** Per-GPT-store signature; only the changed step re-runs */
+  steps: {
+    messages: StepSignature;
+    event_type_classification: StepSignature;
+    scheduled_events: StepSignature;
+    matching_interests: StepSignature;
+    events: StepSignature;
   };
 }
 
 export class Cache implements ICache {
   private logger: Logger;
   private cacheDir: string;
-  /** Short hash per GPT store, derived from the model and that store's effort */
-  private variantHashes: Record<keyof CacheVariant['efforts'], string>;
+  /** Short hash per GPT store, derived from the model, effort and prompt */
+  private variantHashes: Record<keyof CacheVariant['steps'], string>;
   private cacheFiles: {
     telegram_messages: string;
     messages: string;
@@ -50,14 +57,14 @@ export class Cache implements ICache {
 
   constructor(logger: Logger, variant: CacheVariant) {
     this.logger = logger;
+    const signature = (step: StepSignature): string =>
+      this.hashPreferences(`${variant.model}|${step.effort}|${step.prompt}`);
     this.variantHashes = {
-      messages: this.hashPreferences(`${variant.model}|${variant.efforts.messages}`),
-      event_type_classification: this.hashPreferences(
-        `${variant.model}|${variant.efforts.event_type_classification}`
-      ),
-      scheduled_events: this.hashPreferences(`${variant.model}|${variant.efforts.scheduled_events}`),
-      matching_interests: this.hashPreferences(`${variant.model}|${variant.efforts.matching_interests}`),
-      events: this.hashPreferences(`${variant.model}|${variant.efforts.events}`),
+      messages: signature(variant.steps.messages),
+      event_type_classification: signature(variant.steps.event_type_classification),
+      scheduled_events: signature(variant.steps.scheduled_events),
+      matching_interests: signature(variant.steps.matching_interests),
+      events: signature(variant.steps.events),
     };
     this.cacheDir = path.join(process.cwd(), '.cache');
     this.cacheFiles = {
@@ -213,7 +220,7 @@ export class Cache implements ICache {
   }
 
   /** Scopes a key to the model + reasoning effort that produced the cached result */
-  private variantKey(store: keyof CacheVariant['efforts'], baseKey: string): string {
+  private variantKey(store: keyof CacheVariant['steps'], baseKey: string): string {
     return `${baseKey}|ai:${this.variantHashes[store]}`;
   }
 

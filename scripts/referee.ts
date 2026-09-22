@@ -21,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 
 import dotenv from 'dotenv';
+import yaml from 'js-yaml';
 
 dotenv.config();
 
@@ -119,6 +120,17 @@ const VERDICT_RULE =
   'WRONG if it is not. On a second line give a short reason. If the message is genuinely ' +
   'ambiguous, answer CORRECT — only call a decision WRONG when it is clearly mistaken.';
 
+/** The user's interest list, read from the same config the pipeline ran with. */
+let cachedInterests: string[] | undefined;
+function userInterests(): string[] {
+  if (!cachedInterests) {
+    const file = ['config.yaml', 'config.yml'].map((f) => path.join(process.cwd(), f)).find(fs.existsSync);
+    if (!file) throw new Error('config.yaml not found — needed to grade interest matching');
+    cachedInterests = (yaml.load(fs.readFileSync(file, 'utf-8')) as any).userInterests ?? [];
+  }
+  return cachedInterests!;
+}
+
 /**
  * Truncates by code point, not UTF-16 code unit.
  *
@@ -175,16 +187,26 @@ Judge only whether that start datetime matches the message. Relative dates resol
 ${VERDICT_RULE}`;
 
     case 'interest_matching':
-      return `A matcher tags an event with the user interests it is relevant to.
+      // The full list is essential: these interests are narrow and specific
+      // ("Fantasy literature", not "literature"). Without it a referee grades
+      // against an imagined generic list and calls correct drops mistakes.
+      return `A matcher tags an event with the user interests it is relevant to. It may only
+choose from this exact list — no other topic exists, however obvious it may seem:
+
+${userInterests()
+  .map((interest, i) => `${i}: ${interest}`)
+  .join('\n')}
 
 Message:
 """
 ${truncate(entry.message?.content ?? '')}
 """
 
-The matcher tagged: ${entry.interest_matches?.map((m: any) => m.interest).join(', ') || '(no interests — event dropped)'}
+The matcher tagged: ${entry.interest_matches?.map((m: any) => m.interest).join(', ') || '(no interests from the list above — event dropped)'}
 
-Judge whether these tags are relevant to the event. Extra loosely-related tags are acceptable; clearly unrelated tags are not.
+Judge whether this is right. Dropping an event IS correct when nothing in the list
+above genuinely fits — note how specific the entries are. Only call a drop wrong if
+you can name the exact list entry that should have matched.
 
 ${VERDICT_RULE}`;
 
@@ -204,12 +226,13 @@ function keyOf(step: string, entry: any): string {
   return step === 'event_detection' ? entry.messageLink : (entry.message?.link ?? '');
 }
 
-async function grade(arms: string[]): Promise<void> {
+async function grade(arms: string[], onlyStep?: string): Promise<void> {
   for (const arm of arms) {
     console.log(`\n=== grading arm: ${arm} (referee: ${REFEREE_MODEL}, effort ${REFEREE_EFFORT}) ===`);
     const scorecard: Record<string, any> = {};
 
-    for (const step of Object.keys(SAMPLE_SIZES)) {
+    const steps = Object.keys(SAMPLE_SIZES).filter((s) => !onlyStep || s === onlyStep);
+    for (const step of steps) {
       const entries = entriesOf(step, readArmFile(arm, step));
       if (entries.length === 0) {
         console.log(`  ${step.padEnd(22)} no uncached entries — skipped`);
@@ -366,8 +389,14 @@ async function main(): Promise<void> {
 
   switch (mode) {
     case 'grade':
-      if (rest.length === 0) throw new Error('usage: referee.ts grade <arm> [...arms]');
-      await grade(rest);
+      if (rest.length === 0) throw new Error('usage: referee.ts grade <arm> [...arms] [--step=<name>]');
+      {
+        const stepArg = rest.find((a) => a.startsWith('--step='));
+        await grade(
+          rest.filter((a) => !a.startsWith('--step=')),
+          stepArg?.split('=')[1]
+        );
+      }
       break;
     case 'compare':
       if (rest.length !== 2) throw new Error('usage: referee.ts compare <armA> <armB>');
