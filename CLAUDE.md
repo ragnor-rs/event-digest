@@ -238,7 +238,7 @@ The five GPT services resolve their reasoning effort via `getStepReasoningEffort
 - Comprehensive caching with descriptive cache store names
 - Six separate cache stores:
   - `telegram_messages`: Raw Telegram messages per source (step 1) - assumes message immutability
-  - `messages`: Event detection boolean decisions (step 3) - stores whether each message is an event
+  - `messages`: Event detection results (step 3) - stores `{ isEvent, confidence }`, the model's verdict and score *before* any threshold
   - `event_type_classification`: Event type classification results (step 4)
   - `scheduled_events`: Schedule filtering and datetime extraction (step 5)
   - `matching_interests`: Interest matching results (step 6)
@@ -287,7 +287,7 @@ The `.telegram-session` file is automatically created and managed for persistent
 
 Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/telegram_messages.json`: Raw Telegram messages per source (step 1, assumes immutability)
-- `.cache/messages.json`: Event detection boolean decisions (step 3, no preferences needed) - stores whether each message is an event
+- `.cache/messages.json`: Event detection results (step 3, no preferences needed) - stores `{ isEvent, confidence }` as the model returned them. `minEventDetectionConfidence` is applied on *read*, so retuning the threshold re-judges already-seen messages with no GPT calls and no cache invalidation. Entries written before the score was stored are bare booleans and are read as a verdict with no confidence, so a legacy discard cannot be re-judged against a lowered threshold
 - `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed)
 - `.cache/scheduled_events.json`: Schedule filtering results (step 5, no preferences in cache key)
 - `.cache/matching_interests.json`: Interest matching results (step 6, includes interests hash)
@@ -295,6 +295,8 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/resolved_entities.json`: Resolved Telegram channel entities, owned by `data/entity-cache.ts` (not part of the `Cache` class)
 
 **Clearing the cache:** delete only the five GPT stores (`messages`, `event_type_classification`, `scheduled_events`, `matching_interests`, `events`). Keep `telegram_messages.json` — re-fetching all sources is slow and risks Telegram FLOOD_WAIT. Keep `resolved_entities.json` — deleting it re-resolves every channel and triggers the ResolveUsername flood it was added to prevent.
+
+**Caching model output vs. policy:** a store should hold what the model returned, not what the configuration then decided. Step 3 keeps the raw confidence and applies `minEventDetectionConfidence` on read; step 5 is the counter-example, caching a parsed outcome, which is why `includeEventsWithoutTime` has to be folded into its key instead.
 
 **AI-variant cache keys:** every GPT store's key includes a hash of the model (`GPT_MODEL`) and that step's effective reasoning effort. Changing either re-runs only the affected step, and different configurations coexist in the same file — which is what makes reasoning-effort A/B runs cheap to repeat.
 
