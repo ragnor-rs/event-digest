@@ -33,13 +33,17 @@ case "$EFFORT" in
     ;;
 esac
 
+# ARM_NAME lets a prompt variant run at the same effort without overwriting the
+# effort arm it is being compared against.
+ARM_NAME="${ARM_NAME:-$EFFORT}"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ARM_DIR="$ROOT/eval/arms/$EFFORT"
+ARM_DIR="$ROOT/eval/arms/$ARM_NAME"
 
 cd "$ROOT"
 mkdir -p "$ARM_DIR"
 
-echo "=== arm: reasoning effort '$EFFORT' ==="
+echo "=== arm: $ARM_NAME (reasoning effort $EFFORT) ==="
 START=$(date +%s)
 
 npx ts-node src/index.ts \
@@ -54,4 +58,4 @@ ELAPSED=$(( $(date +%s) - START ))
 cp debug/*.json "$ARM_DIR/"
 echo "$ELAPSED" > "$ARM_DIR/elapsed_seconds"
 
-echo "=== arm '$EFFORT' finished in ${ELAPSED}s -> $ARM_DIR ==="
+echo "=== arm '$ARM_NAME' finished in ${ELAPSED}s -> $ARM_DIR ==="
