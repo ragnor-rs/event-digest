@@ -29,8 +29,8 @@ export function normalizeDateTime(dateTime: string): string {
 
 /**
  * Splits a date-with-unknown-time string into its date part.
- * GPT emits "27 Sep 2026 unknown" when a post names the day but not the hour;
- * that string parses to Invalid Date, which is why such events were dropped.
+ * The step 5 prompt asks GPT for "27 Sep 2026 unknown" when a post names the day
+ * but not the hour; that string parses to Invalid Date on the normal path.
  * Returns null when the string is not of that shape.
  */
 export function extractDateWithoutTime(dateTime: string): string | null {

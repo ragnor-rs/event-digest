@@ -37,7 +37,7 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files true \
   --verbose-logging false \
-  --include-events-without-time false \
+  --include-events-without-time true \
   --deduplicate-events true \
   --min-event-detection-confidence 0.7 \
   --min-event-classification-confidence 0.7 \
@@ -187,7 +187,7 @@ The five GPT services resolve their reasoning effort via `getStepReasoningEffort
 - `validator.ts`: Merges user config with defaults, validates required fields
 - Detailed validation for groups, channels, interests, timeslots, and message limits
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
-- `includeEventsWithoutTime` parameter (default: false) keeps events whose date is known but whose time is not — GPT emits `"27 Sep 2026 unknown"` for these, which previously failed to parse and was discarded. Such events cannot be checked against `weeklyTimeslots`, so they bypass that filter and are rendered as `"27 Sep 2026 (time TBA)"`. Because step 5 caches the *parsed outcome* (a time-less event is cached as a discard), this flag is folded into the `scheduled_events` cache signature via `StepSignature.options` so toggling it re-runs step 5. It is left unset when false, so the default keeps the signature it had before the option existed
+- `includeEventsWithoutTime` parameter (default: true) keeps events whose date is known but whose time is not. The step 5 prompt explicitly asks for `"27 Sep 2026 unknown"` when a post names the day but not the hour; without that instruction the model answered a bare `"unknown"` and the event was dropped. Measured on 48 messages step 5 had discarded as "no date/time found", the instruction recovers a date for 47 of them, and on 48 messages that already yielded a full datetime it costs the time on 1 (a course listing several weekly slots). Such events cannot be checked against `weeklyTimeslots`, so they bypass that filter and are rendered as `"27 Sep 2026 (time TBA)"`. Because step 5 caches the *parsed outcome* (a time-less event is cached as a discard), this flag is folded into the `scheduled_events` cache signature via `StepSignature.options` so toggling it re-runs step 5
 - `deduplicateEvents` parameter (default: true) collapses duplicate events (step 7)
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
 - `verboseLogging` parameter (default: false) enables detailed processing logs with cache stats, batch numbers, and DISCARDED message links

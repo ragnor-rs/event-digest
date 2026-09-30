@@ -143,13 +143,14 @@ weeklyTimeslots:
 # When disabled, only prints step names and final statistics
 # verboseLogging: false
 
-# Optional: Keep events whose date is known but whose time is not (default: false)
-# GPT reports these as "27 Sep 2026 unknown"; they used to fail to parse and be
-# discarded. Such an event cannot be checked against weeklyTimeslots, so enabling
-# this admits events that may fall outside your availability. They are shown as
-# "27 Sep 2026 (time TBA)".
+# Optional: Keep events whose date is known but whose time is not (default: true)
+# The step 5 prompt asks GPT to report these as "27 Sep 2026 unknown" instead of
+# giving up on the message; on a sample of 48 posts the step had discarded for
+# "no date/time found", 47 name a date and only omit the hour. Such an event
+# cannot be checked against weeklyTimeslots, so it bypasses that filter and may
+# fall outside your availability. Shown as "27 Sep 2026 (time TBA)".
 # Toggling this re-runs step 5, since that step caches the parsed outcome.
-# includeEventsWithoutTime: false
+# includeEventsWithoutTime: true
 
 # Optional: Collapse the same event announced by several sources (default: true)
 # Runs as step 7, before descriptions are generated, so merged-away copies cost no

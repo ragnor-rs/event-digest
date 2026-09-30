@@ -114,9 +114,9 @@ writeDebugFiles: false
 # batch numbers, DISCARDED messages with links, and event creation status
 verboseLogging: false
 
-# Keep events whose date is known but whose time is not (default: false)
+# Keep events whose date is known but whose time is not (default: true)
 # Shown as "27 Sep 2026 (time TBA)"; they bypass the weeklyTimeslots check
-includeEventsWithoutTime: false
+includeEventsWithoutTime: true
 
 # Collapse the same event announced by several sources (default: true)
 deduplicateEvents: true
@@ -200,7 +200,7 @@ npm run dev -- \
   --skip-online-events true \
   --write-debug-files false \
   --verbose-logging false \
-  --include-events-without-time false \
+  --include-events-without-time true \
   --deduplicate-events true \
   --min-event-detection-confidence 0.7 \
   --min-event-classification-confidence 0.7 \
@@ -280,7 +280,7 @@ See `config.example.yaml` for more examples and detailed guidance.
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
-- `includeEventsWithoutTime`/`--include-events-without-time`: Keep events whose date is known but whose time is not, shown as "27 Sep 2026 (time TBA)". They cannot be checked against `weeklyTimeslots`, so they bypass that filter. Toggling this re-runs step 5 (default: false)
+- `includeEventsWithoutTime`/`--include-events-without-time`: Keep events whose date is known but whose time is not, shown as "27 Sep 2026 (time TBA)". The step 5 prompt asks GPT for `"27 Sep 2026 unknown"` rather than giving up on such a message — of 48 posts that step had discarded as "no date/time found", 47 turned out to name a date. They cannot be checked against `weeklyTimeslots`, so they bypass that filter. Toggling this re-runs step 5 (default: true)
 - `deduplicateEvents`/`--deduplicate-events`: Collapse the same event announced by several sources into one entry, by word overlap on the source posts (default: true)
 - **Confidence Thresholds** (optional - controls AI quality filtering):
   - `minEventDetectionConfidence`/`--min-event-detection-confidence`: Minimum confidence (0.0-1.0) for event detection; higher values = fewer but more certain events (default: 0.7)
