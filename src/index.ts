@@ -44,14 +44,12 @@ async function main() {
           effort: getStepReasoningEffort(config, 'eventClassification'),
           prompt: config.eventTypeClassificationPrompt ?? '',
         },
+        // includeEventsWithoutTime deliberately stays out of this signature: the
+        // store holds what the model returned ({ datetime, timeKnown }), and the
+        // option is applied on read, so toggling it needs no GPT calls.
         scheduled_events: {
           effort: getStepReasoningEffort(config, 'scheduleExtraction'),
           prompt: config.scheduleExtractionPrompt ?? '',
-          // Step 5 caches the parsed outcome, and a time-less event is cached as
-          // a discard. Without this, enabling the option would keep serving those
-          // stale discards instead of re-parsing. Left undefined when off, so the
-          // default keeps the signature it had before this option existed.
-          options: config.includeEventsWithoutTime ? 'includeEventsWithoutTime' : undefined,
         },
         event_locations: {
           effort: getStepReasoningEffort(config, 'locationExtraction'),

@@ -4,6 +4,8 @@
  *   npx ts-node scripts/discover-sources.ts discover [--db=path] [--since=YYYY-MM-DD] [--limit=N]
  *   npx ts-node scripts/discover-sources.ts validate [--db=path] [--since=YYYY-MM-DD]
  *   npx ts-node scripts/discover-sources.ts yield
+ *   npx ts-node scripts/discover-sources.ts add   [--dry-run] [--force]
+ *   npx ts-node scripts/discover-sources.ts prune [--dry-run]
  *
  * `discover` — makes NO Telegram API calls and never writes config.yaml. It reads
  *              the archive and emits a ranked, evidence-backed candidate list to
@@ -16,6 +18,19 @@
  * `yield`    — no archive needed. Joins the pipeline caches to show how many
  *              events each configured source actually produced, so dead sources
  *              can be pruned. Discovery without pruning just grows the bill.
+ * `add`      — the only command that writes config.yaml, and it writes ONLY what
+ *              `expand-sources.ts verify` has resolved live. Existence, the
+ *              channel-vs-group bucket and duplicate-under-another-label are all
+ *              unknowable offline, so this command consumes those verdicts
+ *              rather than forming its own. Edits are textual to preserve the
+ *              file's comments, and config.yaml is backed up first because
+ *              `config.yaml*` is gitignored and git cannot undo the edit.
+ * `prune`    — the other end of the loop. Records a yield observation per run and
+ *              comments out sources that produced nothing across several of them.
+ *
+ * The full loop: discover -> expand-sources.ts similar/folders/resolve ->
+ * expand-sources.ts verify -> add -> pipeline run -> prune. See the
+ * `source-discovery` skill for the runbook.
  *
  * Candidates come from three independent extractors:
  *   membership — chats in the archive that config.yaml does not monitor. These
@@ -64,8 +79,46 @@ const { DatabaseSync } = require('node:sqlite') as { DatabaseSync: SqliteCtor };
 
 const DEFAULT_DB = path.resolve(process.cwd(), 'REDACTED-ARCHIVE-PATH');
 const OUTPUT_FILE = path.resolve(process.cwd(), 'debug/discovered-sources.yaml');
+const EXPANDED_FILE = path.resolve(process.cwd(), 'debug/expanded-sources.yaml');
 const CONFIG_FILE = path.resolve(process.cwd(), 'config.yaml');
 const CACHE_DIR = path.resolve(process.cwd(), '.cache');
+
+/**
+ * Prune evidence. Lives in .cache/ rather than debug/ because it is state, not
+ * an artifact: debug/ is cleared freely, and losing this file silently resets
+ * every source's zero-yield history to nothing, which is indistinguishable from
+ * every source being healthy. Treat it like resolved_entities.json — do not
+ * delete it when clearing the GPT caches.
+ */
+const YIELD_HISTORY_FILE = path.join(CACHE_DIR, 'source_yield_history.json');
+
+/**
+ * How long a `verify` verdict is trusted. It asserts what is already monitored,
+ * which config.yaml can invalidate at any time, so an old section describes a
+ * config that no longer exists.
+ */
+const VERIFIED_MAX_AGE_HOURS = 72;
+
+/**
+ * Distinct pipeline runs a source must produce nothing across before it is
+ * pruned. One run proves nothing: the window is a week and plenty of real
+ * sources announce nothing in a given week.
+ */
+const MIN_DEAD_OBSERVATIONS = 3;
+
+/**
+ * Ceiling on how much of the config one prune may comment out, as a share of
+ * configured sources.
+ *
+ * Silence is inferred from the ABSENCE of a cache entry, so anything that wipes
+ * the evidence — a deleted telegram_messages.json, a stale identity map, a
+ * history recorded against a different config — makes every source look dead at
+ * once. A run that wants to remove half the config has almost certainly lost its
+ * evidence rather than found fifty dead sources, and in an automatic flow there
+ * is nobody watching to notice. Refusing is recoverable; a gutted config found
+ * three digests later is not.
+ */
+const MAX_PRUNE_SHARE = 0.25;
 
 /** Default lookback. Older references say more about where you used to live. */
 const DEFAULT_SINCE_MONTHS = 12;
@@ -278,13 +331,30 @@ function monthsAgoIso(months: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Accepts both `--key=value` and a bare `--key`. The bare form matters because
+ * the natural thing to type is `--dry-run`, and a parser that recognised only
+ * the `=` form dropped it silently — leaving a guard that read as "off" and a
+ * command that wrote the file it had just promised not to touch.
+ */
 function parseFlags(argv: string[]): Record<string, string> {
   const flags: Record<string, string> = {};
   for (const arg of argv) {
-    const match = /^--([^=]+)=(.*)$/.exec(arg);
-    if (match) flags[match[1]] = match[2];
+    const pair = /^--([^=]+)=(.*)$/.exec(arg);
+    if (pair) {
+      flags[pair[1]] = pair[2];
+      continue;
+    }
+    const bare = /^--([^=]+)$/.exec(arg);
+    if (bare) flags[bare[1]] = 'true';
   }
   return flags;
+}
+
+/** `--flag`, `--flag=true` are on; absent, `--flag=false` and `--flag=0` are off. */
+function isFlagSet(flags: Record<string, string>, name: string): boolean {
+  const value = flags[name];
+  return value !== undefined && value !== 'false' && value !== '0';
 }
 
 // ---------------------------------------------------------------------------
@@ -771,11 +841,19 @@ function validate(flags: Record<string, string>): void {
   );
 }
 
+interface YieldRow {
+  source: string;
+  messages: number;
+  events: number;
+  per100: number;
+}
+
 /**
- * Per-source yield from the pipeline caches. A source that never produces a
- * surviving event still costs GPT tokens and Telegram calls on every run.
+ * Joins the message and event caches into a per-source count. Shared by `yield`
+ * (which reports it) and `prune` (which accumulates it across runs), so both
+ * always mean the same thing by "yield".
  */
-function yieldAudit(): void {
+function computeYield(): YieldRow[] {
   const messagesPath = path.join(CACHE_DIR, 'telegram_messages.json');
   const eventsPath = path.join(CACHE_DIR, 'events.json');
   if (!fs.existsSync(messagesPath) || !fs.existsSync(eventsPath)) {
@@ -809,13 +887,21 @@ function yieldAudit(): void {
     counts.set(source, entry);
   }
 
-  const rows = [...counts.entries()]
+  return [...counts.entries()]
     .map(([source, c]) => ({
       source,
       ...c,
       per100: c.messages > 0 ? (c.events / c.messages) * 100 : 0,
     }))
     .sort((a, b) => b.per100 - a.per100 || b.events - a.events);
+}
+
+/**
+ * Per-source yield from the pipeline caches. A source that never produces a
+ * surviving event still costs GPT tokens and Telegram calls on every run.
+ */
+function yieldAudit(): void {
+  const rows = computeYield();
 
   console.log('Per-source yield from the current caches.\n');
   console.log('  events  msgs   per100  source');
@@ -836,6 +922,434 @@ function yieldAudit(): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// config.yaml editing — shared by add and prune
+// ---------------------------------------------------------------------------
+
+function isoStamp(): string {
+  const d = new Date();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * config.yaml is gitignored (`config.yaml*`), so git cannot undo an edit here
+ * and a backup is the only way back. The backup pattern is covered by that same
+ * ignore rule, so it never reaches the repo.
+ */
+function backupConfig(): string {
+  const destination = `${CONFIG_FILE}.bak-${isoStamp()}`;
+  fs.copyFileSync(CONFIG_FILE, destination);
+  return destination;
+}
+
+/**
+ * Index just past the last line of `key`'s list block.
+ *
+ * The edit is textual, not a js-yaml round trip, because config.yaml is mostly
+ * comments — the interest taxonomy, the batch-size rationale, the provenance
+ * notes this command itself writes — and dumping a parsed document back out
+ * would delete every one of them without a word.
+ *
+ * An INDENTED comment belongs to the list (the disabled-sources block at the
+ * end of groupsToParse); a column-0 comment is the header of the next key and
+ * stops the scan, so insertion never wedges itself between a comment block and
+ * the key it documents.
+ */
+function findListBlockEnd(lines: string[], key: string): number {
+  const start = lines.findIndex((line) => new RegExp(`^${key}\\s*:`).test(line));
+  if (start === -1) throw new Error(`No ${key}: block in ${CONFIG_FILE}`);
+
+  let lastContent = start;
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*$/.test(line)) continue;
+    if (/^\s+#/.test(line) || /^\s*-\s/.test(line)) {
+      lastContent = i;
+      continue;
+    }
+    break;
+  }
+  return lastContent + 1;
+}
+
+/** Comments a configured source out in place, in the style already in the file. */
+function commentOutEntry(lines: string[], entry: string, reason: string): boolean {
+  const index = lines.findIndex((line) => {
+    if (/^\s*#/.test(line)) return false;
+    const match = /^(\s*)-\s+(.*)$/.exec(line);
+    if (!match) return false;
+    const value = match[2]
+      .replace(/\s+#.*$/, '')
+      .trim()
+      .replace(/^["']|["']$/g, '');
+    return value === entry;
+  });
+  if (index === -1) return false;
+
+  const indent = /^(\s*)/.exec(lines[index])?.[1] ?? '  ';
+  lines[index] = `${indent}# ${lines[index].trim()}  # pruned ${todayIso()}: ${reason}`;
+  return true;
+}
+
+function loadExpandedSection<T>(section: string): T | undefined {
+  if (!fs.existsSync(EXPANDED_FILE)) return undefined;
+  const report = (yaml.load(fs.readFileSync(EXPANDED_FILE, 'utf-8')) ?? {}) as Record<string, unknown>;
+  return report[section] as T | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// add
+// ---------------------------------------------------------------------------
+
+interface VerifiedEntry {
+  handle: string;
+  bucket: string;
+  title?: string;
+  kind?: string;
+  participants?: number;
+  origins?: string[];
+}
+
+/**
+ * Writes verified candidates into config.yaml. Deliberately does no judging of
+ * its own: every check that matters — existence, channel-vs-group, duplicate
+ * under another label — needs a live resolve, so this consumes
+ * `expand-sources.ts verify` rather than second-guessing it. An unverified
+ * handle is never written.
+ */
+function add(flags: Record<string, string>): void {
+  const verified = loadExpandedSection<{ generated?: string; addable?: VerifiedEntry[] }>('verified');
+  if (!verified) {
+    throw new Error(`No verified section in ${EXPANDED_FILE}. Run: expand-sources.ts verify`);
+  }
+
+  const generated = verified.generated ? new Date(verified.generated) : undefined;
+  const ageHours = generated ? (Date.now() - generated.getTime()) / 3_600_000 : Infinity;
+  if (ageHours > VERIFIED_MAX_AGE_HOURS && !isFlagSet(flags, 'force')) {
+    const age = Number.isFinite(ageHours) ? `${Math.round(ageHours)}h old` : 'undated';
+    throw new Error(
+      `The verified section is ${age} (max ${VERIFIED_MAX_AGE_HOURS}h). It asserts what is already ` +
+        'monitored, which config.yaml can invalidate at any time. Re-run expand-sources.ts verify, ' +
+        'or pass --force.'
+    );
+  }
+
+  const addable = verified.addable ?? [];
+  if (addable.length === 0) {
+    console.log('Nothing verified as addable — config.yaml unchanged.');
+    return;
+  }
+
+  let lines = fs.readFileSync(CONFIG_FILE, 'utf-8').split('\n');
+  const configText = lines.join('\n').toLowerCase();
+
+  /**
+   * Idempotency, and the last line of defence against a stale verified section:
+   * a handle already written is never written twice, whatever the report says.
+   *
+   * Bounded on the right, because a plain substring test makes every handle that
+   * is a prefix of a configured one look present — `@quiz_tbi` would read as
+   * already there because `@quiz_tbi_extra` is, and the source would be dropped
+   * silently. Telegram handles are `[A-Za-z0-9_]`, so anything else ends one.
+   */
+  const alreadyPresent = (handle: string): boolean =>
+    new RegExp(`${handle.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9_])`).test(configText);
+
+  /**
+   * A handle that appears only on a commented-out line was pruned deliberately.
+   * Skipping it is correct — re-adding what prune just removed would loop — but
+   * it has to be reported as its own case, not folded into "already present",
+   * or a source that keeps being rediscovered looks like a no-op every time.
+   */
+  const isPruned = (handle: string): boolean =>
+    lines.some((line) => /^\s*#/.test(line) && line.toLowerCase().includes(handle.toLowerCase()));
+
+  const fresh = addable.filter((entry) => !alreadyPresent(entry.handle));
+  const skipped = addable.filter((entry) => alreadyPresent(entry.handle) && !isPruned(entry.handle));
+  const skippedAsPruned = addable.filter((entry) => alreadyPresent(entry.handle) && isPruned(entry.handle));
+
+  if (fresh.length === 0) {
+    console.log(
+      `All ${addable.length} verified sources are already in config.yaml — unchanged.` +
+        (skippedAsPruned.length > 0
+          ? `\n${skippedAsPruned.length} of them sit on a commented-out (pruned) line: ` +
+            `${skippedAsPruned.map((e) => e.handle).join(', ')}`
+          : '')
+    );
+    return;
+  }
+
+  const buckets: Record<string, VerifiedEntry[]> = {};
+  for (const entry of fresh) {
+    const bucket = entry.bucket === 'channelsToParse' ? 'channelsToParse' : 'groupsToParse';
+    (buckets[bucket] ??= []).push(entry);
+  }
+
+  const renderBlock = (entries: VerifiedEntry[]): string[] => [
+    '',
+    `  # Added ${todayIso()} by expand-sources.ts verify -> discover-sources.ts add.`,
+    '  # Untested — run `discover-sources.ts yield` after a few digests, then `prune`.',
+    ...entries.map((entry) => {
+      const facts = [entry.title, entry.kind, entry.participants ? `${entry.participants} members` : undefined]
+        .filter(Boolean)
+        .join(' · ');
+      const via = entry.origins?.length ? ` · via ${entry.origins.join('+')}` : '';
+      return `  - "${entry.handle}"${facts || via ? `  # ${facts}${via}` : ''}`;
+    }),
+  ];
+
+  if (isFlagSet(flags, 'dry-run')) {
+    console.log('--dry-run — config.yaml not touched. Would insert:\n');
+    for (const [bucket, entries] of Object.entries(buckets)) {
+      console.log(`${bucket}:`);
+      console.log(renderBlock(entries).join('\n'));
+    }
+    return;
+  }
+
+  const backup = backupConfig();
+  // One bucket at a time: each splice shifts every later line, so the insertion
+  // point for the second bucket is only correct once the first is in place.
+  for (const [bucket, entries] of Object.entries(buckets)) {
+    const at = findListBlockEnd(lines, bucket);
+    lines = [...lines.slice(0, at), ...renderBlock(entries), ...lines.slice(at)];
+  }
+  fs.writeFileSync(CONFIG_FILE, lines.join('\n'));
+
+  console.log(`Backed up to ${path.basename(backup)}`);
+  for (const [bucket, entries] of Object.entries(buckets)) {
+    console.log(`Added to ${bucket}: ${entries.map((e) => e.handle).join(', ')}`);
+  }
+  if (skipped.length > 0) {
+    console.log(`Already present, skipped: ${skipped.map((e) => e.handle).join(', ')}`);
+  }
+  if (skippedAsPruned.length > 0) {
+    console.log(
+      `Previously pruned, NOT re-added: ${skippedAsPruned.map((e) => e.handle).join(', ')}\n` +
+        '  Uncomment the line by hand if you want it back — discovery keeps re-finding these.'
+    );
+  }
+  console.log(
+    '\nEach new source starts with an empty cache, so the next run fetches its whole\n' +
+      'window and pays GPT for all of it. The run after that is incremental.'
+  );
+}
+
+// ---------------------------------------------------------------------------
+// prune
+// ---------------------------------------------------------------------------
+
+interface YieldObservation {
+  recorded: string;
+  /** Identifies the cache state, so re-running prune cannot fake a second run. */
+  fingerprint: string;
+  sources: Record<string, { messages: number; events: number }>;
+  /**
+   * The config entries in effect when this was recorded. Required to judge a
+   * source that produced NO cache entry at all: absence from `sources` is only
+   * evidence of silence for an entry that was actually configured at the time,
+   * and without this a source added today reads as having been silent through
+   * every run that predates it. Absent on observations recorded before this
+   * field existed, which are therefore skipped when judging silence.
+   */
+  configured?: string[];
+}
+
+function loadYieldHistory(): YieldObservation[] {
+  if (!fs.existsSync(YIELD_HISTORY_FILE)) return [];
+  const parsed = JSON.parse(fs.readFileSync(YIELD_HISTORY_FILE, 'utf-8')) as { observations?: YieldObservation[] };
+  return parsed.observations ?? [];
+}
+
+function saveYieldHistory(observations: YieldObservation[]): void {
+  fs.mkdirSync(path.dirname(YIELD_HISTORY_FILE), { recursive: true });
+  fs.writeFileSync(YIELD_HISTORY_FILE, JSON.stringify({ observations }, null, 2));
+}
+
+/**
+ * Prunes sources that have produced nothing across several runs.
+ *
+ * The evidence problem is the whole design. One cache snapshot cannot tell a
+ * dead source from a quiet week, so every invocation records a snapshot and
+ * judges only on the accumulated history — and it refuses to record a snapshot
+ * identical to the last one, because otherwise running prune three times in a
+ * row would manufacture three runs' worth of evidence from a single run.
+ *
+ * Sources are commented out, never deleted: the line is the only record that
+ * the source was ever tried, and a deleted one gets rediscovered and re-added
+ * on the next sweep.
+ */
+function prune(flags: Record<string, string>): void {
+  const rows = computeYield();
+  const observations = loadYieldHistory();
+  const configured = loadConfiguredSources();
+
+  const sources: Record<string, { messages: number; events: number }> = {};
+  for (const row of rows) sources[row.source] = { messages: row.messages, events: row.events };
+  const fingerprint = JSON.stringify(
+    Object.entries(sources)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, c]) => `${name}:${c.messages}:${c.events}`)
+  );
+
+  const last = observations[observations.length - 1];
+  if (last?.fingerprint === fingerprint) {
+    console.log(
+      `Caches are unchanged since the observation recorded at ${last.recorded} — not recording a\n` +
+        'duplicate. Run the pipeline before pruning again, or this is one run counted twice.'
+    );
+  } else {
+    observations.push({
+      recorded: new Date().toISOString(),
+      fingerprint,
+      sources,
+      configured: configured.all,
+    });
+    saveYieldHistory(observations);
+    console.log(`Recorded observation ${observations.length} to ${path.basename(YIELD_HISTORY_FILE)}`);
+  }
+
+  // Identity of a configured entry: its own handle, or — for a display-name
+  // entry — whatever the last `verify` run resolved it to.
+  const identityMap = loadExpandedSection<Record<string, string | null>>('config_identity_map') ?? {};
+  const identityOfEntry = (entry: string): string | undefined =>
+    entry.startsWith('@') ? entry.slice(1).toLowerCase() : (identityMap[entry] ?? undefined)?.toLowerCase();
+
+  const entryForSource = (source: string): string | undefined => {
+    const wanted = source.toLowerCase();
+    return configured.all.find((entry) => identityOfEntry(entry) === wanted);
+  };
+
+  const verdicts: { source: string; entry?: string; state: 'dead' | 'silent' | 'watching'; runs: number }[] = [];
+
+  // Sources with cache entries: judged on what they produced.
+  const allSources = new Set(observations.flatMap((o) => Object.keys(o.sources)));
+  for (const source of allSources) {
+    const seen = observations.filter((o) => o.sources[source] !== undefined).map((o) => o.sources[source]);
+    const state =
+      seen.length < MIN_DEAD_OBSERVATIONS ? 'watching' : seen.every((s) => s.events === 0) ? 'dead' : 'watching';
+    verdicts.push({ source, entry: entryForSource(source), state, runs: seen.length });
+  }
+
+  /**
+   * Configured entries with NO cache entry at all — the GeoDvij case, and the
+   * only kind of dead source the counts above cannot see. An unresolvable source
+   * returns early from fetchMessagesFromSource, before its cache key is ever
+   * computed, so it leaves no trace in the message cache to be counted; silence
+   * has to be inferred from the config side instead.
+   *
+   * Judged only against observations that recorded a config list AND listed this
+   * entry, so an entry added after those runs is not blamed for them.
+   */
+  const unresolvable: string[] = [];
+  for (const entry of configured.all) {
+    const identity = identityOfEntry(entry);
+    if (identity && allSources.has(identity)) continue;
+
+    // No resolved identity means we cannot tell "produced nothing" from "we have
+    // no idea what this entry is". A display-name entry has no identity until
+    // `verify` has run, and condemning it on that basis would prune every
+    // private group in the config the first time prune runs without one.
+    // Unknown is not dead.
+    if (!identity) {
+      unresolvable.push(entry);
+      verdicts.push({ source: `(unresolved) ${entry}`, entry, state: 'watching', runs: 0 });
+      continue;
+    }
+
+    const relevant = observations.filter((o) => o.configured?.includes(entry));
+    if (relevant.length < MIN_DEAD_OBSERVATIONS) {
+      verdicts.push({ source: identity, entry, state: 'watching', runs: relevant.length });
+      continue;
+    }
+    verdicts.push({ source: identity, entry, state: 'silent', runs: relevant.length });
+  }
+
+  const dead = verdicts.filter((v) => v.state === 'dead');
+  const silent = verdicts.filter((v) => v.state === 'silent');
+  const condemned = [...dead, ...silent];
+
+  console.log(
+    `\n${observations.length} observation(s) on record; a source needs ${MIN_DEAD_OBSERVATIONS} ` + 'to be judged.'
+  );
+  console.log(`  ${dead.length} dead (fetched messages, produced no events)`);
+  console.log(`  ${silent.length} silent (never fetched a single message)`);
+  console.log(`  ${verdicts.length - condemned.length} still healthy or under observation`);
+
+  for (const v of condemned) {
+    console.log(`  ${v.state.padEnd(7)} ${String(v.runs).padStart(2)} runs  ${v.source}  ${v.entry ?? '(unmapped)'}`);
+  }
+
+  const unmapped = condemned.filter((v) => !v.entry);
+  if (unmapped.length > 0) {
+    console.log(
+      `\n${unmapped.length} condemned source(s) could not be tied back to a config entry. Display-name\n` +
+        'entries resolve only through expand-sources.ts verify — run it to refresh the identity map.'
+    );
+  }
+  if (unresolvable.length > 0) {
+    console.log(
+      `\n${unresolvable.length} config entr(ies) have no resolved identity and were NOT judged:\n` +
+        `  ${unresolvable.join(', ')}\n` +
+        '  These are display-name entries with no entry in the identity map, so there is no way to\n' +
+        '  tell a dead source from an unidentified one. Run expand-sources.ts verify to resolve them.'
+    );
+  }
+
+  const actionable = condemned.filter((v) => v.entry);
+  if (actionable.length === 0) {
+    console.log('\nNothing to prune — config.yaml unchanged.');
+    return;
+  }
+
+  // Blast-radius guard. See MAX_PRUNE_SHARE: a huge prune means lost evidence
+  // far more often than it means a lot of dead sources.
+  const ceiling = Math.max(1, Math.floor(configured.all.length * MAX_PRUNE_SHARE));
+  if (actionable.length > ceiling && !isFlagSet(flags, 'force')) {
+    console.log(
+      `\nREFUSING to prune: ${actionable.length} of ${configured.all.length} configured sources are\n` +
+        `condemned, over the ceiling of ${ceiling} (${Math.round(MAX_PRUNE_SHARE * 100)}%). Silence is\n` +
+        'inferred from a MISSING cache entry, so this pattern usually means the evidence is gone,\n' +
+        'not that the sources are. Check in this order:\n' +
+        `  1. Is .cache/telegram_messages.json intact? Deleting it makes every source look silent.\n` +
+        '  2. Has the pipeline actually run since these observations were recorded?\n' +
+        '  3. Is the identity map current? Re-run expand-sources.ts verify.\n' +
+        'config.yaml unchanged. Pass --force to prune anyway.'
+    );
+    return;
+  }
+
+  if (isFlagSet(flags, 'dry-run')) {
+    console.log(`\n--dry-run — would comment out ${actionable.length} entr(ies).`);
+    return;
+  }
+
+  const lines = fs.readFileSync(CONFIG_FILE, 'utf-8').split('\n');
+  const backup = backupConfig();
+  const applied: string[] = [];
+  for (const v of actionable) {
+    const reason =
+      v.state === 'silent'
+        ? `fetched nothing across ${v.runs} runs (unresolvable or empty)`
+        : `zero events across ${v.runs} runs`;
+    if (commentOutEntry(lines, v.entry as string, reason)) applied.push(v.entry as string);
+  }
+
+  if (applied.length === 0) {
+    fs.unlinkSync(backup);
+    console.log('\nNo matching config lines found — config.yaml unchanged.');
+    return;
+  }
+  fs.writeFileSync(CONFIG_FILE, lines.join('\n'));
+  console.log(`\nBacked up to ${path.basename(backup)}`);
+  console.log(`Commented out ${applied.length}: ${applied.join(', ')}`);
+}
+
 async function main(): Promise<void> {
   const [command = 'discover', ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -850,12 +1364,20 @@ async function main(): Promise<void> {
     case 'yield':
       yieldAudit();
       break;
+    case 'add':
+      add(flags);
+      break;
+    case 'prune':
+      prune(flags);
+      break;
     default:
       console.log(
         'usage:\n' +
           '  npx ts-node scripts/discover-sources.ts discover [--db=] [--since=YYYY-MM-DD] [--limit=N]\n' +
           '  npx ts-node scripts/discover-sources.ts validate [--db=] [--since=YYYY-MM-DD]\n' +
-          '  npx ts-node scripts/discover-sources.ts yield'
+          '  npx ts-node scripts/discover-sources.ts yield\n' +
+          '  npx ts-node scripts/discover-sources.ts add   [--dry-run] [--force]\n' +
+          '  npx ts-node scripts/discover-sources.ts prune [--dry-run]'
       );
       process.exit(1);
   }

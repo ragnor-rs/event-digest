@@ -172,12 +172,21 @@ export async function deduplicateEvents(events: DigestEvent[], config: Config, l
         ...cluster.duplicates.flatMap((d) => [d.event.message, ...(d.event.duplicate_sources ?? [])]),
       ];
 
+      // The survivor is the earliest posting, which is often the one announced
+      // before the hour was settled. If a later copy of the same event does state
+      // a time, take it rather than report "(time TBA)" for a time we know.
+      const timed =
+        cluster.primary.event.start_time_known === false
+          ? cluster.duplicates.find((d) => d.event.start_time_known !== false)
+          : undefined;
+
       logger.verbose(
         `    ⧉ Merged ${cluster.duplicates.length} duplicate(s) into ${cluster.primary.event.message.link}: ` +
           mergedSources.map((m) => m.link).join(', ')
       );
       deduplicated.push({
         ...cluster.primary.event,
+        ...(timed ? { start_datetime: timed.event.start_datetime, start_time_known: true } : {}),
         duplicate_sources: mergedSources,
       });
     }

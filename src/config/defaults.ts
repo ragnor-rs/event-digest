@@ -6,9 +6,11 @@ export const DEFAULT_CONFIG = {
   skipOnlineEvents: true,
   writeDebugFiles: false,
   verboseLogging: false,
-  // Off by default: a time-less event cannot be checked against weeklyTimeslots,
-  // so including one trades precision for recall.
-  includeEventsWithoutTime: false,
+  // On by default: measured on 48 messages step 5 had written off as
+  // "no date/time found", 47 name a date and only omit the hour, so keeping them
+  // is nearly all the recall this step was losing. The cost is that a time-less
+  // event cannot be checked against weeklyTimeslots and so bypasses that filter.
+  includeEventsWithoutTime: true,
   // On by default: aggregator channels repost the same announcement, and a
   // duplicate in the digest is always a defect.
   deduplicateEvents: true,
@@ -238,11 +240,20 @@ WRONG Examples (DO NOT USE):
 3: 00 (not a valid datetime!)
 4: 19 (not a valid datetime!)
 
-If you cannot determine the date/time from a message, respond with:
+If a message names the date but never states a time, keep the date and mark only the time unknown:
+MESSAGE_NUMBER: DD Mon YYYY unknown
+
+Example:
+4: 23 Nov 2026 unknown
+
+If you cannot determine even the date from a message, respond with:
 MESSAGE_NUMBER: unknown
 
 IMPORTANT:
-- ALWAYS include the COMPLETE datetime: DD Mon YYYY HH:MM
+- ALWAYS include the date: DD Mon YYYY, followed by either HH:MM or the word unknown
+- Never invent a time the message does not state - write "unknown" in its place
+- Never invent a date either - if the message names no date at all, answer just "unknown"
+- Give exactly ONE datetime per message; if several dates are listed, use the first upcoming one
 - Always use 24-hour time format (e.g., 14:00, not 2:00 PM)
 - Use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
 - Always include leading zeros for days and hours (05, not 5)
