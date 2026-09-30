@@ -131,11 +131,20 @@ export class EventSender implements IEventReporter {
       // The calendar URL is ~250 characters of query string, so it hides too.
       const calendar = `<a href="${escapeHtml(buildGoogleCalendarUrl(event))}">Add to calendar</a>`;
 
-      // The matched interests are not shown: they say why the event was selected,
-      // which is the reader's own configuration told back to them. They are still
-      // required above, and the console reporter still prints them, where the
-      // question of what step 7 matched is the point.
-      return `${globalIndex}. ${title}\n` + `📅 ${datetime}\n` + where + `📝 ${summary}\n` + `➕ ${calendar}`;
+      // Why step 7 kept the event. Placed between 📍 and 📝 to match the console
+      // reporter, so the two render the same event in the same order. Escaped like
+      // everything else: an interest is free text and "Handcrafting, DIY & makers"
+      // would otherwise cost the whole batch.
+      const tags = escapeHtml(event.interest_matches!.map((m) => m.interest).join(', '));
+
+      return (
+        `${globalIndex}. ${title}\n` +
+        `📅 ${datetime}\n` +
+        where +
+        `🏷️ ${tags}\n` +
+        `📝 ${summary}\n` +
+        `➕ ${calendar}`
+      );
     });
 
     return header + eventTexts.join('\n\n');
