@@ -293,8 +293,9 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/matching_interests.json`: Interest matching results (step 6, includes interests hash)
 - `.cache/events.json`: Final event objects (step 8, includes interests hash)
 - `.cache/resolved_entities.json`: Resolved Telegram channel entities, owned by `data/entity-cache.ts` (not part of the `Cache` class)
+- `.cache/source_yield_history.json`: Per-source yield observations, owned by `scripts/discover-sources.ts prune`. Not a cache but state — it is the accumulated evidence that a source is dead, and deleting it resets every source's history to nothing, which is indistinguishable from every source being healthy
 
-**Clearing the cache:** delete only the five GPT stores (`messages`, `event_type_classification`, `scheduled_events`, `matching_interests`, `events`). Keep `telegram_messages.json` — re-fetching all sources is slow and risks Telegram FLOOD_WAIT. Keep `resolved_entities.json` — deleting it re-resolves every channel and triggers the ResolveUsername flood it was added to prevent.
+**Clearing the cache:** delete only the five GPT stores (`messages`, `event_type_classification`, `scheduled_events`, `matching_interests`, `events`). Keep `telegram_messages.json` — re-fetching all sources is slow and risks Telegram FLOOD_WAIT. Keep `resolved_entities.json` — deleting it re-resolves every channel and triggers the ResolveUsername flood it was added to prevent. Keep `source_yield_history.json` — it is prune evidence, not a cache.
 
 **Caching model output vs. policy:** a store should hold what the model returned, not what the configuration then decided. Step 3 keeps the raw confidence and applies `minEventDetectionConfidence` on read; step 5 likewise keeps `{ datetime, timeKnown }` as parsed from the answer and applies `includeEventsWithoutTime` on read. Neither option belongs in a cache key — a setting that only filters model output must never force GPT calls to be repeated.
 
@@ -360,7 +361,8 @@ When working with specific functionality, refer to these files:
 - **Modify output formatting**: `presentation/event-printer.ts` (implements IEventReporter)
 - **Modify event sending logic**: `presentation/event-sender.ts` (implements IEventReporter)
 - **Tune duplicate detection**: `domain/services/event-deduplicator.ts` (the similarity threshold is a constant at the top)
-- **Discover new sources**: `scripts/discover-sources.ts` (offline archive mining) and `scripts/expand-sources.ts` (live Telegram discovery APIs)
+- **Discover new sources**: `scripts/discover-sources.ts` (offline archive mining; also `add` and `prune`, the only commands that write `config.yaml`) and `scripts/expand-sources.ts` (live Telegram discovery APIs; `verify` is the gate `add` consumes). The end-to-end runbook is the `source-discovery` skill in `.claude/skills/`
+- **Add or remove a source**: never hand-edit `config.yaml` for this. Run `expand-sources.ts verify` then `discover-sources.ts add`: the channel-vs-group bucket and duplicate-under-another-label are both unknowable offline. `fetchMessagesFromSource` type-checks only the display-name branch, so a *display-name* entry in the wrong list silently fetches nothing forever (the `REDACTED-CHAT-NAME` note in `config.yaml`), while an `@handle` entry in the wrong list still fetches but with the wrong message limit (200 vs 50) and the wrong cache-key prefix. A config entry is a handle *or* a display name, and only the resolved `username`/`c/<id>` identity — what the message cache is keyed on — makes two entries comparable
 - **Change debug file output**: `shared/debug-writer.ts`
 - **Add environment variable validation**: `src/index.ts` (validateEnvironmentVariables function)
 
