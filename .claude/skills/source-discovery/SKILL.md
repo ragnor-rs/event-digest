@@ -71,6 +71,13 @@ well and **channels** barely at all. For channels the real routes are the
 forward/link pools here and `similar` in step 2. Report the actual chat/channel
 split the run prints, rather than assuming it.
 
+The `JOINED, NO CONFIG MATCH` section is the one to be careful with. It means
+"did not string-match config.yaml", which is weaker than unmonitored: a chat
+configured by `@handle` whose display name differs appears there too, because
+this step is offline and can only compare text. On the 2026-10-01 run 3 of its
+14 entries were already configured. Treat it as input to step 3, never as a
+list to act on.
+
 If the archive is missing, skip to step 2 — it needs no archive except for
 `folders`.
 
@@ -214,6 +221,14 @@ State, in this order:
 Never present a candidate as a good source because it scored well in step 1.
 Archive cues predict event density; only step 6's yield measures it. Say
 "untested" until it has run.
+
+Never present step 1's `JOINED, NO CONFIG MATCH` section as unmonitored, either
+— including to the user as a "lead worth adding". The check is a string
+comparison against config.yaml, so a chat configured by `@handle` whose display
+name differs lands there too. Measured on the 2026-10-01 run: at least **3 of 14
+were already configured**, and two of those were among the run's better
+producers. Before naming any of them, grep config.yaml for the plausible handle,
+and let `verify` decide.
 
 ## Do not, unless asked
 

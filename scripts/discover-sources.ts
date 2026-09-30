@@ -398,6 +398,14 @@ function loadConfiguredSources(): ConfiguredSources {
  * a fuzzy matcher aggressive enough to catch these also hides real candidates
  * ("tbilisiclub" vs "TbilisiCoffeeClubChannel"), and a duplicate in the output
  * costs a glance while a false exclusion is invisible.
+ *
+ * That rate is high, not marginal. On the 2026-10-01 run, at least 3 of the 14
+ * candidates in this section were already configured by handle — TekoraLab
+ * (@tekoralabCommunity), REAL TALK Tbilisi (@realtalktbilisi) and Musicians in
+ * Tbilisi (@musicians_in_tbilisi) — and the last two were among the better
+ * producers in the digest, at 3 and 1 events. So read the section as "did not
+ * string-match" and let `verify` settle it; that is the only step that can, and
+ * it is why `add` consumes verify's output rather than this report.
  */
 function isMonitored(chatName: string, configured: ConfiguredSources): boolean {
   const lower = chatName.toLowerCase();
@@ -712,7 +720,10 @@ function discover(flags: Record<string, string>): void {
   const topMembership = membership.slice(0, limit);
   const topExternal = external.slice(0, limit);
 
-  console.log(`JOINED BUT NOT MONITORED — ${membership.length} candidates, top ${topMembership.length}`);
+  console.log(`JOINED, NO CONFIG MATCH — ${membership.length} candidates, top ${topMembership.length}`);
+  console.log('  These did not string-match config.yaml. That is NOT the same as unmonitored:');
+  console.log('  a chat configured by @handle whose display name differs lands here too. Only');
+  console.log('  `expand-sources.ts verify` can tell the two apart — do not add from this list.');
   console.log('  score  announce   msgs  density   geo  type                 name');
   for (const c of topMembership) {
     const geo = geoScore(c.geoPositive, c.geoNegative).toFixed(2).padStart(5);
@@ -755,7 +766,9 @@ function discover(flags: Record<string, string>): void {
     note:
       'Scores are only comparable WITHIN a section. Membership candidates are scored on ' +
       'real local history; external candidates have none and are scored on reach alone.',
-    joined_but_not_monitored: topMembership.map((c) => ({
+    // Renamed from joined_but_not_monitored: the old name asserted something
+    // this offline check cannot know. See isMonitored's false-negative note.
+    joined_no_config_match: topMembership.map((c) => ({
       name: c.name,
       type: c.chatType,
       score: Number(c.score.toFixed(3)),
