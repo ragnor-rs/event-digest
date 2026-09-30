@@ -26,6 +26,7 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **Debug Mode**: Optional detailed debug files for troubleshooting and analysis
 - **Configurable Batch Processing**: Tune GPT batch sizes for optimal speed/accuracy balance
 - **Event Delivery**: Send events directly to Telegram recipients or print to console
+- **Source Discovery**: Tooling to grow the source list rather than guess at it — export your dialogs, mine them for candidates, expand through Telegram's own recommendation and shared-folder endpoints, verify each one live, then prune what never yields. See [Finding Sources](#finding-sources)
 
 ## Prerequisites
 
@@ -51,6 +52,15 @@ TELEGRAM_API_ID=your_api_id_here
 TELEGRAM_API_HASH=your_api_hash_here
 TELEGRAM_PHONE_NUMBER=your_phone_number_here
 OPENAI_API_KEY=your_openai_api_key_here
+```
+
+Optional, and only read by the source-discovery scripts — the digest runs fine without it:
+
+```env
+# Path to a local Telegram archive, mined to suggest new sources.
+# There is no default: an export lives wherever you put it, usually outside
+# this repo. See "Finding Sources" below for how to create one.
+TELEGRAM_ARCHIVE_DB=/path/to/telegram.db
 ```
 
 ### Configuration Options
@@ -369,6 +379,92 @@ The tool supports accessing both public and private channels/groups:
 - The tool loads your dialogs once per run to avoid API rate limits
 
 **Important**: Keep the `.telegram-session` file secure and add it to `.gitignore` to avoid committing sensitive session data.
+
+## Finding Sources
+
+`channelsToParse` and `groupsToParse` are the digest's whole input, and filling
+them by hand means remembering every event channel you ever joined. The
+`scripts/` directory automates that: it proposes candidates, verifies each one
+live, writes the survivors into `config.yaml`, and later comments out the ones
+that never produced anything.
+
+Everything here is optional — a hand-written config works fine — and nothing
+joins a channel or posts a message. Every command reads.
+
+### Step 0: Create an archive (once)
+
+Candidate mining reads a local SQLite archive of your own dialogs:
+
+```bash
+npx ts-node scripts/export-telegram.ts            # writes debug/telegram-archive.db
+npx ts-node scripts/export-telegram.ts --dry-run  # report what it would export
+```
+
+Then point `TELEGRAM_ARCHIVE_DB` at it in `.env`. Worth knowing:
+
+- **Private chats are excluded by default.** They are most of a dialog list and
+  the most sensitive part of it, and mining cannot act on them anyway — a DM is
+  never addable as a source. `--include-personal` opts in.
+- **It stores only the seven columns the miner reads** — chat name and type,
+  message id, date, text, and the three forwarding fields. Nothing else Telegram
+  returns is written to disk.
+- **It is incremental and resumable.** A full sweep is thousands of API calls,
+  so it will likely stop at the call budget; rerun and it continues where it
+  stopped. Calls are spaced 2.5s and the first `FLOOD_WAIT` aborts.
+- **It will not write into a database it did not create**, so it cannot append
+  to an export you made another way.
+
+If you already have a Telegram export in this schema, skip step 0 and point
+`TELEGRAM_ARCHIVE_DB` at it.
+
+### Steps 1–4: Propose, verify, add
+
+```bash
+npx ts-node scripts/discover-sources.ts discover   # rank candidates from the archive (offline)
+npx ts-node scripts/expand-sources.ts similar      # channels sharing your channels' audience
+npx ts-node scripts/expand-sources.ts folders      # contents of shared folders you were sent
+npx ts-node scripts/expand-sources.ts verify       # resolve each candidate live  ← required
+npx ts-node scripts/discover-sources.ts add        # write the survivors to config.yaml
+```
+
+`verify` is not optional, and `add` refuses to write anything it has not
+resolved. Two things are invisible offline and only a live lookup settles them:
+which list an entry belongs in (a display name in the wrong one silently fetches
+nothing forever), and whether a candidate is a chat you already monitor under a
+different label — `"Musicians in Tbilisi"` and `"@musicians_in_tbilisi"` are one
+chat wearing two names.
+
+`add` backs `config.yaml` up first, and edits it textually so its comments
+survive. Each new source starts with an empty cache, so the next run fetches its
+whole window and pays for all of it; the run after that is incremental.
+
+### Step 6: Prune
+
+```bash
+npm run dev                                       # produce evidence
+npx ts-node scripts/discover-sources.ts prune     # comment out what never yields
+```
+
+Run `prune` after digest runs. It needs **3 observations** before judging
+anything, because one quiet week is not a dead source, and it comments sources
+out rather than deleting them — a deleted line gets rediscovered and re-added on
+the next sweep. `yield` reports the same numbers read-only.
+
+Skipping this step is how the GPT bill grows without the digest improving.
+
+### Cautions
+
+- `similar`, `folders`, `verify` and a digest run all open `.telegram-session`.
+  **Never run two at once.**
+- If a command aborts on `FLOOD_WAIT`, stop — do not rerun it. Unfinished
+  candidates are reported as `unattempted`; pick them up another day.
+- Never delete `.cache/source_yield_history.json` (the prune evidence),
+  `.cache/resolved_entities.json` (prevents a resolve flood), or
+  `config.yaml.bak-*` (the only way back from a bad `add`).
+- A high mining score predicts event density; it does not measure it. A new
+  source is **untested** until it has run and been pruned against.
+
+Agent users: `.claude/skills/source-discovery/` is the full runbook.
 
 ## How It Works
 

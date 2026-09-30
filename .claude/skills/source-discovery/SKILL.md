@@ -14,9 +14,9 @@ GPT bill grows without the digest improving. Run everything from the repo root.
    matters when you read a report:
    - A **display-name** entry is matched against `dialog.isGroup` /
      `dialog.isChannel`, so one in the wrong list matches no dialog and fetches
-     nothing on every run, forever, with nothing in the logs saying why. The
-     `REDACTED-CHAT-NAME` lines at the end of `groupsToParse` are this bug, found months
-     late.
+     nothing on every run, forever, with nothing in the logs saying why. This
+     has happened in practice and went unnoticed for months — there is no
+     symptom to notice.
    - An **`@handle`** entry resolves by username with no type check at all, so a
      wrong bucket is not fatal: it applies the wrong message limit
      (`maxGroupMessages` 200 vs `maxChannelMessages` 50) and files the source
@@ -50,14 +50,26 @@ candidates are reported as `unattempted`; pick them up on a later day.
 npx ts-node scripts/discover-sources.ts discover [--since=YYYY-MM-DD] [--limit=25]
 ```
 
-Reads a local Telegram export (`--db=`, or `TELEGRAM_ARCHIVE_DB`, default
-`REDACTED-ARCHIVE-PATH`) and writes ranked candidates to
+Reads a local Telegram export and writes ranked candidates to
 `debug/discovered-sources.yaml`. No network, no config write.
 
-Coverage limit worth stating when you report: the export is mostly chats and
-groups — this archive holds 1,257 chats but only 16 channels. So step 1 sees
-**groups** well and **channels** barely at all. For channels the real routes are
-the forward/link pools here and `similar` in step 2.
+The export path has **no default** — set `TELEGRAM_ARCHIVE_DB` in `.env` or
+pass `--db=<path>`. If you have no export yet, step 0 makes one:
+
+```bash
+npx ts-node scripts/export-telegram.ts [--out=<path>] [--months=12]
+```
+
+That is the only network step outside 2/3/5, and it obeys the same flood
+policy. It writes a SQLite archive of your own dialogs and their recent
+messages; nothing leaves the machine.
+
+Coverage limit worth stating when you report: an export is mostly private chats
+and groups, with very few channels — Telegram gives you your own dialog list,
+and most people are in far more groups than channels. So step 1 sees **groups**
+well and **channels** barely at all. For channels the real routes are the
+forward/link pools here and `similar` in step 2. Report the actual chat/channel
+split the run prints, rather than assuming it.
 
 If the archive is missing, skip to step 2 — it needs no archive except for
 `folders`.

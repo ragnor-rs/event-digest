@@ -58,7 +58,12 @@
 import fs from 'fs';
 import path from 'path';
 
+import dotenv from 'dotenv';
 import yaml from 'js-yaml';
+
+// TELEGRAM_ARCHIVE_DB lives in .env, so this has to load before openArchive
+// reads it. Without it the variable is invisible here and only --db works.
+dotenv.config();
 
 import { DEFAULT_CONFIG } from '../src/config/defaults';
 
@@ -77,7 +82,6 @@ type SqliteCtor = new (filename: string, options?: { readOnly?: boolean }) => Sq
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { DatabaseSync } = require('node:sqlite') as { DatabaseSync: SqliteCtor };
 
-const DEFAULT_DB = path.resolve(process.cwd(), 'REDACTED-ARCHIVE-PATH');
 const OUTPUT_FILE = path.resolve(process.cwd(), 'debug/discovered-sources.yaml');
 const EXPANDED_FILE = path.resolve(process.cwd(), 'debug/expanded-sources.yaml');
 const CONFIG_FILE = path.resolve(process.cwd(), 'config.yaml');
@@ -656,12 +660,31 @@ function mergeExternal(
 // commands
 // ---------------------------------------------------------------------------
 
+/**
+ * The archive path has no default. An export lives wherever its owner put it,
+ * usually outside this repo, so any default would be one machine's layout
+ * baked into a shared file — and `discover` failing with "set
+ * TELEGRAM_ARCHIVE_DB" is a better first run than it silently finding nothing
+ * at a path that means something only to whoever committed it.
+ *
+ * See scripts/export-telegram.ts for producing the export this reads.
+ */
 function openArchive(flags: Record<string, string>): SqliteDb {
-  const dbPath = flags.db ?? process.env.TELEGRAM_ARCHIVE_DB ?? DEFAULT_DB;
-  if (!fs.existsSync(dbPath)) {
-    throw new Error(`Archive not found at ${dbPath}. Pass --db=<path> or set TELEGRAM_ARCHIVE_DB.`);
+  const dbPath = flags.db ?? process.env.TELEGRAM_ARCHIVE_DB;
+  if (!dbPath) {
+    throw new Error(
+      'No Telegram archive configured. Set TELEGRAM_ARCHIVE_DB in .env or pass --db=<path>.\n' +
+        'To create an archive, run: npx ts-node scripts/export-telegram.ts'
+    );
   }
-  return new DatabaseSync(dbPath, { readOnly: true });
+  const resolved = path.resolve(process.cwd(), dbPath);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(
+      `Archive not found at ${resolved}. Check TELEGRAM_ARCHIVE_DB or --db=<path>.\n` +
+        'To create an archive, run: npx ts-node scripts/export-telegram.ts'
+    );
+  }
+  return new DatabaseSync(resolved, { readOnly: true });
 }
 
 function discover(flags: Record<string, string>): void {

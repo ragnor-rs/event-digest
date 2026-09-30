@@ -30,8 +30,8 @@
  *   - Wrong bucket. What this costs depends on the entry form, and it is worth
  *     being exact: fetchMessagesFromSource only type-checks the DISPLAY-NAME
  *     branch (`dialog.isGroup` / `dialog.isChannel`), so a display-name entry in
- *     the wrong list matches no dialog and fetches nothing on every run forever
- *     — that is the `REDACTED-CHAT-NAME` line in config.yaml. An `@handle` entry
+ *     the wrong list matches no dialog and fetches nothing on every run forever,
+ *     with nothing in the logs saying why. An `@handle` entry
  *     resolves by username with no type check at all, so a wrong bucket there is
  *     not fatal: it applies the wrong message limit (maxGroupMessages 200 vs
  *     maxChannelMessages 50) and files the source under the wrong cache-key
