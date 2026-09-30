@@ -176,7 +176,7 @@ weeklyTimeslots:
 # giving up on the message; on a sample of 48 posts the step had discarded for
 # "no date/time found", 47 name a date and only omit the hour. Such an event
 # cannot be checked against weeklyTimeslots, so it bypasses that filter and may
-# fall outside your availability. Shown as "27 Sep 2026 (time TBA)".
+# fall outside your availability. Shown as "27 Sep 2026 (time unspecified)".
 # Applied when reading step 5's cache, so toggling it costs no GPT calls.
 # includeEventsWithoutTime: true
 

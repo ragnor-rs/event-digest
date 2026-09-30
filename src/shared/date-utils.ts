@@ -66,9 +66,15 @@ export function parseEventDateTime(dateTime: string): ParsedEventDateTime | null
   return isValid(date) ? { date, timeKnown: true } : null;
 }
 
-/** Formats an event date, omitting the time when it was never known. */
+/**
+ * Formats an event date, omitting the time when it was never known.
+ *
+ * "time unspecified" rather than "TBA": the only thing known is that the
+ * announcement named no hour. "TBA" would assert something further — that the
+ * organiser intends to announce one — which no post this was parsed from says.
+ */
 export function formatEventDateTime(date: Date, timeKnown: boolean = true): string {
-  return timeKnown ? format(date, DATE_FORMAT) : `${format(date, DATE_ONLY_FORMAT)} (time TBA)`;
+  return timeKnown ? format(date, DATE_FORMAT) : `${format(date, DATE_ONLY_FORMAT)} (time unspecified)`;
 }
 
 /**

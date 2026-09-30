@@ -174,7 +174,7 @@ export async function deduplicateEvents(events: DigestEvent[], config: Config, l
 
       // The survivor is the earliest posting, which is often the one announced
       // before the hour was settled. If a later copy of the same event does state
-      // a time, take it rather than report "(time TBA)" for a time we know.
+      // a time, take it rather than report "(time unspecified)" for a time we know.
       const timed =
         cluster.primary.event.start_time_known === false
           ? cluster.duplicates.find((d) => d.event.start_time_known !== false)
