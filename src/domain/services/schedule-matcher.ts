@@ -80,6 +80,22 @@ function processCachedEvent(
     // turning it off must not keep serving them from cache.
     if (!timeKnown && !config.includeEventsWithoutTime) {
       logger.verbose(`    ✗ Discarded: ${event.message.link} - no time stated (cached)`);
+      // The debug entry is what tells the caller this was a decision rather than
+      // a parse failure; without it the event is re-sent to GPT on every run.
+      debugEntries.push({
+        message: {
+          timestamp: event.message.timestamp,
+          content: event.message.content,
+          link: event.message.link,
+        },
+        event_type: event.event_type_classification!.type,
+        ai_prompt: '[CACHED]',
+        ai_response: `[CACHED: datetime]`,
+        extracted_datetime: eventDate,
+        result: 'discarded',
+        discard_reason: 'no time stated',
+        cached: true,
+      });
       return null;
     }
 

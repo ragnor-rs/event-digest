@@ -149,7 +149,7 @@ weeklyTimeslots:
 # "no date/time found", 47 name a date and only omit the hour. Such an event
 # cannot be checked against weeklyTimeslots, so it bypasses that filter and may
 # fall outside your availability. Shown as "27 Sep 2026 (time TBA)".
-# Toggling this re-runs step 5, since that step caches the parsed outcome.
+# Applied when reading step 5's cache, so toggling it costs no GPT calls.
 # includeEventsWithoutTime: true
 
 # Optional: Collapse the same event announced by several sources (default: true)
@@ -359,7 +359,14 @@ weeklyTimeslots:
 #   Use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
 #   Use 24-hour time format with leading zeros
 #   Example: "1: 05 Dec 2024 19:30"
-#   If unknown: "MESSAGE_NUMBER: unknown"
+#   Date known, time not stated: "MESSAGE_NUMBER: DD Mon YYYY unknown"
+#   Example: "2: 23 Nov 2026 unknown"
+#   If even the date is unknown: "MESSAGE_NUMBER: unknown"
+#   One datetime per message - a second one on the line cannot be parsed
+#
+# NOTE: includeEventsWithoutTime only has something to keep if the prompt asks for
+# the "DD Mon YYYY unknown" answer. A custom prompt that omits it gets a bare
+# "unknown" for those messages and they are discarded, as before the option existed.
 #
 # EXAMPLE PROMPT:
 # scheduleExtractionPrompt: |
@@ -368,6 +375,7 @@ weeklyTimeslots:
 #   {{MESSAGES}}
 #   EXACT format: MESSAGE_NUMBER: DD Mon YYYY HH:MM
 #   Examples: 1: 05 Dec 2024 19:30
+#   If the message gives a date but no time: 2: 23 Nov 2026 unknown
 #   NEVER return just time like "19:30" - always include full date
 
 # Custom GPT prompt for event description generation (optional)

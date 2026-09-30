@@ -3,7 +3,7 @@ import { getStepReasoningEffort } from '../../config/validator';
 import { IAIClient, ICache } from '../interfaces';
 import { DebugEventDescriptionEntry } from '../../shared/types';
 import { createBatches } from '../../shared/batch-processor';
-import { formatDateTime } from '../../shared/date-utils';
+import { formatEventDateTime } from '../../shared/date-utils';
 import { Logger } from '../../shared/logger';
 import { DigestEvent } from '../entities';
 
@@ -73,7 +73,7 @@ export async function describeEvents(
     const eventsText = chunk
       .map(
         (event, idx) => `${idx + 1}.
-Start time: ${formatDateTime(event.start_datetime!)}
+Start time: ${formatEventDateTime(event.start_datetime!, event.start_time_known !== false)}
 Interests: ${event.interest_matches!.map((m) => m.interest).join(', ')}
 Content: ${event.message.content.replace(/\n/g, ' ')}
 Link: ${event.message.link}`

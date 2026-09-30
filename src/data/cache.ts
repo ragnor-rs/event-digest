@@ -11,9 +11,10 @@ export interface StepSignature {
   effort: string;
   prompt: string;
   /**
-   * Config that changes how the step's result is derived or stored, even when
-   * the GPT answer is unchanged. Step 5 records a parse outcome rather than the
-   * raw reply, so a setting that alters parsing has to invalidate it too.
+   * Config that changes what a step *stores*, as opposed to what it then keeps.
+   * A setting that merely filters cached model output belongs on the read path
+   * instead — putting it here would force GPT calls to be repeated for a decision
+   * the code can make for free. No step needs this at present.
    */
   options?: string;
 }

@@ -244,6 +244,7 @@ MESSAGE_NUMBER: unknown
 IMPORTANT:
 - ALWAYS include the date: DD Mon YYYY, followed by either HH:MM or the word unknown
 - Never invent a time the message does not state - write "unknown" in its place
+- Never invent a date either - if the message names no date at all, answer just "unknown"
 - Give exactly ONE datetime per message; if several dates are listed, use the first upcoming one
 - Always use 24-hour time format (e.g., 14:00, not 2:00 PM)
 - Use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
