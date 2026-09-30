@@ -9,6 +9,7 @@ const REASONING_EFFORT_OVERRIDES = [
   'eventDetectionReasoningEffort',
   'eventClassificationReasoningEffort',
   'scheduleExtractionReasoningEffort',
+  'locationExtractionReasoningEffort',
   'interestMatchingReasoningEffort',
   'eventDescriptionReasoningEffort',
 ] as const;
@@ -18,6 +19,7 @@ export type ReasoningStep =
   | 'eventDetection'
   | 'eventClassification'
   | 'scheduleExtraction'
+  | 'locationExtraction'
   | 'interestMatching'
   | 'eventDescription';
 
@@ -25,6 +27,7 @@ const STEP_OVERRIDE_FIELD: Record<ReasoningStep, (typeof REASONING_EFFORT_OVERRI
   eventDetection: 'eventDetectionReasoningEffort',
   eventClassification: 'eventClassificationReasoningEffort',
   scheduleExtraction: 'scheduleExtractionReasoningEffort',
+  locationExtraction: 'locationExtractionReasoningEffort',
   interestMatching: 'interestMatchingReasoningEffort',
   eventDescription: 'eventDescriptionReasoningEffort',
 };
@@ -59,13 +62,16 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedVerboseLogging = config.verboseLogging !== undefined;
   const providedIncludeEventsWithoutTime = config.includeEventsWithoutTime !== undefined;
   const providedDeduplicateEvents = config.deduplicateEvents !== undefined;
+  const providedIncludeEventsWithoutLocation = config.includeEventsWithoutLocation !== undefined;
   const providedMinEventDetectionConfidence = config.minEventDetectionConfidence !== undefined;
   const providedMinEventClassificationConfidence = config.minEventClassificationConfidence !== undefined;
+  const providedMinLocationConfidence = config.minLocationConfidence !== undefined;
   const providedMinInterestConfidence = config.minInterestConfidence !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
   const providedEventDetectionBatchSize = config.eventDetectionBatchSize !== undefined;
   const providedEventClassificationBatchSize = config.eventClassificationBatchSize !== undefined;
   const providedScheduleExtractionBatchSize = config.scheduleExtractionBatchSize !== undefined;
+  const providedLocationExtractionBatchSize = config.locationExtractionBatchSize !== undefined;
   const providedEventDescriptionBatchSize = config.eventDescriptionBatchSize !== undefined;
   const providedSendEventsBatchSize = config.sendEventsBatchSize !== undefined;
   const providedReasoningEffort = config.reasoningEffort !== undefined;
@@ -73,6 +79,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedInterestMatchingPrompt = config.interestMatchingPrompt !== undefined;
   const providedEventTypeClassificationPrompt = config.eventTypeClassificationPrompt !== undefined;
   const providedScheduleExtractionPrompt = config.scheduleExtractionPrompt !== undefined;
+  const providedLocationExtractionPrompt = config.locationExtractionPrompt !== undefined;
   const providedEventDescriptionPrompt = config.eventDescriptionPrompt !== undefined;
 
   // Set defaults for separate limits
@@ -116,12 +123,29 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     config.deduplicateEvents = DEFAULT_CONFIG.deduplicateEvents;
   }
 
+  if (config.locationFilter === undefined) {
+    config.locationFilter = DEFAULT_CONFIG.locationFilter;
+  } else {
+    // Blank entries would be numbered into the prompt as an empty choice, and a
+    // list of nothing but blanks reads as "filtering is on" and discards every
+    // event. Dropping them makes a stray "- " in YAML mean what it looks like.
+    config.locationFilter = config.locationFilter.map((location) => location.trim()).filter((location) => location);
+  }
+
+  if (config.includeEventsWithoutLocation === undefined) {
+    config.includeEventsWithoutLocation = DEFAULT_CONFIG.includeEventsWithoutLocation;
+  }
+
   if (config.minEventDetectionConfidence === undefined) {
     config.minEventDetectionConfidence = DEFAULT_CONFIG.minEventDetectionConfidence;
   }
 
   if (config.minEventClassificationConfidence === undefined) {
     config.minEventClassificationConfidence = DEFAULT_CONFIG.minEventClassificationConfidence;
+  }
+
+  if (config.minLocationConfidence === undefined) {
+    config.minLocationConfidence = DEFAULT_CONFIG.minLocationConfidence;
   }
 
   if (config.minInterestConfidence === undefined) {
@@ -137,6 +161,9 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   }
   if (config.scheduleExtractionBatchSize === undefined) {
     config.scheduleExtractionBatchSize = DEFAULT_CONFIG.scheduleExtractionBatchSize;
+  }
+  if (config.locationExtractionBatchSize === undefined) {
+    config.locationExtractionBatchSize = DEFAULT_CONFIG.locationExtractionBatchSize;
   }
   if (config.eventDescriptionBatchSize === undefined) {
     config.eventDescriptionBatchSize = DEFAULT_CONFIG.eventDescriptionBatchSize;
@@ -174,6 +201,10 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
 
   if (!config.scheduleExtractionPrompt) {
     config.scheduleExtractionPrompt = DEFAULT_CONFIG.scheduleExtractionPrompt;
+  }
+
+  if (!config.locationExtractionPrompt) {
+    config.locationExtractionPrompt = DEFAULT_CONFIG.locationExtractionPrompt;
   }
 
   if (!config.eventDescriptionPrompt) {
@@ -226,10 +257,19 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     `  deduplicateEvents: ${finalConfig.deduplicateEvents}${!providedDeduplicateEvents ? ' (default)' : ''}`
   );
   console.log(
+    `  locationFilter: ${finalConfig.locationFilter.length > 0 ? `${finalConfig.locationFilter.length} specified` : 'not set (no filtering)'}`
+  );
+  console.log(
+    `  includeEventsWithoutLocation: ${finalConfig.includeEventsWithoutLocation}${!providedIncludeEventsWithoutLocation ? ' (default)' : ''}`
+  );
+  console.log(
     `  minEventDetectionConfidence: ${finalConfig.minEventDetectionConfidence}${!providedMinEventDetectionConfidence ? ' (default)' : ''}`
   );
   console.log(
     `  minEventClassificationConfidence: ${finalConfig.minEventClassificationConfidence}${!providedMinEventClassificationConfidence ? ' (default)' : ''}`
+  );
+  console.log(
+    `  minLocationConfidence: ${finalConfig.minLocationConfidence}${!providedMinLocationConfidence ? ' (default)' : ''}`
   );
   console.log(
     `  minInterestConfidence: ${finalConfig.minInterestConfidence}${!providedMinInterestConfidence ? ' (default)' : ''}`
@@ -242,6 +282,9 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   );
   console.log(
     `  scheduleExtractionBatchSize: ${finalConfig.scheduleExtractionBatchSize}${!providedScheduleExtractionBatchSize ? ' (default)' : ''}`
+  );
+  console.log(
+    `  locationExtractionBatchSize: ${finalConfig.locationExtractionBatchSize}${!providedLocationExtractionBatchSize ? ' (default)' : ''}`
   );
   console.log(
     `  eventDescriptionBatchSize: ${finalConfig.eventDescriptionBatchSize}${!providedEventDescriptionBatchSize ? ' (default)' : ''}`
@@ -271,6 +314,9 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   );
   console.log(
     `  scheduleExtractionPrompt: ${finalConfig.scheduleExtractionPrompt!.length} chars${!providedScheduleExtractionPrompt ? ' (default)' : ''}`
+  );
+  console.log(
+    `  locationExtractionPrompt: ${finalConfig.locationExtractionPrompt!.length} chars${!providedLocationExtractionPrompt ? ' (default)' : ''}`
   );
   console.log(
     `  eventDescriptionPrompt: ${finalConfig.eventDescriptionPrompt!.length} chars${!providedEventDescriptionPrompt ? ' (default)' : ''}`

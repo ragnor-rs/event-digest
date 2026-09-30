@@ -7,6 +7,7 @@ type ReasoningEffortField =
   | 'eventDetectionReasoningEffort'
   | 'eventClassificationReasoningEffort'
   | 'scheduleExtractionReasoningEffort'
+  | 'locationExtractionReasoningEffort'
   | 'interestMatchingReasoningEffort'
   | 'eventDescriptionReasoningEffort';
 
@@ -16,6 +17,7 @@ const REASONING_EFFORT_OPTIONS: Record<string, ReasoningEffortField> = {
   '--event-detection-reasoning-effort': 'eventDetectionReasoningEffort',
   '--event-classification-reasoning-effort': 'eventClassificationReasoningEffort',
   '--schedule-extraction-reasoning-effort': 'scheduleExtractionReasoningEffort',
+  '--location-extraction-reasoning-effort': 'locationExtractionReasoningEffort',
   '--interest-matching-reasoning-effort': 'interestMatchingReasoningEffort',
   '--event-description-reasoning-effort': 'eventDescriptionReasoningEffort',
 };
@@ -26,6 +28,7 @@ const VALID_OPTIONS = [
   '--channels',
   '--interests',
   '--timeslots',
+  '--location-filter',
   '--max-messages',
   '--max-group-messages',
   '--max-channel-messages',
@@ -34,12 +37,15 @@ const VALID_OPTIONS = [
   '--verbose-logging',
   '--include-events-without-time',
   '--deduplicate-events',
+  '--include-events-without-location',
   '--min-event-detection-confidence',
   '--min-event-classification-confidence',
+  '--min-location-confidence',
   '--min-interest-confidence',
   '--event-detection-batch-size',
   '--event-classification-batch-size',
   '--schedule-extraction-batch-size',
+  '--location-extraction-batch-size',
   '--event-description-batch-size',
   '--send-events-recipient',
   '--send-events-batch-size',
@@ -93,6 +99,14 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--timeslots':
         config.weeklyTimeslots = value.split(',').map((s) => s.trim());
         break;
+      case '--location-filter':
+        // Empty entries are dropped so `--location-filter ""` means "no filtering"
+        // rather than a filter for the empty string, which nothing would match.
+        config.locationFilter = value
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        break;
       case '--max-messages': {
         const parsed = parseInt(value);
         if (isNaN(parsed) || parsed <= 0) {
@@ -132,6 +146,9 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--deduplicate-events':
         config.deduplicateEvents = value.toLowerCase() === 'true';
         break;
+      case '--include-events-without-location':
+        config.includeEventsWithoutLocation = value.toLowerCase() === 'true';
+        break;
       case '--min-event-detection-confidence': {
         const parsed = parseFloat(value);
         if (isNaN(parsed) || parsed < 0 || parsed > 1) {
@@ -146,6 +163,14 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
           throw new Error(`Invalid value for --min-event-classification-confidence: "${value}". Must be between 0.0 and 1.0.`);
         }
         config.minEventClassificationConfidence = parsed;
+        break;
+      }
+      case '--min-location-confidence': {
+        const parsed = parseFloat(value);
+        if (isNaN(parsed) || parsed < 0 || parsed > 1) {
+          throw new Error(`Invalid value for --min-location-confidence: "${value}". Must be between 0.0 and 1.0.`);
+        }
+        config.minLocationConfidence = parsed;
         break;
       }
       case '--min-interest-confidence': {
@@ -184,6 +209,16 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
           );
         }
         config.scheduleExtractionBatchSize = parsed;
+        break;
+      }
+      case '--location-extraction-batch-size': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(
+            `Invalid value for --location-extraction-batch-size: "${value}". Must be a positive integer.`
+          );
+        }
+        config.locationExtractionBatchSize = parsed;
         break;
       }
       case '--event-description-batch-size': {

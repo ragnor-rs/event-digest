@@ -1,4 +1,4 @@
-import { DigestEvent } from '../domain/entities';
+import { DigestEvent, formatLocation } from '../domain/entities';
 import { IMessageSource } from '../domain/interfaces';
 import { IEventReporter } from './event-reporter.interface';
 import { Config } from '../config/types';
@@ -108,7 +108,11 @@ export class EventSender implements IEventReporter {
       const interests = event.interest_matches!.map((m) => m.interest).join(', ');
       const summary = event.event_description!.short_summary;
       const link = event.message.link;
-      // Duplicates were collapsed in step 7; keep their links so a merged event
+      // Omitted rather than shown as "unknown": an announcement that named no
+      // venue has nothing to print, and a placeholder line only adds noise.
+      const venue = event.event_location ? formatLocation(event.event_location) : '';
+      const where = venue ? `📍 ${venue}\n` : '';
+      // Duplicates were collapsed in step 8; keep their links so a merged event
       // still shows everywhere it was announced.
       const alsoIn = event.duplicate_sources?.length
         ? `\n↔️ also: ${event.duplicate_sources.map((m) => m.link).join(', ')}`
@@ -117,6 +121,7 @@ export class EventSender implements IEventReporter {
       return (
         `${globalIndex}. ${title}\n` +
         `📅 ${datetime}\n` +
+        where +
         `🏷️ ${interests}\n` +
         `📝 ${summary}\n` +
         `🔗 ${link}${alsoIn}`

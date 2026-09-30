@@ -12,12 +12,20 @@ export const DEFAULT_CONFIG = {
   // On by default: aggregator channels repost the same announcement, and a
   // duplicate in the digest is always a defect.
   deduplicateEvents: true,
+  // Empty by default: the location step still runs, so the digest gains a venue
+  // line without anyone having to declare which city they live in.
+  locationFilter: [] as string[],
+  // On by default: plenty of announcements assume the city, and dropping them
+  // costs more than the occasional out-of-town event it would have caught.
+  includeEventsWithoutLocation: true,
   minEventDetectionConfidence: 0.7,
   minEventClassificationConfidence: 0.7,
+  minLocationConfidence: 0.7,
   minInterestConfidence: 0.75,
   eventDetectionBatchSize: 16,
   eventClassificationBatchSize: 16,
   scheduleExtractionBatchSize: 16,
+  locationExtractionBatchSize: 16,
   eventDescriptionBatchSize: 3,
   sendEventsBatchSize: 5,
 
@@ -243,6 +251,43 @@ IMPORTANT:
 - For partial times like "18" assume "18:00"
 - Always ensure the event date is in the future relative to message timestamp
 - NEVER return just a time like "19:00" or just a number like "00" - always include the full date`,
+
+  locationExtractionPrompt: `Extract where each event takes place, and decide which of the wanted locations it falls in.
+
+WANTED LOCATIONS:
+{{LOCATIONS}}
+
+Messages:
+{{MESSAGES}}
+
+For each message, respond with ONE line in this EXACT pipe-separated format:
+MESSAGE_NUMBER|VENUE|ADDRESS|INDEX|CONFIDENCE
+
+- VENUE: the name of the place as written in the message (e.g. Fabrika, Impact Hub, Cafe Linville). Use "unknown" if no venue is named.
+- ADDRESS: the street address or district as written (e.g. Egnate Ninoshvili St 8, Vake). Use "unknown" if no address is given.
+- INDEX: the number of the wanted location this event is in, or -1 if it is in none of them, if the location cannot be determined, or if the wanted list is empty.
+- CONFIDENCE: 0.0-1.0, how certain you are about INDEX (not about the venue name).
+
+CRITICAL — a street address, venue or district almost never names its city. Use what you know about the world to resolve it:
+- "Rustaveli Ave 12" or "Fabrika" or "Vake" are in Tbilisi
+- "Batumi Blvd" is in Batumi
+- A venue you recognise resolves to the city it is in, even if the message never says the city
+- Only fall back to -1 when the message genuinely gives no usable place
+
+Use pipes ONLY as field separators. If a venue or address contains a pipe, replace it with a comma.
+Output ONLY these lines, one per message, no preamble and no commentary.
+
+CORRECT Examples (assuming 0: Tbilisi, 1: Batumi):
+1|Fabrika|Egnate Ninoshvili St 8|0|0.95
+2|unknown|Rustaveli Ave 12|0|0.85
+3|Black Sea Arena|Shekvetili|-1|0.90
+4|unknown|unknown|-1|0.0
+
+WRONG Examples (DO NOT USE):
+1: Fabrika, Tbilisi (wrong separator — use pipes!)
+2|Fabrika|Egnate Ninoshvili St 8 (missing INDEX and CONFIDENCE!)
+3|Tbilisi|Tbilisi|0|0.9 (the city is not a venue — use "unknown" when no venue is named)
+4|Fabrika|Egnate Ninoshvili St 8|Tbilisi|0.9 (INDEX must be a number, not a name!)`,
 
   eventDescriptionPrompt: `You will receive N numbered event messages. Output exactly N structured blocks — one per message, in input order. Do not stop until every numbered message has a block.
 

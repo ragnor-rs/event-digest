@@ -53,6 +53,10 @@ async function main() {
           // default keeps the signature it had before this option existed.
           options: config.includeEventsWithoutTime ? 'includeEventsWithoutTime' : undefined,
         },
+        event_locations: {
+          effort: getStepReasoningEffort(config, 'locationExtraction'),
+          prompt: config.locationExtractionPrompt ?? '',
+        },
         matching_interests: {
           effort: getStepReasoningEffort(config, 'interestMatching'),
           prompt: config.interestMatchingPrompt ?? '',

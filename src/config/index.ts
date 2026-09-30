@@ -50,17 +50,21 @@ Usage:
       --channels "channel1,channel2" \\
       --interests "Interest1,Interest2" \\
       --timeslots "6 14:00,0 14:00" \\
+      [--location-filter "Tbilisi,Batumi"] \\
       [--max-group-messages 200] \\
       [--max-channel-messages 100] \\
       [--skip-online-events true] \\
       [--write-debug-files false] \\
       [--verbose-logging false] \\
+      [--include-events-without-location true] \\
       [--min-event-detection-confidence 0.7] \\
       [--min-event-classification-confidence 0.7] \\
+      [--min-location-confidence 0.7] \\
       [--min-interest-confidence 0.75] \\
       [--event-detection-batch-size 16] \\
       [--event-classification-batch-size 16] \\
       [--schedule-extraction-batch-size 16] \\
+      [--location-extraction-batch-size 16] \\
       [--event-description-batch-size 3] \\
       [--reasoning-effort low] \\
       [--max-messages 100]

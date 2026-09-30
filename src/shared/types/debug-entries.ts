@@ -46,6 +46,25 @@ export interface DebugScheduleFilteringEntry {
   cached: boolean;
 }
 
+export interface DebugLocationFilteringEntry {
+  message: {
+    timestamp: Date;
+    content: string;
+    link: string;
+  };
+  event_type: string;
+  ai_prompt: string;
+  ai_response: string;
+  extracted_venue: string;
+  extracted_address: string;
+  /** Which configured location this fell in; empty when none matched */
+  matched_location: string;
+  confidence: number;
+  result: 'located' | 'discarded';
+  discard_reason?: string;
+  cached: boolean;
+}
+
 export interface DebugInterestMatchingEntry {
   message: {
     timestamp: Date;

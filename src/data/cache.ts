@@ -3,7 +3,13 @@ import fs from 'fs';
 import path from 'path';
 
 import { CachedEventDetection, CachedSchedule, ICache } from '../domain/interfaces';
-import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../domain/entities';
+import {
+  SourceMessage,
+  DigestEventDescription,
+  EventLocation,
+  EventTypeClassification,
+  InterestMatch,
+} from '../domain/entities';
 import { Logger } from '../shared/logger';
 
 /** The inputs that determine a step's cached result, beyond the message itself */
@@ -34,6 +40,7 @@ export interface CacheVariant {
     messages: StepSignature;
     event_type_classification: StepSignature;
     scheduled_events: StepSignature;
+    event_locations: StepSignature;
     matching_interests: StepSignature;
     events: StepSignature;
   };
@@ -50,15 +57,17 @@ export class Cache implements ICache {
     event_type_classification: string;
     matching_interests: string;
     scheduled_events: string;
+    event_locations: string;
     events: string;
   };
   private cache: {
     telegram_messages: Record<string, SourceMessage[]>; // source name -> source messages (step 1)
     messages: Record<string, CachedEventDetection>; // message link -> model verdict + score (step 3)
     event_type_classification: Record<string, EventTypeClassification>; // message link -> type + confidence (step 4)
-    matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 6)
+    matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 7)
     scheduled_events: Record<string, CachedSchedule | null>; // message link -> extracted schedule or null if unknown (step 5)
-    events: Record<string, DigestEventDescription>; // message link -> event description object (step 8)
+    event_locations: Record<string, EventLocation | null>; // message link -> venue/address or null if none stated (step 6)
+    events: Record<string, DigestEventDescription>; // message link -> event description object (step 9)
   };
 
   constructor(logger: Logger, variant: CacheVariant) {
@@ -69,6 +78,7 @@ export class Cache implements ICache {
       messages: signature(variant.steps.messages),
       event_type_classification: signature(variant.steps.event_type_classification),
       scheduled_events: signature(variant.steps.scheduled_events),
+      event_locations: signature(variant.steps.event_locations),
       matching_interests: signature(variant.steps.matching_interests),
       events: signature(variant.steps.events),
     };
@@ -79,6 +89,7 @@ export class Cache implements ICache {
       event_type_classification: path.join(this.cacheDir, 'event_type_classification.json'),
       matching_interests: path.join(this.cacheDir, 'matching_interests.json'),
       scheduled_events: path.join(this.cacheDir, 'scheduled_events.json'),
+      event_locations: path.join(this.cacheDir, 'event_locations.json'),
       events: path.join(this.cacheDir, 'events.json'),
     };
     this.cache = this.loadCache();
@@ -90,6 +101,7 @@ export class Cache implements ICache {
     event_type_classification: Record<string, EventTypeClassification>;
     matching_interests: Record<string, InterestMatch[]>;
     scheduled_events: Record<string, CachedSchedule | null>;
+    event_locations: Record<string, EventLocation | null>;
     events: Record<string, DigestEventDescription>;
   } {
     try {
@@ -106,6 +118,7 @@ export class Cache implements ICache {
       event_type_classification: this.loadCacheFile('event_type_classification', {}),
       matching_interests: this.loadCacheFile('matching_interests', {}),
       scheduled_events: this.loadCacheFile('scheduled_events', {}),
+      event_locations: this.loadCacheFile('event_locations', {}),
       events: this.loadCacheFile('events', {}),
     };
   }
@@ -202,6 +215,7 @@ export class Cache implements ICache {
       'event_type_classification',
       'matching_interests',
       'scheduled_events',
+      'event_locations',
       'events',
     ];
     const errors: string[] = [];
@@ -269,9 +283,9 @@ export class Cache implements ICache {
     }
   }
 
-  // Interest matching (step 6)
+  // Interest matching (step 7)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined {
-    const cacheKey = this.createInterestCacheKey('matching_interests', messageLink, userInterests);
+    const cacheKey = this.createListScopedKey('matching_interests', messageLink, 'interests', userInterests);
     return this.cache.matching_interests[cacheKey];
   }
 
@@ -281,7 +295,7 @@ export class Cache implements ICache {
     userInterests: string[],
     autoSave: boolean = true
   ): void {
-    const cacheKey = this.createInterestCacheKey('matching_interests', messageLink, userInterests);
+    const cacheKey = this.createListScopedKey('matching_interests', messageLink, 'interests', userInterests);
     this.cache.matching_interests[cacheKey] = interests;
     if (autoSave) {
       try {
@@ -293,20 +307,52 @@ export class Cache implements ICache {
     }
   }
 
-  private createInterestCacheKey(
-    store: 'matching_interests' | 'events',
+  /**
+   * Scopes a key to a configured list the model was shown. Interests and
+   * locations are both fed into their prompt, so a cached answer is only valid
+   * for the list that produced it — unlike a threshold, which is applied on read.
+   */
+  private createListScopedKey(
+    store: keyof CacheVariant['steps'],
     messageLink: string,
-    userInterests: string[]
+    label: string,
+    values: string[]
   ): string {
-    // Normalize interests: lowercase and sort alphabetically
-    const normalizedInterests = userInterests
-      .map((interest) => interest.toLowerCase().trim())
+    // Normalize: lowercase and sort alphabetically, so reordering the list in
+    // the config does not invalidate the cache
+    const normalized = values
+      .map((value) => value.toLowerCase().trim())
       .sort()
       .join(',');
 
-    // Hash the normalized interests for shorter, consistent cache keys
-    const preferencesHash = this.hashPreferences(normalizedInterests);
-    return this.variantKey(store, `${messageLink}|interests:${preferencesHash}`);
+    // Hash the normalized list for shorter, consistent cache keys
+    const preferencesHash = this.hashPreferences(normalized);
+    return this.variantKey(store, `${messageLink}|${label}:${preferencesHash}`);
+  }
+
+  // Location extraction and filtering (step 6)
+  getEventLocationCache(messageLink: string, locationFilter: string[]): EventLocation | null | undefined {
+    return this.cache.event_locations[
+      this.createListScopedKey('event_locations', messageLink, 'locations', locationFilter)
+    ];
+  }
+
+  cacheEventLocation(
+    messageLink: string,
+    location: EventLocation | null,
+    locationFilter: string[],
+    autoSave: boolean = true
+  ): void {
+    const cacheKey = this.createListScopedKey('event_locations', messageLink, 'locations', locationFilter);
+    this.cache.event_locations[cacheKey] = location;
+    if (autoSave) {
+      try {
+        this.saveCacheFile('event_locations');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
+    }
   }
 
   // Schedule filtering (datetime extraction) (step 5)
@@ -330,9 +376,9 @@ export class Cache implements ICache {
     }
   }
 
-  // Event conversion (step 8)
+  // Event conversion (step 9)
   getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined {
-    const cacheKey = this.createInterestCacheKey('events', messageLink, userInterests);
+    const cacheKey = this.createListScopedKey('events', messageLink, 'interests', userInterests);
     return this.cache.events[cacheKey];
   }
 
@@ -342,7 +388,7 @@ export class Cache implements ICache {
     userInterests: string[],
     autoSave: boolean = true
   ): void {
-    const cacheKey = this.createInterestCacheKey('events', messageLink, userInterests);
+    const cacheKey = this.createListScopedKey('events', messageLink, 'interests', userInterests);
     this.cache.events[cacheKey] = event;
     if (autoSave) {
       try {
@@ -361,6 +407,7 @@ export class Cache implements ICache {
     event_type_classification_cached: number;
     matching_interests_cached: number;
     scheduled_events_cached: number;
+    event_locations_cached: number;
     events_cached: number;
     total_cached: number;
   } {
@@ -374,6 +421,7 @@ export class Cache implements ICache {
       event_type_classification_cached: Object.keys(this.cache.event_type_classification).length,
       matching_interests_cached: Object.keys(this.cache.matching_interests).length,
       scheduled_events_cached: Object.keys(this.cache.scheduled_events).length,
+      event_locations_cached: Object.keys(this.cache.event_locations).length,
       events_cached: Object.keys(this.cache.events).length,
       total_cached:
         telegramMessagesCount +
@@ -381,6 +429,7 @@ export class Cache implements ICache {
         Object.keys(this.cache.event_type_classification).length +
         Object.keys(this.cache.matching_interests).length +
         Object.keys(this.cache.scheduled_events).length +
+        Object.keys(this.cache.event_locations).length +
         Object.keys(this.cache.events).length,
     };
   }

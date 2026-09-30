@@ -109,6 +109,34 @@ weeklyTimeslots:
   - "6 14:00"  # Saturday after 14:00
   - "0 14:00"  # Sunday after 14:00
 
+# Optional: Only keep events in these places (default: unset — no filtering)
+# The venue and address are extracted either way and shown on a 📍 line, so leaving
+# this unset still improves the digest; it only turns off the filter.
+#
+# The match is an AI judgement, not a string comparison, so you do not have to list
+# every neighbourhood or venue — a post reading "Fabrika, Egnate Ninoshvili St 8"
+# never says Tbilisi, but it resolves to it.
+#
+# TIPS:
+#   ❌ "Georgia" — a whole country matches everything, which is the same as no filter
+#   ❌ "Vake" — too narrow; it rejects the rest of the city the events are in
+#   ✅ "Tbilisi" — a city is the right granularity
+#   ✅ several cities, when you travel: ["Tbilisi", "Batumi"]
+#
+# Changing this list re-runs step 6, since the list is part of the prompt.
+# NOTE: enable writeDebugFiles: true to get debug/location_filtering.json, which
+#       shows the venue extracted for each event and why anything was dropped.
+# locationFilter:
+#   - "Tbilisi"
+
+# Optional: Keep events whose announcement named no place at all (default: true)
+# Plenty of announcements assume the city, and dropping them costs more than the
+# occasional out-of-town event it catches.
+# Turning this off also drops every ONLINE event, since a virtual event has no venue
+# to match — only relevant if you also set skipOnlineEvents: false.
+# Applied when reading the cache, so toggling it costs no AI calls.
+# includeEventsWithoutLocation: true
+
 # Optional: Maximum number of messages to fetch from groups
 # Groups typically have more conversational noise, so need more messages
 # Default: 200 (when only this value is unspecified but maxChannelMessages is specified)
@@ -131,7 +159,7 @@ weeklyTimeslots:
 
 # Optional: Write debug files (default: false)
 # When enabled, writes detailed debug files to debug/ directory
-# Files include: event_detection.json, event_classification.json, schedule_filtering.json, interest_matching.json, event_description.json
+# Files include: event_detection.json, event_classification.json, schedule_filtering.json, location_filtering.json, interest_matching.json, event_description.json
 # writeDebugFiles: false
 
 # Optional: Verbose logging (default: false)
@@ -152,7 +180,7 @@ weeklyTimeslots:
 # includeEventsWithoutTime: false
 
 # Optional: Collapse the same event announced by several sources (default: true)
-# Runs as step 7, before descriptions are generated, so merged-away copies cost no
+# Runs as step 8, before descriptions are generated, so merged-away copies cost no
 # AI calls. Compares events within a calendar day by word overlap on the source
 # message text, keeps the earliest posting, and lists the other links under it.
 # Near-verbatim cross-posts collapse; two independently written announcements of
@@ -174,6 +202,13 @@ weeklyTimeslots:
 # Lower values = more lenient classification
 # minEventClassificationConfidence: 0.7
 
+# Minimum confidence for location matching (default: 0.7)
+# Controls how sure the AI must be that an event is in one of your locationFilter
+# entries. Below this, the event is dropped rather than guessed at.
+# Has no effect when locationFilter is unset.
+# Applied when reading the cache, so retuning it costs no AI calls.
+# minLocationConfidence: 0.7
+
 # Minimum confidence for interest matching (default: 0.75)
 # Controls which interests are matched to events
 # Higher values (0.8-0.9) = fewer but more certain matches
@@ -187,7 +222,8 @@ weeklyTimeslots:
 # eventDetectionBatchSize: 16      # Step 3: Event detection
 # eventClassificationBatchSize: 16 # Step 4: Event type classification
 # scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
-# eventDescriptionBatchSize: 3     # Step 8: Event description generation
+# locationExtractionBatchSize: 16  # Step 6: Location extraction
+# eventDescriptionBatchSize: 3     # Step 9: Event description generation
 
 # Optional: Reasoning effort for AI calls (default: low)
 # One of: none, low, medium, high, xhigh
@@ -203,8 +239,9 @@ weeklyTimeslots:
 # eventDetectionReasoningEffort: none        # Step 3: Event detection
 # eventClassificationReasoningEffort: none   # Step 4: Event type classification
 # scheduleExtractionReasoningEffort: low     # Step 5: Schedule extraction
-# interestMatchingReasoningEffort: low       # Step 6: Interest matching
-# eventDescriptionReasoningEffort: low       # Step 8: Event description generation
+# locationExtractionReasoningEffort: low     # Step 6: Location extraction
+# interestMatchingReasoningEffort: low       # Step 7: Interest matching
+# eventDescriptionReasoningEffort: low       # Step 9: Event description generation
 
 # Optional: Send events to a Telegram recipient instead of printing to console
 # When configured, events will be sent as formatted messages to the specified recipient
@@ -368,6 +405,34 @@ weeklyTimeslots:
 #   EXACT format: MESSAGE_NUMBER: DD Mon YYYY HH:MM
 #   Examples: 1: 05 Dec 2024 19:30
 #   NEVER return just time like "19:30" - always include full date
+
+# Custom GPT prompt for location extraction and matching (optional)
+# Extracts the venue and address, and decides which locationFilter entry the event
+# is in. Runs as step 6.
+#
+# PLACEHOLDERS:
+#   {{LOCATIONS}} - numbered locationFilter entries: "0: Tbilisi\n1: Batumi"
+#                   (or "(none — extract only, always answer -1)" when unset)
+#   {{MESSAGES}} - numbered list: "1. text\n\n2. text"
+#
+# REQUIRED OUTPUT:
+#   Format: "MESSAGE_NUMBER|VENUE|ADDRESS|INDEX|CONFIDENCE" (one per line)
+#   Pipes, not colons: venue names and addresses contain colons
+#   VENUE / ADDRESS: as written in the message, or "unknown"
+#   INDEX: 0-based index into {{LOCATIONS}}, or -1 for "none of them / cannot tell"
+#   CONFIDENCE: 0.0-1.0, how certain about INDEX (not about the venue name)
+#   Example: "1|Fabrika|Egnate Ninoshvili St 8|0|0.95"
+#
+# EXAMPLE PROMPT:
+# locationExtractionPrompt: |
+#   Extract where each event is, and which wanted location it falls in.
+#   WANTED LOCATIONS:
+#   {{LOCATIONS}}
+#   {{MESSAGES}}
+#   EXACT format: MESSAGE_NUMBER|VENUE|ADDRESS|INDEX|CONFIDENCE
+#   A street address or venue rarely names its city - resolve it yourself.
+#   Use "unknown" for a missing venue or address, and -1 for no match.
+#   Example: 1|Fabrika|Egnate Ninoshvili St 8|0|0.95
 
 # Custom GPT prompt for event description generation (optional)
 # Converts event messages into structured titles and summaries

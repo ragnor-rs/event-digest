@@ -12,12 +12,13 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **Clean Architecture**: Domain-Driven Design with clear separation of concerns
 - **Smart Event Detection**: Uses GPT to identify genuine event announcements vs general messages
 - **Event Type Classification**: Classifies events as offline, online, or hybrid with intelligent location detection
+- **Location Filtering**: Extracts the venue and address, and optionally keeps only events in the places you name
 - **High-Accuracy Interest Matching**: Comprehensive GPT guidelines with mandatory matching rules and validation to prevent hallucinated interests
 - **Confidence Scoring**: Configurable threshold (default 0.75) ensures only high-quality interest matches
 - **Schedule Integration**: Filters events by your availability (day of week + time slots)
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
-- **Intelligent Caching**: Six-tier caching system reduces API costs by caching both Telegram messages and GPT results with preference-aware keys
+- **Intelligent Caching**: Seven-tier caching system reduces API costs by caching both Telegram messages and GPT results with preference-aware keys
 - **Incremental Message Fetching**: Uses minId parameter to fetch only messages with ID greater than last cached message ID
 - **Multi-Language Support**: Handles events in different languages with configurable cues
 - **Debug Mode**: Optional detailed debug files for troubleshooting and analysis
@@ -143,7 +144,8 @@ minInterestConfidence: 0.75
 eventDetectionBatchSize: 16      # Step 3: Event detection
 eventClassificationBatchSize: 16 # Step 4: Event type classification
 scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
-eventDescriptionBatchSize: 3     # Step 8: Event description generation
+locationExtractionBatchSize: 16  # Step 6: Location extraction
+eventDescriptionBatchSize: 3     # Step 9: Event description generation
 
 # Reasoning effort for GPT calls (default: low)
 # One of: none, low, medium, high, xhigh
@@ -195,19 +197,23 @@ npm run dev -- \
   --channels "city_events,local_announcements" \
   --interests "Technology,Music,Photography" \
   --timeslots "2 12:00,6 13:00,0 13:00" \
+  --location-filter "Tbilisi" \
   --max-group-messages 200 \
   --max-channel-messages 100 \
   --skip-online-events true \
   --write-debug-files false \
   --verbose-logging false \
   --include-events-without-time false \
+  --include-events-without-location true \
   --deduplicate-events true \
   --min-event-detection-confidence 0.7 \
   --min-event-classification-confidence 0.7 \
+  --min-location-confidence 0.7 \
   --min-interest-confidence 0.75 \
   --event-detection-batch-size 16 \
   --event-classification-batch-size 16 \
   --schedule-extraction-batch-size 16 \
+  --location-extraction-batch-size 16 \
   --event-description-batch-size 3 \
   --reasoning-effort low \
   --event-detection-reasoning-effort none \
@@ -280,11 +286,14 @@ See `config.example.yaml` for more examples and detailed guidance.
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
+- `locationFilter`/`--location-filter`: Only keep events in these places, e.g. `["Tbilisi", "Batumi"]` or `--location-filter "Tbilisi,Batumi"`. Unset means no filtering — step 6 still runs, so the venue is shown either way. The match is a model judgement, so a street address or venue name resolves to its city without you listing every neighbourhood (default: none)
+- `includeEventsWithoutLocation`/`--include-events-without-location`: Keep events whose announcement named no place at all. Turning this off also drops every online event, since a virtual event has no venue to match (default: true)
 - `includeEventsWithoutTime`/`--include-events-without-time`: Keep events whose date is known but whose time is not, shown as "27 Sep 2026 (time TBA)". They cannot be checked against `weeklyTimeslots`, so they bypass that filter. Toggling this re-runs step 5 (default: false)
 - `deduplicateEvents`/`--deduplicate-events`: Collapse the same event announced by several sources into one entry, by word overlap on the source posts (default: true)
 - **Confidence Thresholds** (optional - controls AI quality filtering):
   - `minEventDetectionConfidence`/`--min-event-detection-confidence`: Minimum confidence (0.0-1.0) for event detection; higher values = fewer but more certain events (default: 0.7)
   - `minEventClassificationConfidence`/`--min-event-classification-confidence`: Minimum confidence (0.0-1.0) for event type classification; higher values = stricter classification (default: 0.7)
+  - `minLocationConfidence`/`--min-location-confidence`: Minimum confidence (0.0-1.0) for the step 6 location match (default: 0.7)
   - `minInterestConfidence`/`--min-interest-confidence`: Minimum confidence (0.0-1.0) for interest matching; higher values = fewer but more certain matches (default: 0.75)
 - **GPT Batch Sizes** (optional - controls processing efficiency):
   - `eventDetectionBatchSize`/`--event-detection-batch-size`: Items per batch for event detection (default: 16)
@@ -293,14 +302,15 @@ See `config.example.yaml` for more examples and detailed guidance.
   - `eventDescriptionBatchSize`/`--event-description-batch-size`: Items per batch for event description generation (default: 3)
 - **Reasoning Effort** (optional - trades accuracy against cost and latency):
   - `reasoningEffort`/`--reasoning-effort`: Effort for every GPT step; one of `none`, `low`, `medium`, `high`, `xhigh` (default: `low`)
-  - Per-step overrides, each falling back to `reasoningEffort`: `eventDetectionReasoningEffort`/`--event-detection-reasoning-effort`, `eventClassificationReasoningEffort`/`--event-classification-reasoning-effort`, `scheduleExtractionReasoningEffort`/`--schedule-extraction-reasoning-effort`, `interestMatchingReasoningEffort`/`--interest-matching-reasoning-effort`, `eventDescriptionReasoningEffort`/`--event-description-reasoning-effort`
+  - Per-step overrides, each falling back to `reasoningEffort`: `eventDetectionReasoningEffort`/`--event-detection-reasoning-effort`, `eventClassificationReasoningEffort`/`--event-classification-reasoning-effort`, `scheduleExtractionReasoningEffort`/`--schedule-extraction-reasoning-effort`, `locationExtractionReasoningEffort`/`--location-extraction-reasoning-effort`, `interestMatchingReasoningEffort`/`--interest-matching-reasoning-effort`, `eventDescriptionReasoningEffort`/`--event-description-reasoning-effort`
   - Changing any of these invalidates the affected step's cache, so only that step re-runs
-- **Custom GPT Prompts** (optional, YAML only - all 5 AI steps configurable):
+- **Custom GPT Prompts** (optional, YAML only - all 6 AI steps configurable):
   - `eventDetectionPrompt`: Custom prompt for event detection (step 3) - uses `{{MESSAGES}}` placeholder
   - `eventTypeClassificationPrompt`: Custom prompt for event type classification (step 4) - uses `{{MESSAGES}}` placeholder
   - `scheduleExtractionPrompt`: Custom prompt for datetime extraction (step 5) - uses `{{TODAY_DATE}}`, `{{MESSAGES}}` placeholders
-  - `interestMatchingPrompt`: Custom prompt for interest matching (step 6) - uses `{{EVENTS}}`, `{{INTERESTS}}` placeholders
-  - `eventDescriptionPrompt`: Custom prompt for event description generation (step 8) - uses `{{EVENTS}}` placeholder
+  - `locationExtractionPrompt`: Custom prompt for venue extraction and location matching (step 6) - uses `{{LOCATIONS}}`, `{{MESSAGES}}` placeholders
+  - `interestMatchingPrompt`: Custom prompt for interest matching (step 7) - uses `{{EVENTS}}`, `{{INTERESTS}}` placeholders
+  - `eventDescriptionPrompt`: Custom prompt for event description generation (step 9) - uses `{{EVENTS}}` placeholder
   - See config.example.yaml for detailed documentation and examples
 - `sendEventsRecipient`/`--send-events-recipient`: Telegram recipient for event delivery (e.g., @username or chat ID); when set, events are sent instead of printed (default: none - prints to console)
 - `sendEventsBatchSize`/`--send-events-batch-size`: Number of events to send per Telegram message batch (default: 5)
@@ -343,16 +353,17 @@ The tool supports accessing both public and private channels/groups:
 
 ## How It Works
 
-The tool processes messages through an 8-step pipeline:
+The tool processes messages through a 9-step pipeline:
 
 1. **Fetch Messages** (`data/telegram-client.ts`) - Retrieves recent messages from specified Telegram sources
 2. **Event Cue Filter** (`domain/services/event-cues-filter.ts`) - Filters messages containing date/event keywords
 3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates DigestEvent objects with message field and event_detection_confidence (0.0-1.0 score)
 4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type_classification field (EventTypeClassification with type and confidence)
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field (Date object)
-6. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores)
-7. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry, keeping the earliest posting and listing the others in duplicate_sources. Uses no GPT calls, and runs before descriptions so duplicates never reach the describer
-8. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles and summaries using GPT, adds event_description field (DigestEventDescription type with title and short_summary)
+6. **Location Filtering** (`domain/services/location-matcher.ts`) - Extracts the venue and address with GPT, and when `locationFilter` is set, keeps only events in those places. The match is a model judgement, not a string comparison: a post reading "Fabrika, Egnate Ninoshvili St 8" never names Tbilisi. Adds event_location field (venue, address and the matched location)
+7. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores)
+8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry, keeping the earliest posting and listing the others in duplicate_sources. Uses no GPT calls, and runs before descriptions so duplicates never reach the describer
+9. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles and summaries using GPT, adds event_description field (DigestEventDescription type with title and short_summary)
 
 ## Architecture
 
@@ -366,7 +377,7 @@ src/
 │   ├── services/               # Business logic services (filtering, matching, etc.)
 │   └── constants.ts            # Domain constants (DATETIME_UNKNOWN)
 ├── application/                # Use case orchestration
-│   └── event-pipeline.ts       # 8-step pipeline orchestrator
+│   └── event-pipeline.ts       # 9-step pipeline orchestrator
 ├── data/                       # External systems (infrastructure layer)
 │   ├── openai-client.ts        # OpenAI API client
 │   ├── telegram-client.ts      # Telegram API client
@@ -413,6 +424,7 @@ When no `sendEventsRecipient` is configured (default behavior), events are print
 
 1. Tech Meetup
    📅 30 Sep 2025 19:00
+   📍 Impact Hub — Egnate Ninoshvili St 8
    🏷️ Technology
    📝 Monthly meetup for tech enthusiasts to share knowledge and network.
    🔗 https://t.me/tech_meetups/12345
@@ -429,12 +441,14 @@ When `sendEventsRecipient` is configured, events are sent as formatted Telegram 
 
 1. Tech Meetup
 📅 30 Sep 2025 19:00
+📍 Impact Hub — Egnate Ninoshvili St 8
 🏷️ Technology
 📝 Monthly meetup for tech enthusiasts to share knowledge and network.
 🔗 https://t.me/tech_meetups/12345
 
 2. Photography Workshop
 📅 01 Oct 2025 14:00
+📍 Fabrika
 🏷️ Photography (Street photography)
 📝 Learn street photography techniques with hands-on practice.
 🔗 https://t.me/city_events/67890
@@ -459,7 +473,7 @@ npm run dev
 
 - Uses gpt-6-luna, OpenAI's most cost-efficient tier, for optimal balance of speed, cost, and accuracy
 - `reasoningEffort` (default: `low`) trades accuracy against cost and latency, globally or per step
-- Intelligent six-tier caching prevents redundant API calls; GPT results are keyed by model and
+- Intelligent seven-tier caching prevents redundant API calls; GPT results are keyed by model and
   reasoning effort, so changing either re-runs only the affected steps
 - Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 3)
 - Individual processing for interest matching to ensure accurate validation
@@ -483,15 +497,16 @@ This creates five detailed JSON files in the `debug/` directory:
 - `event_detection.json`: GPT filtering to identify single event announcements (step 3)
 - `event_classification.json`: Event type detection (offline/online/hybrid) (step 4)
 - `schedule_filtering.json`: Schedule filtering and datetime extraction (step 5)
-- `interest_matching.json`: Interest matching decisions with GPT prompts/responses (step 6)
-- `event_description.json`: Event description generation with extracted titles and summaries (step 8)
+- `location_filtering.json`: Venue/address extraction and location matching, with a discard-reason histogram (step 6)
+- `interest_matching.json`: Interest matching decisions with GPT prompts/responses (step 7)
+- `event_description.json`: Event description generation with extracted titles and summaries (step 9)
 
 Each file includes:
 - GPT prompts and responses
 - Match/discard decisions
 - Cache hit statistics
 - Extraction success rates
-- Invalid interest warnings (step 6)
+- Invalid interest warnings (step 7)
 
 ## Contributing
 

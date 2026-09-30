@@ -1,4 +1,10 @@
-import { SourceMessage, DigestEventDescription, EventTypeClassification, InterestMatch } from '../entities';
+import {
+  SourceMessage,
+  DigestEventDescription,
+  EventLocation,
+  EventTypeClassification,
+  InterestMatch,
+} from '../entities';
 
 /**
  * Interface for cache operations
@@ -53,7 +59,16 @@ export interface ICache {
   getScheduledEventCache(messageLink: string): CachedSchedule | null | undefined;
   cacheScheduledEvent(messageLink: string, schedule: CachedSchedule | null, autoSave?: boolean): void;
 
-  // Interest matching (step 6)
+  // Location extraction and filtering (step 6)
+  getEventLocationCache(messageLink: string, locationFilter: string[]): EventLocation | null | undefined;
+  cacheEventLocation(
+    messageLink: string,
+    location: EventLocation | null,
+    locationFilter: string[],
+    autoSave?: boolean
+  ): void;
+
+  // Interest matching (step 7)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined;
   cacheMatchingInterests(
     messageLink: string,
@@ -62,7 +77,7 @@ export interface ICache {
     autoSave?: boolean
   ): void;
 
-  // Event conversion (step 8)
+  // Event conversion (step 9)
   getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined;
   cacheConvertedEvent(messageLink: string, event: DigestEventDescription, userInterests: string[], autoSave?: boolean): void;
 
@@ -73,6 +88,7 @@ export interface ICache {
     event_type_classification_cached: number;
     matching_interests_cached: number;
     scheduled_events_cached: number;
+    event_locations_cached: number;
     events_cached: number;
     total_cached: number;
   };

@@ -1,4 +1,4 @@
-import { DigestEvent } from '../domain/entities';
+import { DigestEvent, formatLocation } from '../domain/entities';
 import { IEventReporter } from './event-reporter.interface';
 import { formatEventDateTime } from '../shared/date-utils';
 
@@ -61,6 +61,12 @@ export class EventPrinter implements IEventReporter {
     sortedEvents.forEach((event, index) => {
       console.log(`${index + 1}. ${event.event_description!.title}`);
       console.log(`   📅 ${formatEventDateTime(event.start_datetime!, event.start_time_known !== false)}`);
+      // Omitted rather than shown as "unknown": an announcement that named no
+      // venue has nothing to print, and a placeholder line only adds noise.
+      const where = event.event_location ? formatLocation(event.event_location) : '';
+      if (where) {
+        console.log(`   📍 ${where}`);
+      }
       console.log(`   🏷️ ${event.interest_matches!.map((m) => m.interest).join(', ')}`);
       console.log(`   📝 ${event.event_description!.short_summary}`);
       console.log(`   🔗 ${event.message.link}`);

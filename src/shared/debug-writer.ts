@@ -5,6 +5,7 @@ import {
   DebugEventDetectionEntry,
   DebugTypeClassificationEntry,
   DebugScheduleFilteringEntry,
+  DebugLocationFilteringEntry,
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
 } from './types';
@@ -15,6 +16,7 @@ export class DebugWriter {
   private eventDetectionEntries: DebugEventDetectionEntry[] = [];
   private typeClassificationEntries: DebugTypeClassificationEntry[] = [];
   private scheduleFilteringEntries: DebugScheduleFilteringEntry[] = [];
+  private locationFilteringEntries: DebugLocationFilteringEntry[] = [];
   private interestMatchingEntries: DebugInterestMatchingEntry[] = [];
   private eventDescriptionEntries: DebugEventDescriptionEntry[] = [];
   private logger: Logger;
@@ -40,6 +42,10 @@ export class DebugWriter {
     this.scheduleFilteringEntries.push(entry);
   }
 
+  addLocationFilteringEntry(entry: DebugLocationFilteringEntry): void {
+    this.locationFilteringEntries.push(entry);
+  }
+
   addInterestMatchingEntry(entry: DebugInterestMatchingEntry): void {
     this.interestMatchingEntries.push(entry);
   }
@@ -51,6 +57,7 @@ export class DebugWriter {
   writeAll(): void {
     this.writeTypeClassification();
     this.writeScheduleFiltering();
+    this.writeLocationFiltering();
     this.writeInterestMatching();
     this.writeEventDescription();
     this.logger.log(`Debug files written to ${this.debugDir}/ directory`);
@@ -109,7 +116,7 @@ export class DebugWriter {
         scheduled: this.scheduleFilteringEntries.filter((e) => e.result === 'scheduled').length,
         discarded: this.scheduleFilteringEntries.filter((e) => e.result === 'discarded').length,
       },
-      discard_reasons: this.getScheduleFilteringDiscardReasons(),
+      discard_reasons: this.countDiscardReasons(this.scheduleFilteringEntries),
       cache_stats: {
         cached: this.scheduleFilteringEntries.filter((e) => e.cached).length,
         uncached: this.scheduleFilteringEntries.filter((e) => !e.cached).length,
@@ -138,9 +145,29 @@ export class DebugWriter {
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
-  private getScheduleFilteringDiscardReasons(): Record<string, number> {
+  private writeLocationFiltering(): void {
+    const filename = path.join(this.debugDir, 'location_filtering.json');
+    const data = {
+      step: 'Location Filtering',
+      description: 'AI venue/address extraction and matching against the configured locations',
+      total_entries: this.locationFilteringEntries.length,
+      result_counts: {
+        located: this.locationFilteringEntries.filter((e) => e.result === 'located').length,
+        discarded: this.locationFilteringEntries.filter((e) => e.result === 'discarded').length,
+      },
+      discard_reasons: this.countDiscardReasons(this.locationFilteringEntries),
+      cache_stats: {
+        cached: this.locationFilteringEntries.filter((e) => e.cached).length,
+        uncached: this.locationFilteringEntries.filter((e) => !e.cached).length,
+      },
+      entries: this.locationFilteringEntries,
+    };
+    fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+  }
+
+  private countDiscardReasons(entries: Array<{ result: string; discard_reason?: string }>): Record<string, number> {
     const reasons: Record<string, number> = {};
-    this.scheduleFilteringEntries
+    entries
       .filter((e) => e.result === 'discarded' && e.discard_reason)
       .forEach((e) => {
         const reason = e.discard_reason!;
