@@ -2,17 +2,16 @@ import fs from 'fs';
 import path from 'path';
 
 import bigInt from 'big-integer';
-import { TelegramClient as GramJSClient } from 'telegram';
+import { TelegramClient as GramJSClient, Api } from 'telegram';
+import { Username } from 'telegram/define';
 import { StringSession } from 'telegram/sessions';
-import { Api } from 'telegram';
 import { Dialog } from 'telegram/tl/custom/dialog';
 
-import { ICache, IMessageSource } from '../domain/interfaces';
+import { EntityCache } from './entity-cache';
 import { SourceMessage } from '../domain/entities';
+import { ICache, IMessageSource } from '../domain/interfaces';
 import { Logger } from '../shared/logger';
 import { promptForPassword, promptForCode } from '../shared/readline-helper';
-import { Username } from 'telegram/define';
-import { EntityCache } from './entity-cache';
 
 const TELEGRAM_DISCONNECT_DELAY_MS = 100; // ms to wait before disconnect
 
@@ -155,7 +154,7 @@ export class TelegramClient implements IMessageSource {
             actualName = `c/${entity.id}`;
           }
 
-          let displayName: string | undefined = dialog.title
+          let displayName: string | undefined = dialog.title;
 
           return { entity, actualName, displayName };
         }
@@ -186,11 +185,11 @@ export class TelegramClient implements IMessageSource {
     const isUsername = sourceName.startsWith('@');
 
     let entity: Api.TypeEntityLike;
-    let actualSourceName: String;
-  
+    let actualSourceName: string;
+
     // Determine how to fetch the entity
     if (isUsername) {
-      actualSourceName = sourceName.slice(1)
+      actualSourceName = sourceName.slice(1);
       // Username provided, use cache-first lookup to avoid contacts.ResolveUsername floods.
       // A bad handle must not abort the run: this resolve happens before the fetch
       // try/catch, so one typo or deleted channel would otherwise kill every
@@ -322,9 +321,7 @@ export class TelegramClient implements IMessageSource {
       allMessages.push(...messages);
     }
 
-    const sortedMessages = allMessages.sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-    );
+    const sortedMessages = allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     this.logger.log(`  Fetched ${sortedMessages.length} total messages`);
     this.reportDeadSources();
@@ -356,10 +353,13 @@ export class TelegramClient implements IMessageSource {
       // entity cache is only needed for the channel-fetch burst.
       const entity = await this.client.getEntity(cleanRecipient);
 
-      // Send the message with link preview disabled
+      // Send the message with link preview disabled. HTML parse mode lets the
+      // caller hide a long URL behind a label; it also means the caller owns
+      // escaping, since an unescaped "&" or "<" makes Telegram reject the send.
       await this.client.sendMessage(entity, {
         message,
-        linkPreview: false
+        linkPreview: false,
+        parseMode: 'html',
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

@@ -1,8 +1,7 @@
-import { REASONING_EFFORTS, ReasoningEffort } from '../domain/interfaces';
-
 import { GROUP_MESSAGE_MULTIPLIER } from './constants';
 import { DEFAULT_CONFIG } from './defaults';
 import { Config } from './types';
+import { REASONING_EFFORTS, ReasoningEffort } from '../domain/interfaces';
 
 /** Per-step reasoning effort overrides, in pipeline order */
 const REASONING_EFFORT_OVERRIDES = [
@@ -43,9 +42,7 @@ export function getStepReasoningEffort(config: Config, step: ReasoningStep): Rea
 
 function assertValidReasoningEffort(fieldName: string, value: unknown): void {
   if (!REASONING_EFFORTS.includes(value as ReasoningEffort)) {
-    throw new Error(
-      `Invalid value for ${fieldName}: "${value}". Must be one of: ${REASONING_EFFORTS.join(', ')}`
-    );
+    throw new Error(`Invalid value for ${fieldName}: "${value}". Must be one of: ${REASONING_EFFORTS.join(', ')}`);
   }
 }
 
@@ -253,9 +250,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   console.log(
     `  includeEventsWithoutTime: ${finalConfig.includeEventsWithoutTime}${!providedIncludeEventsWithoutTime ? ' (default)' : ''}`
   );
-  console.log(
-    `  deduplicateEvents: ${finalConfig.deduplicateEvents}${!providedDeduplicateEvents ? ' (default)' : ''}`
-  );
+  console.log(`  deduplicateEvents: ${finalConfig.deduplicateEvents}${!providedDeduplicateEvents ? ' (default)' : ''}`);
   console.log(
     `  locationFilter: ${finalConfig.locationFilter.length > 0 ? `${finalConfig.locationFilter.length} specified` : 'not set (no filtering)'}`
   );
@@ -294,9 +289,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     .map((field) => `${field}=${finalConfig[field]}`)
     .join(', ');
   console.log(`  reasoningEffort overrides: ${effortOverrides || 'none'}`);
-  console.log(
-    `  sendEventsRecipient: ${finalConfig.sendEventsRecipient || 'not set (print to console)'}`
-  );
+  console.log(`  sendEventsRecipient: ${finalConfig.sendEventsRecipient || 'not set (print to console)'}`);
   console.log(
     `  sendEventsBatchSize: ${finalConfig.sendEventsBatchSize}${!providedSendEventsBatchSize ? ' (default)' : ''}`
   );

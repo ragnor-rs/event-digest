@@ -56,7 +56,9 @@ Usage:
       [--skip-online-events true] \\
       [--write-debug-files false] \\
       [--verbose-logging false] \\
+      [--include-events-without-time true] \\
       [--include-events-without-location true] \\
+      [--deduplicate-events true] \\
       [--min-event-detection-confidence 0.7] \\
       [--min-event-classification-confidence 0.7] \\
       [--min-location-confidence 0.7] \\
@@ -67,6 +69,8 @@ Usage:
       [--location-extraction-batch-size 16] \\
       [--event-description-batch-size 3] \\
       [--reasoning-effort low] \\
+      [--send-events-recipient "@myusername"] \\
+      [--send-events-batch-size 5] \\
       [--max-messages 100]
 
   Option 3 - Default config file (config.yaml or config.yml in project root)

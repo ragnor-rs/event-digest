@@ -177,9 +177,7 @@ export async function detectEventAnnouncements(
         );
       }
       if (duplicateIndices.length > 0) {
-        logger.verbose(
-          `    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`
-        );
+        logger.verbose(`    WARNING: AI returned duplicate indices: ${duplicateIndices.join(', ')}`);
       }
       if (malformedLines.length > 0) {
         logger.verbose(

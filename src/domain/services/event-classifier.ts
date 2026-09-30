@@ -6,6 +6,14 @@ import { createBatches } from '../../shared/batch-processor';
 import { Logger } from '../../shared/logger';
 import { DigestEvent, AttendanceMode } from '../entities';
 
+/**
+ * Stand-in confidence for an event the model returned no line for. Deliberately
+ * low: "assume offline" is a guess, and recording it as a certainty would let it
+ * outrank verdicts the model actually made. Under the default threshold it does
+ * not survive, which is the honest outcome for an unanswered event.
+ */
+const FALLBACK_CLASSIFICATION_CONFIDENCE = 0.5;
+
 export async function classifyEventTypes(
   events: DigestEvent[],
   config: Config,
@@ -30,8 +38,33 @@ export async function classifyEventTypes(
     if (cachedClassification !== undefined) {
       cacheHits++;
 
-      // Check if we should include this event based on skipOnlineEvents
-      if (cachedClassification.type === AttendanceMode.ONLINE && config.skipOnlineEvents) {
+      // The store holds the model's verdict, so the threshold is applied here on
+      // read. That is what lets it be retuned without re-running GPT — and it
+      // has to be applied, or a cached low-confidence verdict would be admitted
+      // where a fresh one is rejected.
+      if (cachedClassification.confidence < config.minEventClassificationConfidence) {
+        logger.verbose(
+          `    ✗ Discarded: ${event.message.link} [${cachedClassification.type}] - classification confidence ${cachedClassification.confidence.toFixed(2)} below threshold ${config.minEventClassificationConfidence} (cached)`
+        );
+        debugEntries.push({
+          message: {
+            timestamp: event.message.timestamp,
+            content: event.message.content,
+            link: event.message.link,
+          },
+          ai_prompt: '[CACHED]',
+          ai_response: `[CACHED: ${cachedClassification.type}, confidence: ${cachedClassification.confidence}]`,
+          type_classifications: [
+            {
+              type: cachedClassification.type as 'offline' | 'online' | 'hybrid',
+              confidence: cachedClassification.confidence,
+            },
+          ],
+          result: 'discarded',
+          cached: true,
+        });
+      } else if (cachedClassification.type === AttendanceMode.ONLINE && config.skipOnlineEvents) {
+        // Check if we should include this event based on skipOnlineEvents
         logger.verbose(
           `    ✗ Discarded: ${event.message.link} [${cachedClassification.type}] - skipping online events (cached)`
         );
@@ -163,6 +196,13 @@ export async function classifyEventTypes(
 
           const classification = { type: eventType, confidence };
 
+          // Cache the verdict the model gave, before any threshold is applied to
+          // it. minEventClassificationConfidence is policy, not model output, so
+          // caching the decision instead would re-ask GPT for every event the
+          // threshold rejected and let the answer drift between runs.
+          cache.cacheEventType(chunk[messageIdx].message.link, classification, false);
+          processedIndices.add(messageIdx);
+
           // Filter by minimum confidence threshold
           if (confidence < config.minEventClassificationConfidence) {
             lowConfidenceFiltered.push({ messageNum, confidence });
@@ -181,13 +221,8 @@ export async function classifyEventTypes(
               result: 'discarded',
               cached: false,
             });
-            processedIndices.add(messageIdx);
             continue;
           }
-
-          // Cache the result
-          cache.cacheEventType(chunk[messageIdx].message.link, classification, false);
-          processedIndices.add(messageIdx);
 
           // Check if we should include this event
           if (eventType === AttendanceMode.ONLINE && config.skipOnlineEvents) {
@@ -253,12 +288,18 @@ export async function classifyEventTypes(
     for (let idx = 0; idx < chunk.length; idx++) {
       if (!processedIndices.has(idx)) {
         logger.verbose(`    WARNING: ${chunk[idx].message.link} - no classification received, defaulting to offline`);
-        const classification = { type: AttendanceMode.OFFLINE, confidence: 0.5 };
+        const classification = { type: AttendanceMode.OFFLINE, confidence: FALLBACK_CLASSIFICATION_CONFIDENCE };
         cache.cacheEventType(chunk[idx].message.link, classification, false);
-        classifiedEvents.push({
-          ...chunk[idx],
-          event_type_classification: classification,
-        });
+        // Judged against the threshold like any other verdict. Admitting it here
+        // while the cached read path rejected it is what made the step's output
+        // depend on whether it had run before.
+        const kept = classification.confidence >= config.minEventClassificationConfidence;
+        if (kept) {
+          classifiedEvents.push({
+            ...chunk[idx],
+            event_type_classification: classification,
+          });
+        }
         debugEntries.push({
           message: {
             timestamp: chunk[idx].message.timestamp,
@@ -267,8 +308,8 @@ export async function classifyEventTypes(
           },
           ai_prompt: prompt,
           ai_response: result || '[NO RESPONSE]',
-          type_classifications: [{ type: 'offline', confidence: 0.5 }],
-          result: 'matched',
+          type_classifications: [{ type: 'offline', confidence: FALLBACK_CLASSIFICATION_CONFIDENCE }],
+          result: kept ? 'matched' : 'discarded',
           cached: false,
         });
       }

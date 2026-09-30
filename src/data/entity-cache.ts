@@ -20,9 +20,7 @@ export class EntityCache {
       fs.mkdirSync(cacheDir, { recursive: true });
     }
     this.filePath = path.join(cacheDir, 'resolved_entities.json');
-    this.cache = fs.existsSync(this.filePath)
-      ? JSON.parse(fs.readFileSync(this.filePath, 'utf-8'))
-      : {};
+    this.cache = fs.existsSync(this.filePath) ? JSON.parse(fs.readFileSync(this.filePath, 'utf-8')) : {};
   }
 
   get(username: string): CachedChannel | undefined {

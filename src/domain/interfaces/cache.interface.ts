@@ -79,7 +79,12 @@ export interface ICache {
 
   // Event conversion (step 9)
   getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined;
-  cacheConvertedEvent(messageLink: string, event: DigestEventDescription, userInterests: string[], autoSave?: boolean): void;
+  cacheConvertedEvent(
+    messageLink: string,
+    event: DigestEventDescription,
+    userInterests: string[],
+    autoSave?: boolean
+  ): void;
 
   // Cache statistics
   getStats(): {

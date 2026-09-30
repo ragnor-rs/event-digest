@@ -1,9 +1,11 @@
+import { buildGoogleCalendarUrl } from './calendar-link';
+import { IEventReporter } from './event-reporter.interface';
+import { escapeHtml } from './html-escape';
+import { Config } from '../config/types';
 import { DigestEvent, formatLocation } from '../domain/entities';
 import { IMessageSource } from '../domain/interfaces';
-import { IEventReporter } from './event-reporter.interface';
-import { Config } from '../config/types';
+import { delay, Logger, RATE_LIMIT_DELAY } from '../shared';
 import { formatEventDateTime } from '../shared/date-utils';
-import { Logger } from '../shared';
 
 /**
  * Sends events as messages to a specified recipient in batches
@@ -83,6 +85,13 @@ export class EventSender implements IEventReporter {
         this.logger.error(`Failed to send batch ${batchIndex + 1}/${batches.length}`, error);
         throw error;
       }
+
+      // Space the batches out so a multi-message digest does not arrive as a
+      // burst, which is what Telegram rate-limits on. Skipped after the last
+      // batch: there is nothing following it to be spaced from.
+      if (batchIndex < batches.length - 1) {
+        await delay(RATE_LIMIT_DELAY);
+      }
     }
 
     this.logger.log('All events sent successfully');
@@ -97,35 +106,36 @@ export class EventSender implements IEventReporter {
       month: 'long',
       day: 'numeric',
     });
-    const header = totalBatches > 1
-      ? `📅 EVENT DIGEST (${today}) — Batch ${batchIndex + 1}/${totalBatches}\n\n`
-      : `📅 EVENT DIGEST (${today})\n\n`;
+    const header =
+      totalBatches > 1
+        ? `EVENT DIGEST (${today}) — Batch ${batchIndex + 1}/${totalBatches}\n\n`
+        : `EVENT DIGEST (${today})\n\n`;
 
+    // Every interpolated value below is escaped: the message is sent in HTML
+    // parse mode so the calendar URL can hide behind a label, which makes any
+    // stray "&" or "<" in a title, summary or venue name a parse error that
+    // would cost the whole batch.
     const eventTexts = events.map((event, index) => {
       const globalIndex = batchIndex * this.config.sendEventsBatchSize + index + 1;
-      const title = event.event_description!.title;
-      const datetime = formatEventDateTime(event.start_datetime!, event.start_time_known !== false);
-      const interests = event.interest_matches!.map((m) => m.interest).join(', ');
-      const summary = event.event_description!.short_summary;
-      const link = event.message.link;
+      const datetime = escapeHtml(formatEventDateTime(event.start_datetime!, event.start_time_known !== false));
+      const summary = escapeHtml(event.event_description!.short_summary);
+      // The title carries the link to the announcement, which is why there is no
+      // separate 🔗 line. It points at the posting the digest kept; where step 8
+      // merged several, the others are not linked — one obvious target beats a
+      // row of numbered ones, and they are copies of what this already opens.
+      const title = `<a href="${escapeHtml(event.message.link)}">${escapeHtml(event.event_description!.title)}</a>`;
       // Omitted rather than shown as "unknown": an announcement that named no
       // venue has nothing to print, and a placeholder line only adds noise.
-      const venue = event.event_location ? formatLocation(event.event_location) : '';
+      const venue = event.event_location ? escapeHtml(formatLocation(event.event_location)) : '';
       const where = venue ? `📍 ${venue}\n` : '';
-      // Duplicates were collapsed in step 8; keep their links so a merged event
-      // still shows everywhere it was announced.
-      const alsoIn = event.duplicate_sources?.length
-        ? `\n↔️ also: ${event.duplicate_sources.map((m) => m.link).join(', ')}`
-        : '';
+      // The calendar URL is ~250 characters of query string, so it hides too.
+      const calendar = `<a href="${escapeHtml(buildGoogleCalendarUrl(event))}">Add to calendar</a>`;
 
-      return (
-        `${globalIndex}. ${title}\n` +
-        `📅 ${datetime}\n` +
-        where +
-        `🏷️ ${interests}\n` +
-        `📝 ${summary}\n` +
-        `🔗 ${link}${alsoIn}`
-      );
+      // The matched interests are not shown: they say why the event was selected,
+      // which is the reader's own configuration told back to them. They are still
+      // required above, and the console reporter still prints them, where the
+      // question of what step 7 matched is the point.
+      return `${globalIndex}. ${title}\n` + `📅 ${datetime}\n` + where + `📝 ${summary}\n` + `➕ ${calendar}`;
     });
 
     return header + eventTexts.join('\n\n');

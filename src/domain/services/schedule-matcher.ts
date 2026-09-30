@@ -58,6 +58,42 @@ function isValidEventDateTime(
 }
 
 /**
+ * Records an event the step could not date at all.
+ *
+ * Every event handed to this step has to come back accounted for, whether it was
+ * admitted or dropped: the debug entry is what separates "the post states no
+ * date" from an event that fell through a gap, and it is the only reason the
+ * totals in schedule_filtering.json reconcile with the count the step logged.
+ * Emitting it is easy to forget because the discard is the quiet path — the
+ * cache write happens either way, so a missing entry costs no GPT calls and
+ * shows up only as an event that vanished without explanation.
+ */
+function recordNoDateFound(
+  event: DigestEvent,
+  aiPrompt: string,
+  aiResponse: string,
+  cached: boolean,
+  logger: Logger,
+  debugEntries: DebugScheduleFilteringEntry[]
+): void {
+  logger.verbose(`    ✗ Discarded: ${event.message.link} - no date/time found${cached ? ' (cached)' : ''}`);
+  debugEntries.push({
+    message: {
+      timestamp: event.message.timestamp,
+      content: event.message.content,
+      link: event.message.link,
+    },
+    event_type: event.event_type_classification!.type,
+    ai_prompt: aiPrompt,
+    ai_response: aiResponse,
+    extracted_datetime: DATETIME_UNKNOWN,
+    result: 'discarded',
+    discard_reason: 'no date/time found',
+    cached,
+  });
+}
+
+/**
  * Processes a single cached event entry and validates it against current schedule
  */
 function processCachedEvent(
@@ -68,8 +104,9 @@ function processCachedEvent(
   debugEntries: DebugScheduleFilteringEntry[]
 ): DigestEvent | null {
   try {
-    // If cached as null (unknown datetime), return null to discard
+    // Cached as null: the extraction found no date in this post at all.
     if (cachedSchedule === null) {
+      recordNoDateFound(event, '[CACHED]', '[CACHED: no date/time found]', true, logger, debugEntries);
       return null;
     }
 
@@ -363,12 +400,12 @@ export async function filterBySchedule(
   }
 
   if (cacheHits > 0) {
-    logger.verbose(`  Cache hits: ${cacheHits}/${events.length} messages`);
+    logger.verbose(`  Cache hits: ${cacheHits}/${events.length} events`);
   }
 
   if (uncachedEvents.length === 0) {
-    logger.verbose(`  All messages cached, skipping AI calls`);
-    logger.log(`  Found ${scheduledEvents.length} messages matching schedule`);
+    logger.verbose(`  All events cached, skipping AI calls`);
+    logger.log(`  Found ${scheduledEvents.length} events matching schedule`);
     return scheduledEvents;
   }
 
@@ -376,7 +413,7 @@ export async function filterBySchedule(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    logger.verbose(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
+    logger.verbose(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
 
     const messagesText = chunk
       .map((event, idx) => {
@@ -416,63 +453,42 @@ export async function filterBySchedule(
             false
           );
           processedMessages.add(messageIdx);
-        }
 
-        if (messageIdx >= 0 && messageIdx < chunk.length && dateTime !== DATETIME_UNKNOWN) {
-          processExtractedDateTime(
-            chunk[messageIdx],
-            dateTime,
-            prompt,
-            result,
-            config,
-            cache,
-            logger,
-            debugEntries,
-            scheduledEvents
-          );
+          // "unknown" is a decided answer — the post names no date — so it is
+          // recorded here rather than left to the unprocessed sweep below, which
+          // this index no longer reaches. An unparseable answer is a different
+          // thing and processExtractedDateTime reports it as a parse failure.
+          if (dateTime === DATETIME_UNKNOWN) {
+            recordNoDateFound(chunk[messageIdx], prompt, result, false, logger, debugEntries);
+          } else {
+            processExtractedDateTime(
+              chunk[messageIdx],
+              dateTime,
+              prompt,
+              result,
+              config,
+              cache,
+              logger,
+              debugEntries,
+              scheduledEvents
+            );
+          }
         }
       }
 
-      // Cache null for unprocessed messages (unknown datetime)
+      // A line the model omitted from an otherwise good answer is treated as
+      // "no date in this post" and cached as such.
       for (let idx = 0; idx < chunk.length; idx++) {
         if (!processedMessages.has(idx)) {
-          logger.verbose(`    ✗ Discarded: ${chunk[idx].message.link} - no date/time found`);
           cache.cacheScheduledEvent(chunk[idx].message.link, null, false);
-          debugEntries.push({
-            message: {
-              timestamp: chunk[idx].message.timestamp,
-              content: chunk[idx].message.content,
-              link: chunk[idx].message.link,
-            },
-            event_type: chunk[idx].event_type_classification!.type,
-            ai_prompt: prompt,
-            ai_response: result || '',
-            extracted_datetime: DATETIME_UNKNOWN,
-            result: 'discarded',
-            discard_reason: 'no date/time found',
-            cached: false,
-          });
+          recordNoDateFound(chunk[idx], prompt, result, false, logger, debugEntries);
         }
       }
     } else {
       // No results from AI, cache as null (unknown)
       for (const event of chunk) {
-        logger.verbose(`    ✗ Discarded: ${event.message.link} - no date/time found`);
         cache.cacheScheduledEvent(event.message.link, null, false);
-        debugEntries.push({
-          message: {
-            timestamp: event.message.timestamp,
-            content: event.message.content,
-            link: event.message.link,
-          },
-          event_type: event.event_type_classification!.type,
-          ai_prompt: prompt,
-          ai_response: result || '[NO RESPONSE]',
-          extracted_datetime: DATETIME_UNKNOWN,
-          result: 'discarded',
-          discard_reason: 'no date/time found',
-          cached: false,
-        });
+        recordNoDateFound(event, prompt, '[NO RESPONSE]', false, logger, debugEntries);
       }
     }
 
@@ -480,6 +496,6 @@ export async function filterBySchedule(
     cache.save();
   }
 
-  logger.log(`  Found ${scheduledEvents.length} messages matching schedule`);
+  logger.log(`  Found ${scheduledEvents.length} events matching schedule`);
   return scheduledEvents;
 }

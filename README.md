@@ -15,7 +15,9 @@ This tool fetches messages from specified Telegram groups and channels, then use
 - **Location Filtering**: Extracts the venue and address, and optionally keeps only events in the places you name
 - **High-Accuracy Interest Matching**: Comprehensive GPT guidelines with mandatory matching rules and validation to prevent hallucinated interests
 - **Confidence Scoring**: Configurable threshold (default 0.75) ensures only high-quality interest matches
-- **Schedule Integration**: Filters events by your availability (day of week + time slots)
+- **Schedule Integration**: Filters events by your availability (day of week + time slots), keeping date-known/time-unknown events as "(time TBA)"
+- **Deduplication**: Collapses the same event reposted by several sources into one entry, linking the earliest posting
+- **Add to Calendar**: Every event carries a Google Calendar prefill link — no API key, OAuth or setup
 - **Online Event Filtering**: Option to skip online-only events while including hybrid events
 - **Persistent Authentication**: Automatic Telegram session management after initial setup
 - **Intelligent Caching**: Seven-tier caching system reduces API costs by caching both Telegram messages and GPT results with preference-aware keys
@@ -99,7 +101,8 @@ weeklyTimeslots:
 maxGroupMessages: 200
 
 # Maximum number of messages to fetch from channels
-# Default: 100
+# Default: 100 (when maxGroupMessages is specified)
+#          200 (when both limits unspecified, from the legacy maxInputMessages path)
 maxChannelMessages: 100
 
 # Skip online-only events (default: true)
@@ -122,6 +125,15 @@ includeEventsWithoutTime: true
 # Collapse the same event announced by several sources (default: true)
 deduplicateEvents: true
 
+# Places whose events you want (default: empty, meaning no filtering)
+# The venue and address are extracted for display either way
+locationFilter:
+  - "Tbilisi"
+
+# Keep events whose announcement named no place at all (default: true)
+# Turning this off also drops every online event, which has no venue to match
+includeEventsWithoutLocation: true
+
 # Minimum confidence thresholds for AI filtering (0.0-1.0)
 # GPT assigns confidence scores to predictions; only results above threshold are included
 
@@ -131,7 +143,12 @@ minEventDetectionConfidence: 0.7
 
 # Minimum confidence for event type classification (default: 0.7)
 # Controls confidence in offline/online/hybrid classification
+# Applied on read, so retuning it re-judges cached verdicts with no GPT calls
 minEventClassificationConfidence: 0.7
+
+# Minimum confidence for the location match (default: 0.7)
+# Applied on read, so retuning it re-judges cached results with no GPT calls
+minLocationConfidence: 0.7
 
 # Minimum confidence for interest matching (default: 0.75)
 # GPT assigns 0.0-1.0 confidence scores to each interest match
@@ -157,6 +174,7 @@ reasoningEffort: low
 # eventDetectionReasoningEffort: none
 # eventClassificationReasoningEffort: none
 # scheduleExtractionReasoningEffort: low
+# locationExtractionReasoningEffort: low
 # interestMatchingReasoningEffort: low
 # eventDescriptionReasoningEffort: low
 
@@ -282,12 +300,13 @@ See `config.example.yaml` for more examples and detailed guidance.
 - `userInterests`/`--interests`: Your interests (events must be directly about these topics)
 - `weeklyTimeslots`/`--timeslots`: Available time slots in format "DAY HOUR:MINUTE" (0=Sunday, 6=Saturday)
 - `maxGroupMessages`/`--max-group-messages`: Maximum messages to fetch per group (default: 200, or 800 if both limits unspecified)
-- `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100)
+- `maxChannelMessages`/`--max-channel-messages`: Maximum messages to fetch per channel (default: 100, or 200 if both limits unspecified)
 - `skipOnlineEvents`/`--skip-online-events`: Skip online-only events, keep hybrid events (default: true)
 - `writeDebugFiles`/`--write-debug-files`: Enable debug file output to debug/ directory (default: false)
 - `verboseLogging`/`--verbose-logging`: Enable detailed logging with cache stats, batch numbers, and DISCARDED message links (default: false)
-  --include-events-without-time true \
-  --include-events-without-location true \
+- `includeEventsWithoutTime`/`--include-events-without-time`: Keep events whose date is known but whose time is not, shown as "27 Sep 2026 (time TBA)"; they bypass the `weeklyTimeslots` check (default: true)
+- `includeEventsWithoutLocation`/`--include-events-without-location`: Keep events whose announcement named no place at all; turning this off also drops every online event, since a virtual event has no venue to match (default: true)
+- `locationFilter`/`--location-filter`: Places whose events you want, e.g. `["Tbilisi"]`; empty means no filtering, though the venue and address are still extracted for display (default: empty)
 - `deduplicateEvents`/`--deduplicate-events`: Collapse the same event announced by several sources into one entry, by word overlap on the source posts (default: true)
 - **Confidence Thresholds** (optional - controls AI quality filtering):
   - `minEventDetectionConfidence`/`--min-event-detection-confidence`: Minimum confidence (0.0-1.0) for event detection; higher values = fewer but more certain events (default: 0.7)
@@ -298,6 +317,7 @@ See `config.example.yaml` for more examples and detailed guidance.
   - `eventDetectionBatchSize`/`--event-detection-batch-size`: Items per batch for event detection (default: 16)
   - `eventClassificationBatchSize`/`--event-classification-batch-size`: Items per batch for event type classification (default: 16)
   - `scheduleExtractionBatchSize`/`--schedule-extraction-batch-size`: Items per batch for schedule extraction (default: 16)
+  - `locationExtractionBatchSize`/`--location-extraction-batch-size`: Items per batch for location extraction (default: 16)
   - `eventDescriptionBatchSize`/`--event-description-batch-size`: Items per batch for event description generation (default: 3)
 - **Reasoning Effort** (optional - trades accuracy against cost and latency):
   - `reasoningEffort`/`--reasoning-effort`: Effort for every GPT step; one of `none`, `low`, `medium`, `high`, `xhigh` (default: `low`)
@@ -354,14 +374,16 @@ The tool supports accessing both public and private channels/groups:
 
 The tool processes messages through a 9-step pipeline:
 
-1. **Fetch Messages** (`data/telegram-client.ts`) - Retrieves recent messages from specified Telegram sources
-2. **Event Cue Filter** (`domain/services/event-cues-filter.ts`) - Filters messages containing date/event keywords
-3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates DigestEvent objects with message field and event_detection_confidence (0.0-1.0 score)
-4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid and applies filtering based on skipOnlineEvents, adds event_type_classification field (EventTypeClassification with type and confidence)
-5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Filters by your available time slots and future dates, adds start_datetime field (Date object)
-6. **Location Filtering** (`domain/services/location-matcher.ts`) - Extracts the venue and address with GPT, and when `locationFilter` is set, keeps only events in those places. The match is a model judgement, not a string comparison: a post reading "Fabrika, Egnate Ninoshvili St 8" never names Tbilisi. Adds event_location field (venue, address and the matched location)
-7. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores)
-8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry, keeping the earliest posting and listing the others in duplicate_sources. Uses no GPT calls, and runs before descriptions so duplicates never reach the describer
+Steps 1 and 2 make no AI calls, step 8 makes none either; the other six each call GPT and each has its own cache, batch size, prompt and reasoning effort.
+
+1. **Fetch Messages** (`data/telegram-client.ts`) - Retrieves recent messages from specified Telegram sources, fetching only what is new since the last run and keeping the most recent `maxGroupMessages`/`maxChannelMessages` per source
+2. **Event Cue Filter** (`domain/services/event-cues-filter.ts`) - Filters messages containing date/event keywords. Pure text matching, no GPT
+3. **AI Event Detection** (`domain/services/event-detector.ts`) - Uses GPT to identify genuine event announcements, creates DigestEvent objects with message field and event_detection_confidence (0.0-1.0 score). The score is cached as returned and `minEventDetectionConfidence` is applied on read
+4. **Event Type Classification** (`domain/services/event-classifier.ts`) - Classifies events as offline, online, or hybrid, adds event_type_classification field (type and confidence), then drops online-only events when `skipOnlineEvents` is set. Like step 3, the verdict is cached as returned and `minEventClassificationConfidence` is applied on read
+5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Extracts the start with GPT and keeps events that are still upcoming and fall in your time slots. Adds start_datetime and start_time_known: a post that names the day but not the hour is kept when `includeEventsWithoutTime` is set, bypassing the time-slot check and rendering as "(time TBA)"
+6. **Location Filtering** (`domain/services/location-matcher.ts`) - Extracts the venue and address with GPT, and when `locationFilter` is set, keeps only events in those places. The match is a model judgement, not a string comparison: a post reading "Fabrika, Egnate Ninoshvili St 8" never names Tbilisi. Adds event_location field (venue, address and the matched location). Runs after step 5 so only date-surviving events are paid for, and before steps 7 and 9 so out-of-area events never reach the two costliest steps
+7. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to your specified interests using comprehensive guidelines and validation to prevent hallucinated categories, adds interest_matches field (with confidence scores). Processes events one at a time rather than in batches, for accurate validation
+8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry, keeping the earliest posting and listing the others in duplicate_sources. If the survivor gave no time but a later copy states one, it adopts that time. Uses no GPT calls, and runs before descriptions so duplicates never reach the describer
 9. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with titles and summaries using GPT, adds event_description field (DigestEventDescription type with title and short_summary)
 
 ## Architecture
@@ -380,7 +402,8 @@ src/
 ├── data/                       # External systems (infrastructure layer)
 │   ├── openai-client.ts        # OpenAI API client
 │   ├── telegram-client.ts      # Telegram API client
-│   └── cache.ts                # Caching system
+│   ├── cache.ts                # Caching system
+│   └── entity-cache.ts         # Resolved Telegram entities
 ├── config/                     # Configuration management
 │   ├── types.ts                # Config interface
 │   ├── defaults.ts             # Default values & prompts
@@ -414,46 +437,85 @@ src/
 
 ## Output Format
 
+Both reporters list events chronologically and share most of their lines:
+
+- `📅` the start, or `30 Sep 2025 (time TBA)` when the announcement gave a date but no time
+- `📍` the venue and address — **omitted entirely** when the post named no place, rather than shown as "unknown"
+- `📝` the generated summary
+- `➕` a Google Calendar link that opens the create form already filled in (see below)
+
+They differ in two places. The link to the announcement: Telegram can hide a URL behind text, so the
+**event title is the link** and there is no separate line for it, while the console prints a `🔗` line
+with the URLs spelled out — including the other postings of an event that step 8 collapsed, which the
+Telegram output leaves unlinked, since they are copies of what the title already opens. And the `🏷️`
+line of matched interests, which only the console shows: it answers what step 7 matched, a question
+worth asking while tuning `userInterests` but not while reading a digest of your own choices.
+
+### Add to Calendar
+
+The `➕` line is a [Google Calendar](https://calendar.google.com) prefill link — clicking it opens the
+create form with the title, time and location already filled in, and nothing is saved until you
+confirm. It needs no API key, no OAuth and no setup, because it is just a URL.
+
+Two things about it are worth knowing:
+
+- Announcements state when an event starts and almost never when it ends, so the link assumes a
+  **two-hour** duration. Correct it in the form before saving if that is wrong.
+- An event whose time was never stated becomes an **all-day** entry rather than a block at a made-up
+  hour, which is the only shape that honestly represents "we know the day, not the time".
+
 ### Console Output
 
 When no `sendEventsRecipient` is configured (default behavior), events are printed to console:
 
 ```
-=== EVENT DIGEST ===
+=== EVENT DIGEST (September 30, 2025) ===
 
 1. Tech Meetup
    📅 30 Sep 2025 19:00
    📍 Impact Hub — Egnate Ninoshvili St 8
    🏷️ Technology
    📝 Monthly meetup for tech enthusiasts to share knowledge and network.
-   🔗 https://t.me/tech_meetups/12345
+   🔗 https://t.me/tech_meetups/12345, https://t.me/city_events/67891
+   ➕ https://calendar.google.com/calendar/render?action=TEMPLATE&text=Tech+Meetup&...
 
-Total events found: 1
+2. Autumn Jam Session
+   📅 02 Oct 2025 (time TBA)
+   🏷️ Jazz music and jazz concerts
+   📝 An open jam session for local musicians; the hour is still to be announced.
+   🔗 https://t.me/city_events/67890
+   ➕ https://calendar.google.com/calendar/render?action=TEMPLATE&text=Autumn+Jam+Session&...
+
+Total events found: 2
 ```
+
+Event 1 was announced twice and collapsed into one entry, so both links appear on its `🔗` line. Event 2 shows the two optional cases: no time stated, and no venue named.
 
 ### Telegram Message Format
 
 When `sendEventsRecipient` is configured, events are sent as formatted Telegram messages:
 
 ```
-📅 EVENT DIGEST
+EVENT DIGEST (September 30, 2025)
 
-1. Tech Meetup
+1. Tech Meetup                       <- the title is a link to the announcement
 📅 30 Sep 2025 19:00
 📍 Impact Hub — Egnate Ninoshvili St 8
-🏷️ Technology
 📝 Monthly meetup for tech enthusiasts to share knowledge and network.
-🔗 https://t.me/tech_meetups/12345
+➕ Add to calendar
 
 2. Photography Workshop
 📅 01 Oct 2025 14:00
 📍 Fabrika
-🏷️ Photography (Street photography)
 📝 Learn street photography techniques with hands-on practice.
-🔗 https://t.me/city_events/67890
+➕ Add to calendar
 ```
 
-Events are grouped into batches of `sendEventsBatchSize` (default: 5) per message.
+Telegram messages are sent in HTML parse mode, so both URLs hide behind tappable text rather than
+being spelled out: the title opens the announcement, and `➕ Add to calendar` carries the
+~250-character calendar URL.
+
+Events are grouped into batches of `sendEventsBatchSize` (default: 5) per message. When there is more than one batch, each header is suffixed with `— Batch N/M`, and the batches are sent one second apart so a long digest does not arrive as a burst.
 
 ## Development
 
@@ -472,8 +534,10 @@ npm run dev
 
 - Uses gpt-6-luna, OpenAI's most cost-efficient tier, for optimal balance of speed, cost, and accuracy
 - `reasoningEffort` (default: `low`) trades accuracy against cost and latency, globally or per step
-- Intelligent seven-tier caching prevents redundant API calls; GPT results are keyed by model and
-  reasoning effort, so changing either re-runs only the affected steps
+- Intelligent seven-tier caching prevents redundant API calls; GPT results are keyed by model, that
+  step's reasoning effort and its prompt text, so changing any of them re-runs only the affected step
+- Confidence thresholds are applied when a cached result is read, never folded into the cache key, so
+  retuning one re-judges what the model already said instead of paying for it again
 - Configurable batch processing (defaults: event detection 16, classification 16, schedule filtering 16, description generation 3)
 - Individual processing for interest matching to ensure accurate validation
 - Preference-aware cache invalidation
@@ -492,7 +556,7 @@ Or via command line:
 npm run dev -- --write-debug-files true
 ```
 
-This creates five detailed JSON files in the `debug/` directory:
+This creates six detailed JSON files in the `debug/` directory:
 - `event_detection.json`: GPT filtering to identify single event announcements (step 3)
 - `event_classification.json`: Event type detection (offline/online/hybrid) (step 4)
 - `schedule_filtering.json`: Schedule filtering and datetime extraction (step 5)

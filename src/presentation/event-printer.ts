@@ -1,5 +1,6 @@
-import { DigestEvent, formatLocation } from '../domain/entities';
+import { buildGoogleCalendarUrl } from './calendar-link';
 import { IEventReporter } from './event-reporter.interface';
+import { DigestEvent, formatLocation } from '../domain/entities';
 import { formatEventDateTime } from '../shared/date-utils';
 
 /**
@@ -69,10 +70,11 @@ export class EventPrinter implements IEventReporter {
       }
       console.log(`   🏷️ ${event.interest_matches!.map((m) => m.interest).join(', ')}`);
       console.log(`   📝 ${event.event_description!.short_summary}`);
-      console.log(`   🔗 ${event.message.link}`);
-      if (event.duplicate_sources?.length) {
-        console.log(`   ↔️ also: ${event.duplicate_sources.map((m) => m.link).join(', ')}`);
-      }
+      // Duplicates collapsed in step 8 join the link line rather than getting
+      // their own: they are the same event, so one list of places it was posted.
+      const links = [event.message.link, ...(event.duplicate_sources?.map((m) => m.link) ?? [])];
+      console.log(`   🔗 ${links.join(', ')}`);
+      console.log(`   ➕ ${buildGoogleCalendarUrl(event)}`);
       console.log('');
     });
 

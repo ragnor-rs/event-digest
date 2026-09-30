@@ -26,9 +26,14 @@ export interface IMessageSource {
   ): Promise<SourceMessage[]>;
 
   /**
-   * Send a message to a specified recipient
+   * Send a message to a specified recipient.
+   *
+   * The message is treated as HTML, so a caller interpolating text it does not
+   * control must escape `&`, `<` and `>` first — see `presentation/html-escape.ts`.
+   * This is what lets a reporter hide a long URL behind a short label.
+   *
    * @param recipient Identifier of the recipient (e.g., username, chat ID)
-   * @param message Message content to send
+   * @param message Message content to send, as HTML
    */
   sendMessage(recipient: string, message: string): Promise<void>;
 

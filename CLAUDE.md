@@ -92,11 +92,11 @@ src/
 │   │   └── index.ts                # Barrel export
 │   ├── services/                   # Business logic services (filtering, matching, etc.)
 │   │   ├── event-cues-filter.ts    # Step 2: Text-based event filtering
-│   │   ├── event-detector.ts       # Step 3: GPT event detection (~204 lines)
+│   │   ├── event-detector.ts       # Step 3: GPT event detection
 │   │   ├── event-classifier.ts     # Step 4: Event type classification
-│   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (~417 lines, longest service)
+│   │   ├── schedule-matcher.ts     # Step 5: Schedule extraction & matching (longest service)
 │   │   ├── location-matcher.ts     # Step 6: Venue/address extraction and location filtering
-│   │   ├── interest-matcher.ts     # Step 7: Interest matching with confidence (~245 lines, processes individually)
+│   │   ├── interest-matcher.ts     # Step 7: Interest matching with confidence (processes individually)
 │   │   ├── event-deduplicator.ts   # Step 8: Collapse the same event from multiple sources (no GPT)
 │   │   ├── event-describer.ts      # Step 9: Event description generation
 │   │   └── index.ts                # Barrel export
@@ -130,7 +130,9 @@ src/
 ├── presentation/                   # Output formatting
 │   ├── event-reporter.interface.ts # IEventReporter interface for output
 │   ├── event-printer.ts            # Console event output formatting
-│   └── event-sender.ts             # Telegram message sending
+│   ├── event-sender.ts             # Telegram message sending
+│   ├── calendar-link.ts            # Google Calendar prefill URL, shared by both reporters
+│   └── html-escape.ts              # Escaping for Telegram's HTML parse mode
 └── index.ts                        # Application bootstrap
 ```
 
@@ -145,7 +147,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 5. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Extracts datetime with GPT, filters by user availability slots, adds start_datetime field to DigestEvent
 6. **Location Filtering** (`domain/services/location-matcher.ts`) - Extracts the venue and address with GPT and, when `locationFilter` is set, decides which configured location the event falls in. The match has to be a model judgement: a post reading "Fabrika, Egnate Ninoshvili St 8" never names Tbilisi, so a string comparison would drop it. Runs after schedule filtering so only date-surviving events are paid for, and before interest matching and description so out-of-city events never reach the two costliest steps. Adds `event_location` to DigestEvent
 7. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to user interests with confidence scoring and validation, adds interest_matches field to DigestEvent
-8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry. Makes no GPT calls, so it is neither cached nor rate-limited. Runs before description so duplicates never reach the costliest GPT step; the trade-off is that no normalised title exists yet, so events within a calendar day are compared by token overlap on source-message content alone. Posts of at least 20 distinct tokens are compared by containment (share of the *shorter* post's tokens found in the longer one, threshold 0.8) so that a trimmed or reworded repeat announcement still collapses; shorter posts fall back to Jaccard at the same threshold, where a length difference is evidence rather than noise. A post joins a cluster if it matches *any* member, not just the survivor. Keeps the earliest posting and records the rest — including sources those postings had themselves absorbed — in `duplicate_sources`, which both reporters print as an `↔️ also:` line. When the earliest posting gave a date but no time and a later copy states one, the survivor adopts that time rather than reporting `(time TBA)` for an hour the cluster knows. Controlled by `deduplicateEvents` (default: true)
+8. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry. Makes no GPT calls, so it is neither cached nor rate-limited. Runs before description so duplicates never reach the costliest GPT step; the trade-off is that no normalised title exists yet, so events within a calendar day are compared by token overlap on source-message content alone. Posts of at least 20 distinct tokens are compared by containment (share of the *shorter* post's tokens found in the longer one, threshold 0.8) so that a trimmed or reworded repeat announcement still collapses; shorter posts fall back to Jaccard at the same threshold, where a length difference is evidence rather than noise. A post joins a cluster if it matches *any* member, not just the survivor. Keeps the earliest posting and records the rest — including sources those postings had themselves absorbed — in `duplicate_sources`. The printer spells them out on the event's `🔗` line; the sender links only the survivor, from the event title, and shows the rest not at all — they are copies of what the title already opens. When the earliest posting gave a date but no time and a later copy states one, the survivor adopts that time rather than reporting `(time TBA)` for an hour the cluster knows. Controlled by `deduplicateEvents` (default: true)
 9. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with GPT, adds event_description field (DigestEventDescription type) to DigestEvent
 
 ### Key Components
@@ -168,13 +170,13 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 **Domain Services** (`domain/services/`):
 - `event-cues-filter.ts`: Text-based event filtering using keyword matching (Russian/English date keywords)
-- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring (204 lines), uses aiClient.call()
-- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering (265 lines), uses aiClient.call()
-- `schedule-matcher.ts`: Schedule extraction and availability matching (417 lines, longest service), uses aiClient.call()
+- `event-detector.ts`: GPT-powered event announcement detection with confidence scoring, uses aiClient.call()
+- `event-classifier.ts`: Event type classification (offline/online/hybrid) with confidence-based filtering, uses aiClient.call()
+- `schedule-matcher.ts`: Schedule extraction and availability matching (longest service), uses aiClient.call()
 - `location-matcher.ts`: Venue/address extraction and location filtering (step 6), uses aiClient.call()
-- `interest-matcher.ts`: Interest matching with confidence scoring and validation (245 lines, processes individually for accuracy), uses aiClient.call()
+- `interest-matcher.ts`: Interest matching with confidence scoring and validation (processes individually for accuracy), uses aiClient.call()
 - `event-deduplicator.ts`: Duplicate collapsing (step 8) — pure text comparison, no aiClient
-- `event-describer.ts`: Event description generation (190 lines), uses aiClient.call()
+- `event-describer.ts`: Event description generation, uses aiClient.call()
 
 The six GPT services resolve their reasoning effort via `getStepReasoningEffort(config, step)` (`config/validator.ts`) and pass it as `aiClient.call(prompt, { reasoningEffort })`.
 
@@ -199,13 +201,14 @@ The six GPT services resolve their reasoning effort via `getStepReasoningEffort(
 - `skipOnlineEvents` parameter (default: true) excludes online-only events
 - `includeEventsWithoutTime` parameter (default: true) keeps events whose date is known but whose time is not. The step 5 prompt explicitly asks for `"27 Sep 2026 unknown"` when a post names the day but not the hour; without that instruction the model answered a bare `"unknown"` and the event was dropped. Measured on 48 messages step 5 had discarded as "no date/time found", the instruction recovers a date for 47 of them, and on 48 messages that already yielded a full datetime it costs the time on 1 (a course listing several weekly slots). Such events cannot be checked against `weeklyTimeslots`, so they bypass that filter and are rendered as `"27 Sep 2026 (time TBA)"`. A custom `scheduleExtractionPrompt` that omits the instruction leaves this option with nothing to keep. The option is **not** part of the step 5 cache key: the store holds `{ datetime, timeKnown }` as parsed from the model's answer and the option is applied on read, so toggling it costs no GPT calls
 - `deduplicateEvents` parameter (default: true) collapses duplicate events (step 8)
+- `maxInputMessages`/`--max-messages` is a legacy single limit kept for backward compatibility. It is consulted only when *neither* `maxGroupMessages` nor `maxChannelMessages` is given, and is the reason the group default reads as 800 in that case — `validator.ts` multiplies it by `GROUP_MESSAGE_MULTIPLIER`
 - `locationFilter` parameter (default: `[]`) limits the digest to events in the listed places, e.g. `["Tbilisi"]`. Empty means no filtering — step 6 still runs, so venue and address are extracted for display either way. The list is an *input to the prompt* (the model returns an index into it), so it is folded into the `event_locations` cache key the same way `userInterests` is folded into `matching_interests`
 - `includeEventsWithoutLocation` parameter (default: true) keeps events whose announcement named no place at all. Turning it off also drops every online event, since a virtual event has no venue to match. Applied on *read*, so toggling it re-judges cached results with no GPT calls
 - `writeDebugFiles` parameter (default: false) enables debug file output to debug/ directory
 - `verboseLogging` parameter (default: false) enables detailed processing logs with cache stats, batch numbers, and DISCARDED message links
 - **Configurable confidence thresholds** (all optional with defaults optimized for quality filtering):
   - `minEventDetectionConfidence` (default: 0.7): Minimum confidence (0.0-1.0) for step 3 event detection; higher values = fewer but more certain events
-  - `minEventClassificationConfidence` (default: 0.7): Minimum confidence (0.0-1.0) for step 4 event type classification; higher values = stricter classification
+  - `minEventClassificationConfidence` (default: 0.7): Minimum confidence (0.0-1.0) for step 4 event type classification; higher values = stricter classification. Applied on read, so retuning it costs no GPT calls
   - `minLocationConfidence` (default: 0.7): Minimum confidence (0.0-1.0) for step 6 location matching; applied on read, so retuning it costs no GPT calls
   - `minInterestConfidence` (default: 0.75): Minimum confidence (0.0-1.0) for step 7 interest matching; GPT assigns scores, only matches ≥ threshold are included
 - **Configurable GPT batch sizes** (all optional with defaults optimized for balance of speed and accuracy):
@@ -229,7 +232,7 @@ The six GPT services resolve their reasoning effort via `getStepReasoningEffort(
   - See config.example.yaml for placeholder documentation and example prompts
 - **Event Delivery** (optional):
   - `sendEventsRecipient` (no default): Telegram recipient for event delivery (e.g., @username or chat ID); when configured, events are sent to this recipient instead of being printed to console. When undefined (default), events are printed to console.
-  - `sendEventsBatchSize` (default: 5): Number of events to send per Telegram message batch
+  - `sendEventsBatchSize` (default: 5): Number of events to send per Telegram message batch. Consecutive batches are spaced by `RATE_LIMIT_DELAY`, since a burst of messages is what Telegram rate-limits on
 
 **Shared Layer** (`shared/`):
 - `date-utils.ts`: Single source of truth for date normalization, handles GPT's inconsistent formats, exports DATE_FORMAT and MAX_FUTURE_YEARS constants
@@ -242,7 +245,10 @@ The six GPT services resolve their reasoning effort via `getStepReasoningEffort(
 **Presentation Layer** (`presentation/`):
 - `event-reporter.interface.ts`: IEventReporter interface defining report() method for event output
 - `event-printer.ts`: Console output formatting with emoji icons, sorts events by datetime, implements IEventReporter
-- `event-sender.ts`: Telegram message sending with batch support, formats events as structured Telegram messages, implements IEventReporter
+- `event-sender.ts`: Telegram message sending with batch support, formats events as structured Telegram messages, implements IEventReporter. Consecutive batches are spaced by `RATE_LIMIT_DELAY`. Sends **HTML**, so both URLs hide behind tappable text — the event title opens the announcement and an `Add to calendar` label carries the calendar URL — which means every interpolated field has to go through `escapeHtml`. There is no `🔗` line (the title replaced it) and no `🏷️` line either — the matched interests explain why an event was selected, which is the reader's own `userInterests` read back to them; the printer still shows them, where what step 7 matched is the point
+- `calendar-link.ts` builds its query with `encodeURIComponent` rather than `URLSearchParams`, and this must not be "simplified" back. `URLSearchParams` encodes a space as `+`, and GramJS screens every link in an outgoing message against `/^@|\+|tg:\/\/user\?id=(\d+)/` to find mentions; the `\+` alternative is unanchored, so a single `+` anywhere in the URL makes it take the whole thing for a username, fail to resolve it, and **delete the link entity**. The symptom is the tell: the label renders cleanly and simply does nothing when tapped, while the short `t.me` links beside it keep working because they contain no `+`
+- `html-escape.ts`: `escapeHtml` for Telegram's HTML parse mode. HTML rather than Markdown because only `&`, `<` and `>` carry meaning there, and `&` alone is common in real titles and venue names ("D&D Open Tables", "Grape Wine & Kitchen"); an unescaped one makes Telegram reject the whole batch, and Markdown would need a larger dialect-dependent escape set for the same job
+- `calendar-link.ts`: Builds the `➕` Google Calendar prefill URL both reporters render. Lives in presentation, not domain, because it is pure rendering — unlike `formatLocation`, nothing downstream reads it. Uses Google's `render?action=TEMPLATE` endpoint, which needs no key or OAuth. Two judgements are baked in: an event's end is never stated in an announcement, so `ASSUMED_EVENT_DURATION_HOURS` (2) fills the range the endpoint requires; and a time-less event becomes an *all-day* entry rather than a block at the noon `parseEventDateTime` parked it at, since the day is all the post actually claimed. `dates` is appended outside `URLSearchParams` so its `/` separator stays literal
 
 **Authentication** (`data/telegram-client.ts`):
 - Uses persistent session storage in `.telegram-session` file
@@ -254,7 +260,7 @@ The six GPT services resolve their reasoning effort via `getStepReasoningEffort(
 - Seven separate cache stores:
   - `telegram_messages`: Raw Telegram messages per source (step 1) - assumes message immutability
   - `messages`: Event detection results (step 3) - stores `{ isEvent, confidence }`, the model's verdict and score *before* any threshold
-  - `event_type_classification`: Event type classification results (step 4)
+  - `event_type_classification`: Event type classification results (step 4) - stores `{ type, confidence }` as the model returned it; `minEventClassificationConfidence` is applied on read
   - `scheduled_events`: Schedule filtering and datetime extraction (step 5)
   - `event_locations`: Venue/address extraction and location match (step 6) - stores `EventLocation | null` as the model returned it; `minLocationConfidence` and `includeEventsWithoutLocation` are applied on read
   - `matching_interests`: Interest matching results (step 7)
@@ -304,7 +310,7 @@ The `.telegram-session` file is automatically created and managed for persistent
 Cache is stored in `.cache/` directory with separate files per cache store:
 - `.cache/telegram_messages.json`: Raw Telegram messages per source (step 1, assumes immutability)
 - `.cache/messages.json`: Event detection results (step 3, no preferences needed) - stores `{ isEvent, confidence }` as the model returned them. `minEventDetectionConfidence` is applied on *read*, so retuning the threshold re-judges already-seen messages with no GPT calls and no cache invalidation. Entries written before the score was stored are bare booleans and are read as a verdict with no confidence, so a legacy discard cannot be re-judged against a lowered threshold
-- `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed)
+- `.cache/event_type_classification.json`: Event type classification results (step 4, no preferences needed) - stores `{ type, confidence }` as the model returned it. `minEventClassificationConfidence` is applied on *read*, so retuning the threshold re-judges already-classified events with no GPT calls. An event the model returned no line for is stored as offline with a deliberately low stand-in confidence (`FALLBACK_CLASSIFICATION_CONFIDENCE`), which the default threshold rejects — an unanswered event is not a confident one
 - `.cache/scheduled_events.json`: Schedule filtering results (step 5, no preferences in cache key)
 - `.cache/event_locations.json`: Location extraction and matching results (step 6, includes locations hash)
 - `.cache/matching_interests.json`: Interest matching results (step 7, includes interests hash)
@@ -314,7 +320,7 @@ Cache is stored in `.cache/` directory with separate files per cache store:
 
 **Clearing the cache:** delete only the six GPT stores (`messages`, `event_type_classification`, `scheduled_events`, `event_locations`, `matching_interests`, `events`). Keep `telegram_messages.json` — re-fetching all sources is slow and risks Telegram FLOOD_WAIT. Keep `resolved_entities.json` — deleting it re-resolves every channel and triggers the ResolveUsername flood it was added to prevent. Keep `source_yield_history.json` — it is prune evidence, not a cache.
 
-**Caching model output vs. policy:** a store should hold what the model returned, not what the configuration then decided. Step 3 keeps the raw confidence and applies `minEventDetectionConfidence` on read; step 5 likewise keeps `{ datetime, timeKnown }` as parsed from the answer and applies `includeEventsWithoutTime` on read; step 6 keeps the extracted `EventLocation` and applies both `minLocationConfidence` and `includeEventsWithoutLocation` on read. None of those options belongs in a cache key — a setting that only filters model output must never force GPT calls to be repeated. `locationFilter` is the exception that proves the rule: the model is shown the list and returns an index into it, so it is a genuine prompt input and belongs in the key, exactly as `userInterests` does for steps 7 and 9. `createListScopedKey` in `data/cache.ts` is the shared helper for both.
+**Caching model output vs. policy:** a store should hold what the model returned, not what the configuration then decided. Step 3 keeps the raw confidence and applies `minEventDetectionConfidence` on read; step 4 likewise keeps the `{ type, confidence }` verdict and applies `minEventClassificationConfidence` on read; step 5 keeps `{ datetime, timeKnown }` as parsed from the answer and applies `includeEventsWithoutTime` on read; step 6 keeps the extracted `EventLocation` and applies both `minLocationConfidence` and `includeEventsWithoutLocation` on read. Caching the *decision* instead has a second cost beyond the wasted GPT calls, which is how it was found in step 4: a rejected verdict was never stored, so every run re-asked and the model's answer drifted across the threshold, making the step's output depend on whether it had run before. None of those options belongs in a cache key — a setting that only filters model output must never force GPT calls to be repeated. `locationFilter` is the exception that proves the rule: the model is shown the list and returns an index into it, so it is a genuine prompt input and belongs in the key, exactly as `userInterests` does for steps 7 and 9. `createListScopedKey` in `data/cache.ts` is the shared helper for both.
 
 **AI-variant cache keys:** every GPT store's key includes a hash of the model (`GPT_MODEL`), that step's effective reasoning effort, and that step's prompt text. Changing any of them re-runs only the affected step, and different configurations coexist in the same file — which is what makes reasoning-effort A/B runs cheap to repeat.
 
@@ -343,6 +349,8 @@ When `writeDebugFiles` is enabled (default: false), the tool writes detailed deb
 - `event_description.json`: Event description generation with extracted titles and summaries (step 9)
 
 Debug files include GPT prompts, responses, cache status, and detailed statistics. Use for troubleshooting event detection, interest matching accuracy, or understanding GPT's decision-making process.
+
+**Every input gets an entry.** A step's debug file has to account for each event it was handed, kept or dropped, so that `total_entries` reconciles with the count the step logged and `discard_reasons` is a complete census of where the rest went. The discard branches are the easy ones to forget, because the cache write happens regardless: a missing entry costs no GPT calls and shows up only as an event that vanished without explanation. Step 5's `recordNoDateFound` exists for that reason — it is shared by the four paths that can fail to date an event (cached null, an `unknown` answer, a line the model omitted, and an empty reply), all of which previously returned bare from at least one of them.
 
 ## Architecture Principles
 
@@ -378,6 +386,7 @@ When working with specific functionality, refer to these files:
 - **Add new presentation interfaces**: `presentation/event-reporter.interface.ts` (IEventReporter)
 - **Modify output formatting**: `presentation/event-printer.ts` (implements IEventReporter)
 - **Modify event sending logic**: `presentation/event-sender.ts` (implements IEventReporter)
+- **Change the calendar link or its assumed duration**: `presentation/calendar-link.ts`
 - **Tune duplicate detection**: `domain/services/event-deduplicator.ts` (the similarity threshold is a constant at the top)
 - **Change location extraction or filtering**: `domain/services/location-matcher.ts`
 - **Discover new sources**: `scripts/discover-sources.ts` (offline archive mining; also `add` and `prune`, the only commands that write `config.yaml`) and `scripts/expand-sources.ts` (live Telegram discovery APIs; `verify` is the gate `add` consumes). The end-to-end runbook is the `source-discovery` skill in `.claude/skills/`

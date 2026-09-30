@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { CachedEventDetection, CachedSchedule, ICache } from '../domain/interfaces';
 import {
   SourceMessage,
   DigestEventDescription,
@@ -10,6 +9,7 @@ import {
   EventTypeClassification,
   InterestMatch,
 } from '../domain/entities';
+import { CachedEventDetection, CachedSchedule, ICache } from '../domain/interfaces';
 import { Logger } from '../shared/logger';
 
 /** The inputs that determine a step's cached result, beyond the message itself */
@@ -138,8 +138,7 @@ export class Cache implements ICache {
         if (storeName === 'messages') {
           const converted: Record<string, CachedEventDetection> = {};
           for (const [key, value] of Object.entries(parsed)) {
-            converted[key] =
-              typeof value === 'boolean' ? { isEvent: value } : (value as CachedEventDetection);
+            converted[key] = typeof value === 'boolean' ? { isEvent: value } : (value as CachedEventDetection);
           }
           return converted as T;
         }
@@ -361,11 +360,7 @@ export class Cache implements ICache {
     return this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)];
   }
 
-  cacheScheduledEvent(
-    messageLink: string,
-    schedule: CachedSchedule | null,
-    autoSave: boolean = true
-  ): void {
+  cacheScheduledEvent(messageLink: string, schedule: CachedSchedule | null, autoSave: boolean = true): void {
     this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)] = schedule;
     if (autoSave) {
       try {

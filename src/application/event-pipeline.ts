@@ -1,6 +1,6 @@
 import { Config } from '../config/types';
-import { IAIClient, ICache, IMessageSource } from '../domain/interfaces';
 import { DigestEvent } from '../domain/entities';
+import { IAIClient, ICache, IMessageSource } from '../domain/interfaces';
 import {
   filterByEventCues,
   detectEventAnnouncements,
@@ -11,6 +11,7 @@ import {
   deduplicateEvents,
   describeEvents,
 } from '../domain/services';
+import { Logger, DebugWriter } from '../shared';
 import {
   DebugEventDetectionEntry,
   DebugTypeClassificationEntry,
@@ -19,7 +20,6 @@ import {
   DebugInterestMatchingEntry,
   DebugEventDescriptionEntry,
 } from '../shared/types';
-import { Logger, DebugWriter } from '../shared';
 
 export class EventPipeline {
   constructor(

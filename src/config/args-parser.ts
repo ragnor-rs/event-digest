@@ -1,6 +1,5 @@
-import { REASONING_EFFORTS, ReasoningEffort } from '../domain/interfaces';
-
 import { Config } from './types';
+import { REASONING_EFFORTS, ReasoningEffort } from '../domain/interfaces';
 
 type ReasoningEffortField =
   | 'reasoningEffort'
@@ -78,9 +77,7 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
     if (effortField) {
       const effort = value.trim().toLowerCase();
       if (!REASONING_EFFORTS.includes(effort as ReasoningEffort)) {
-        throw new Error(
-          `Invalid value for ${key}: "${value}". Must be one of: ${REASONING_EFFORTS.join(', ')}`
-        );
+        throw new Error(`Invalid value for ${key}: "${value}". Must be one of: ${REASONING_EFFORTS.join(', ')}`);
       }
       config[effortField] = effort as ReasoningEffort;
       continue;
@@ -152,7 +149,9 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--min-event-detection-confidence': {
         const parsed = parseFloat(value);
         if (isNaN(parsed) || parsed < 0 || parsed > 1) {
-          throw new Error(`Invalid value for --min-event-detection-confidence: "${value}". Must be between 0.0 and 1.0.`);
+          throw new Error(
+            `Invalid value for --min-event-detection-confidence: "${value}". Must be between 0.0 and 1.0.`
+          );
         }
         config.minEventDetectionConfidence = parsed;
         break;
@@ -160,7 +159,9 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--min-event-classification-confidence': {
         const parsed = parseFloat(value);
         if (isNaN(parsed) || parsed < 0 || parsed > 1) {
-          throw new Error(`Invalid value for --min-event-classification-confidence: "${value}". Must be between 0.0 and 1.0.`);
+          throw new Error(
+            `Invalid value for --min-event-classification-confidence: "${value}". Must be between 0.0 and 1.0.`
+          );
         }
         config.minEventClassificationConfidence = parsed;
         break;
@@ -184,9 +185,7 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--event-detection-batch-size': {
         const parsed = parseInt(value);
         if (isNaN(parsed) || parsed <= 0) {
-          throw new Error(
-            `Invalid value for --event-detection-batch-size: "${value}". Must be a positive integer.`
-          );
+          throw new Error(`Invalid value for --event-detection-batch-size: "${value}". Must be a positive integer.`);
         }
         config.eventDetectionBatchSize = parsed;
         break;
@@ -224,9 +223,7 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--event-description-batch-size': {
         const parsed = parseInt(value);
         if (isNaN(parsed) || parsed <= 0) {
-          throw new Error(
-            `Invalid value for --event-description-batch-size: "${value}". Must be a positive integer.`
-          );
+          throw new Error(`Invalid value for --event-description-batch-size: "${value}". Must be a positive integer.`);
         }
         config.eventDescriptionBatchSize = parsed;
         break;
