@@ -181,10 +181,12 @@ export async function filterByInterests(
       if (invalidIndices.length > 0) {
         logger.verbose(`    WARNING: AI returned invalid interest indices: ${invalidIndices.join(', ')}`);
       }
-      if (lowConfidenceMatches.length > 0) {
-        const lowConfDetails = lowConfidenceMatches.map((m) => `${m.interest}(${m.confidence.toFixed(2)})`).join(', ');
-        logger.verbose(`    Filtered out low-confidence matches: ${lowConfDetails}`);
-      }
+      // Rendered below in the same "✗ Discarded: <link> - <reason>" shape the other
+      // steps use. Logging it here instead would omit the link and strand the line
+      // next to an unrelated event's discard line.
+      const lowConfDetails = lowConfidenceMatches
+        .map((m) => `${m.interest}(${m.confidence.toFixed(2)})`)
+        .join(', ');
 
       // Convert to InterestMatch objects
       const interestMatchesWithNames: Array<{ interest: string; confidence: number }> = validMatches.map((m) => ({
@@ -193,6 +195,12 @@ export async function filterByInterests(
       }));
 
       if (interestMatchesWithNames.length > 0) {
+        // The event survives on its other matches, so only the matches were dropped.
+        if (lowConfidenceMatches.length > 0) {
+          logger.verbose(
+            `    ✗ Discarded matches: ${event.message.link} - ${lowConfDetails} below threshold ${config.minInterestConfidence}`
+          );
+        }
         matchedEvents.push({
           ...event,
           interest_matches: interestMatchesWithNames,
@@ -216,9 +224,11 @@ export async function filterByInterests(
       } else {
         // Parsed result but no valid interests (all filtered out by confidence or invalid indices)
         const reason =
-          interestMatches.length > 0
-            ? 'all matches below confidence threshold or invalid indices'
-            : 'no valid interests parsed from response';
+          lowConfidenceMatches.length > 0
+            ? `${lowConfDetails} below threshold ${config.minInterestConfidence}`
+            : interestMatches.length > 0
+              ? 'all matches had invalid indices'
+              : 'no valid interests parsed from response';
         logger.verbose(`    ✗ Discarded: ${event.message.link} - ${reason}`);
         cache.cacheMatchingInterests(event.message.link, [], config.userInterests, false);
         debugEntries.push({
