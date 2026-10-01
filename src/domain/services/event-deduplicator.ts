@@ -34,6 +34,15 @@ const MIN_CONTAINMENT_TOKENS = 20;
 const MIN_TOKEN_LENGTH = 3;
 
 /**
+ * A venue needs one token at least this long to identify a place on its own.
+ *
+ * "bar", "hall" and "club" sit inside half the venue names in a city, so a venue
+ * extracted as nothing but those cannot carry an identity — the time-and-venue
+ * rule below declines to fire rather than merge on it.
+ */
+const MIN_VENUE_TOKEN_LENGTH = 4;
+
+/**
  * Reduces text to a comparable token set: lowercased, punctuation and emoji
  * stripped, short words dropped. Latin and Cyrillic are both kept.
  */
@@ -75,9 +84,83 @@ function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
+/**
+ * Content overlap that identifies the same event on its own, whatever the length.
+ *
+ * The length-aware rules below assume a duplicate is a *cross-post*: one channel
+ * copying another's announcement. Digest fragments broke that assumption — two
+ * aggregators each rewrite the same listing in one line, so the texts are short,
+ * independently worded, and land under MIN_CONTAINMENT_TOKENS where Jaccard
+ * punishes them. Measured on the 2026-10-01 run, two real pairs sat at exactly
+ * 1.00 containment while the highest non-duplicate same-day pair reached 0.26,
+ * so a near-total overlap is safe to act on at any length.
+ */
+const NEAR_IDENTICAL_CONTAINMENT = 0.9;
+
+/**
+ * Content overlap required to confirm a same-minute match.
+ *
+ * Start times cluster hard — 19:00 and 20:00 are most of the digest — so the
+ * minute alone is worthless: on the 2026-10-01 run it would have merged 15
+ * unrelated pairs. With this much text agreement as corroboration it merged 2
+ * real pairs and nothing else. The lower of those two sat at 0.40 and no
+ * non-duplicate at the same minute reached this bar.
+ */
+const SAME_TIME_CONTAINMENT = 0.35;
+
 interface Candidate {
   event: DigestEvent;
   contentTokens: Set<string>;
+}
+
+/**
+ * The venue reduced to comparable tokens, or undefined when it cannot identify a
+ * place: absent, or nothing but short generic words. "bar", "hall" and "club"
+ * sit inside half the venue names in a city, so merging on one would be reckless.
+ */
+function venueTokens(event: DigestEvent): Set<string> | undefined {
+  const venue = event.event_location?.venue;
+  if (!venue) return undefined;
+
+  const tokens = tokenize(venue);
+  if (tokens.size === 0 || ![...tokens].some((token) => token.length >= MIN_VENUE_TOKEN_LENGTH)) {
+    return undefined;
+  }
+  return tokens;
+}
+
+/** The same place, allowing one side to name it more fully ("21PM" / "21PM — Kitchen, Coffee & Bar"). */
+function sameVenue(a: Candidate, b: Candidate): boolean {
+  const venueA = venueTokens(a.event);
+  const venueB = venueTokens(b.event);
+  if (!venueA || !venueB) return false;
+
+  return containment(venueA, venueB) === 1;
+}
+
+/**
+ * Whether the clock times are compatible — equal, or unknown on at least one side.
+ *
+ * A venue running two different events in one day is ordinary (a cinema, a bar
+ * with a quiz then a gig), and two stated times that disagree are the evidence
+ * that distinguishes them. An unstated time is not evidence either way: it is
+ * parked at a fixed hour, so comparing it would be comparing a placeholder.
+ */
+function timesCompatible(a: Candidate, b: Candidate): boolean {
+  if (a.event.start_time_known === false || b.event.start_time_known === false) return true;
+
+  const timeA = a.event.start_datetime?.getTime();
+  const timeB = b.event.start_datetime?.getTime();
+  return timeA !== undefined && timeA === timeB;
+}
+
+/** The same stated minute, with both announcements actually stating one. */
+function sameStatedTime(a: Candidate, b: Candidate): boolean {
+  if (a.event.start_time_known === false || b.event.start_time_known === false) return false;
+
+  const timeA = a.event.start_datetime?.getTime();
+  const timeB = b.event.start_datetime?.getTime();
+  return timeA !== undefined && timeA === timeB;
 }
 
 /**
@@ -89,11 +172,25 @@ interface Candidate {
  */
 function isDuplicate(a: Candidate, b: Candidate): boolean {
   const shorter = Math.min(a.contentTokens.size, b.contentTokens.size);
+  const contentOverlap = containment(a.contentTokens, b.contentTokens);
 
-  if (shorter < MIN_CONTAINMENT_TOKENS) {
-    return similarity(a.contentTokens, b.contentTokens) >= CONTENT_SIMILARITY_THRESHOLD;
-  }
-  return containment(a.contentTokens, b.contentTokens) >= CONTENT_CONTAINMENT_THRESHOLD;
+  const sameText =
+    shorter < MIN_CONTAINMENT_TOKENS
+      ? similarity(a.contentTokens, b.contentTokens) >= CONTENT_SIMILARITY_THRESHOLD
+      : contentOverlap >= CONTENT_CONTAINMENT_THRESHOLD;
+
+  if (sameText || contentOverlap >= NEAR_IDENTICAL_CONTAINMENT) return true;
+
+  // Beyond the text: what the event *is*, rather than how it was written up.
+  // Fragments of two different aggregators' roundups describe one listing in one
+  // line each, independently and often in different languages — on the
+  // 2026-10-01 run a Russian fragment and an English post for the same club
+  // night shared 0.40 of their tokens, and another real pair only 0.22. Text
+  // alone cannot separate those from unrelated events, which also sit near 0.2;
+  // the venue and the stated time can.
+  if (sameVenue(a, b) && timesCompatible(a, b)) return true;
+
+  return sameStatedTime(a, b) && contentOverlap >= SAME_TIME_CONTAINMENT;
 }
 
 /**
