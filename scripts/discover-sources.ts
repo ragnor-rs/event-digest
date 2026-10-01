@@ -1265,6 +1265,20 @@ function prune(flags: Record<string, string>): void {
 
   // Sources with cache entries: judged on what they produced.
   const allSources = new Set(observations.flatMap((o) => Object.keys(o.sources)));
+
+  /**
+   * The same set, case-folded, for membership tests against an entry's identity.
+   *
+   * Observations record a source under the casing Telegram resolved it to
+   * ("Terra_Georgia", "KERAspace"), while `identityOfEntry` lowercases. Testing
+   * one against the other misses every handle containing a capital, and the miss
+   * is read below as "no cache entry at all" — i.e. silent, the harshest verdict
+   * there is. On 2026-10-01 that condemned 9 live sources, all of them and only
+   * them handles with an uppercase letter, and tripped the ceiling guard that
+   * stopped the prune. It also double-judged @ProGeorgian: dead from the loop
+   * above, silent from the one below.
+   */
+  const allSourcesFolded = new Set([...allSources].map((source) => source.toLowerCase()));
   for (const source of allSources) {
     const seen = observations.filter((o) => o.sources[source] !== undefined).map((o) => o.sources[source]);
     const state =
@@ -1285,7 +1299,7 @@ function prune(flags: Record<string, string>): void {
   const unresolvable: string[] = [];
   for (const entry of configured.all) {
     const identity = identityOfEntry(entry);
-    if (identity && allSources.has(identity)) continue;
+    if (identity && allSourcesFolded.has(identity)) continue;
 
     // No resolved identity means we cannot tell "produced nothing" from "we have
     // no idea what this entry is". A display-name entry has no identity until
