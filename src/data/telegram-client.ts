@@ -186,6 +186,10 @@ export class TelegramClient implements IMessageSource {
 
     let entity: Api.TypeEntityLike;
     let actualSourceName: string;
+    // How this source is named to a human. The config entry is the floor; the
+    // Telegram title is better when we have it, because that is where a city
+    // tends to be written ("АФИША ТБИЛИСИ ДОСУГ").
+    let sourceLabel: string = sourceName;
 
     // Determine how to fetch the entity
     if (isUsername) {
@@ -204,6 +208,9 @@ export class TelegramClient implements IMessageSource {
         this.unresolvedSources.push(`${sourceName} (${sourceType})`);
         return [];
       }
+      if (entity instanceof Api.Channel && entity.title) {
+        sourceLabel = entity.title;
+      }
     } else {
       // Display name provided, search by display name
       this.logger.verbose(`    Searching by display name...`);
@@ -211,6 +218,7 @@ export class TelegramClient implements IMessageSource {
       if (found) {
         entity = found.entity;
         actualSourceName = found.actualName;
+        sourceLabel = found.displayName || sourceName;
         this.logger.verbose(`    Using ${sourceType}: "${found.displayName || sourceName}" → ${actualSourceName}`);
       } else {
         // Not verbose: an unresolvable source yields nothing on every run, and
@@ -278,7 +286,10 @@ export class TelegramClient implements IMessageSource {
       // Update cache with all unique messages for future runs
       this.cache.cacheMessages(cacheKey, allMessages);
 
-      return finalMessages;
+      // Stamped after the cache write, not before: the source label is context
+      // for this run, not message content, so a renamed channel needs no cache
+      // invalidation and entries cached before the field existed still get one.
+      return finalMessages.map((message) => ({ ...message, source: sourceLabel }));
     } catch (error) {
       this.logger.error(`Error fetching from ${sourceType} ${sourceName}`, error);
 

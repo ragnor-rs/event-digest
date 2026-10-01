@@ -5,6 +5,7 @@ import { REASONING_EFFORTS, ReasoningEffort } from '../domain/interfaces';
 
 /** Per-step reasoning effort overrides, in pipeline order */
 const REASONING_EFFORT_OVERRIDES = [
+  'digestSplittingReasoningEffort',
   'eventDetectionReasoningEffort',
   'eventClassificationReasoningEffort',
   'scheduleExtractionReasoningEffort',
@@ -15,6 +16,7 @@ const REASONING_EFFORT_OVERRIDES = [
 
 /** Pipeline steps that issue GPT calls */
 export type ReasoningStep =
+  | 'digestSplitting'
   | 'eventDetection'
   | 'eventClassification'
   | 'scheduleExtraction'
@@ -23,6 +25,7 @@ export type ReasoningStep =
   | 'eventDescription';
 
 const STEP_OVERRIDE_FIELD: Record<ReasoningStep, (typeof REASONING_EFFORT_OVERRIDES)[number]> = {
+  digestSplitting: 'digestSplittingReasoningEffort',
   eventDetection: 'eventDetectionReasoningEffort',
   eventClassification: 'eventClassificationReasoningEffort',
   scheduleExtraction: 'scheduleExtractionReasoningEffort',
@@ -59,12 +62,14 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   const providedVerboseLogging = config.verboseLogging !== undefined;
   const providedIncludeEventsWithoutTime = config.includeEventsWithoutTime !== undefined;
   const providedDeduplicateEvents = config.deduplicateEvents !== undefined;
+  const providedSplitEventDigests = config.splitEventDigests !== undefined;
   const providedIncludeEventsWithoutLocation = config.includeEventsWithoutLocation !== undefined;
   const providedMinEventDetectionConfidence = config.minEventDetectionConfidence !== undefined;
   const providedMinEventClassificationConfidence = config.minEventClassificationConfidence !== undefined;
   const providedMinLocationConfidence = config.minLocationConfidence !== undefined;
   const providedMinInterestConfidence = config.minInterestConfidence !== undefined;
   const providedEventMessageCues = config.eventMessageCues !== undefined;
+  const providedDigestSplittingBatchSize = config.digestSplittingBatchSize !== undefined;
   const providedEventDetectionBatchSize = config.eventDetectionBatchSize !== undefined;
   const providedEventClassificationBatchSize = config.eventClassificationBatchSize !== undefined;
   const providedScheduleExtractionBatchSize = config.scheduleExtractionBatchSize !== undefined;
@@ -120,6 +125,10 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     config.deduplicateEvents = DEFAULT_CONFIG.deduplicateEvents;
   }
 
+  if (config.splitEventDigests === undefined) {
+    config.splitEventDigests = DEFAULT_CONFIG.splitEventDigests;
+  }
+
   if (config.locationFilter === undefined) {
     config.locationFilter = DEFAULT_CONFIG.locationFilter;
   } else {
@@ -150,6 +159,9 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   }
 
   // Set default batch sizes
+  if (config.digestSplittingBatchSize === undefined) {
+    config.digestSplittingBatchSize = DEFAULT_CONFIG.digestSplittingBatchSize;
+  }
   if (config.eventDetectionBatchSize === undefined) {
     config.eventDetectionBatchSize = DEFAULT_CONFIG.eventDetectionBatchSize;
   }
@@ -184,6 +196,10 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   }
 
   // Set default prompts
+  if (!config.digestSplittingPrompt) {
+    config.digestSplittingPrompt = DEFAULT_CONFIG.digestSplittingPrompt;
+  }
+
   if (!config.eventDetectionPrompt) {
     config.eventDetectionPrompt = DEFAULT_CONFIG.eventDetectionPrompt;
   }
@@ -251,6 +267,7 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
     `  includeEventsWithoutTime: ${finalConfig.includeEventsWithoutTime}${!providedIncludeEventsWithoutTime ? ' (default)' : ''}`
   );
   console.log(`  deduplicateEvents: ${finalConfig.deduplicateEvents}${!providedDeduplicateEvents ? ' (default)' : ''}`);
+  console.log(`  splitEventDigests: ${finalConfig.splitEventDigests}${!providedSplitEventDigests ? ' (default)' : ''}`);
   console.log(
     `  locationFilter: ${finalConfig.locationFilter.length > 0 ? `${finalConfig.locationFilter.length} specified` : 'not set (no filtering)'}`
   );
@@ -268,6 +285,9 @@ export function validateAndCompleteConfig(config: Partial<Config>): Config {
   );
   console.log(
     `  minInterestConfidence: ${finalConfig.minInterestConfidence}${!providedMinInterestConfidence ? ' (default)' : ''}`
+  );
+  console.log(
+    `  digestSplittingBatchSize: ${finalConfig.digestSplittingBatchSize}${!providedDigestSplittingBatchSize ? ' (default)' : ''}`
   );
   console.log(
     `  eventDetectionBatchSize: ${finalConfig.eventDetectionBatchSize}${!providedEventDetectionBatchSize ? ' (default)' : ''}`

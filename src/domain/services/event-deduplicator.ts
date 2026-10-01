@@ -97,7 +97,7 @@ function isDuplicate(a: Candidate, b: Candidate): boolean {
 }
 
 /**
- * Step 8: collapses the same event announced by several sources into one entry.
+ * Step 9: collapses the same event announced by several sources into one entry.
  *
  * Runs before description so that duplicates never reach the describer, which is
  * the costliest AI step (one output block per event, batch size 3). The price is

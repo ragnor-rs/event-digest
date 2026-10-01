@@ -1,4 +1,5 @@
 export {
+  DebugDigestSplittingEntry,
   DebugEventDetectionEntry,
   DebugTypeClassificationEntry,
   DebugScheduleFilteringEntry,

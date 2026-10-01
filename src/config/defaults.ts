@@ -6,7 +6,7 @@ export const DEFAULT_CONFIG = {
   skipOnlineEvents: true,
   writeDebugFiles: false,
   verboseLogging: false,
-  // On by default: measured on 48 messages step 5 had written off as
+  // On by default: measured on 48 messages step 6 had written off as
   // "no date/time found", 47 name a date and only omit the hour, so keeping them
   // is nearly all the recall this step was losing. The cost is that a time-less
   // event cannot be checked against weeklyTimeslots and so bypasses that filter.
@@ -14,6 +14,12 @@ export const DEFAULT_CONFIG = {
   // On by default: aggregator channels repost the same announcement, and a
   // duplicate in the digest is always a defect.
   deduplicateEvents: true,
+  // On by default: the afisha channels publish a day's or a weekend's events as
+  // one post, and detection discards those by design — one message, one event is
+  // what every later step assumes. Measured on one run, ~11% of the messages
+  // reaching detection are roundup-shaped, and they are where concert listings
+  // live, so discarding them silently cost the digest most of its live music.
+  splitEventDigests: true,
   // Empty by default: the location step still runs, so the digest gains a venue
   // line without anyone having to declare which city they live in.
   locationFilter: [] as string[],
@@ -24,6 +30,9 @@ export const DEFAULT_CONFIG = {
   minEventClassificationConfidence: 0.7,
   minLocationConfidence: 0.7,
   minInterestConfidence: 0.75,
+  // Small, like eventDescriptionBatchSize and for the same reason: a digest post
+  // is long and its answer is longer still — every event in it comes back in full.
+  digestSplittingBatchSize: 3,
   eventDetectionBatchSize: 16,
   eventClassificationBatchSize: 16,
   scheduleExtractionBatchSize: 16,
@@ -86,6 +95,45 @@ export const DEFAULT_CONFIG = {
       'sunday',
     ],
   },
+
+  digestSplittingPrompt: `Some of these messages are DIGESTS: one post listing several different events (a day's or a weekend's programme, an afisha roundup, a club lineup). Split each digest into one self-contained announcement per event.
+
+Messages:
+{{MESSAGES}}
+
+For each numbered message, decide:
+
+SINGLE — the message announces ONE event, or no event at all. This includes an event that lists several sessions, a multi-day schedule, or a timetable of its own programme: that is still one event.
+DIGEST — the message lists 2 or more DIFFERENT events, each with its own name and time, usually by different organisers or at different venues.
+
+RESPONSE FORMAT — output ONLY these markers and the text between them:
+
+For a SINGLE message, one line and nothing else:
+NUMBER|single
+
+For a DIGEST, one block per event, each opened by its own marker line:
+NUMBER|event
+<the full announcement for that event>
+NUMBER|event
+<the full announcement for the next event>
+
+RULES for the text of each event block:
+- Make it stand alone. Someone reading only this block must know WHAT the event is, WHEN it is and WHERE.
+- CRITICAL — carry the date down from the digest's heading. Entries usually give only a time ("19:00 — Лекция"), while the date is stated once at the top ("#17сентября2026", "События в эту СУББОТУ, 20 сентября"). Every block must name its own date explicitly. The message's posting date is given as "[posted: ...]" — use it to resolve "сегодня", "завтра", "в эту субботу" into a calendar date.
+- Copy the venue, address, price and links that belong to that event. Leave out everything belonging to the others.
+- Use the words of the original, in the original language. Do not translate, summarise or embellish.
+- Do not invent an event, and do not merge two into one.
+- Skip entries that are not datable events — a standing exhibition with no date, a general advert, the channel's own promo.
+
+Output no preamble, no commentary and no blank marker lines.
+
+EXAMPLE — given message 2 reading "Планы на четверг, #18сентября2026! 18:00 — Лекция «Ландшафтная терапия», ArtHub, пр. Агмашенебели 172, donation. 20:00 — Концерт Piano Jazz, Louis Jazz Bar, вход свободный" and message 3 announcing one workshop with three time slots:
+
+2|event
+18 сентября 2026, 18:00 — Лекция «Ландшафтная терапия». ArtHub, пр. Давида Агмашенебели, 172. Donation.
+2|event
+18 сентября 2026, 20:00 — Концерт Piano Jazz. Louis Jazz Bar. Вход свободный.
+3|single`,
 
   eventDetectionPrompt: `Analyze these messages and identify which ones are announcements for a SINGLE SPECIFIC EVENT.
 
@@ -284,6 +332,12 @@ CRITICAL — a street address, venue or district almost never names its city. Us
 - "Batumi Blvd" is in Batumi
 - A venue you recognise resolves to the city it is in, even if the message never says the city
 - Only fall back to -1 when the message genuinely gives no usable place
+
+LAST RESORT — the "[posted in: ...]" line names the channel or group the message appeared in, which often names a city ("АФИША ТБИЛИСИ ДОСУГ", "Ночной Тбилиси"):
+- Use it ONLY when the message itself gives no city, no address and no venue you recognise
+- It is weak evidence: many sources cover a whole country or several cities, so cap CONFIDENCE at 0.75 when the source is all you went on
+- NEVER let it override the message. A post naming a Batumi venue in a Tbilisi channel is in Batumi
+- A source naming no place leaves you at -1, exactly as before
 
 Use pipes ONLY as field separators. If a venue or address contains a pipe, replace it with a comma.
 Output ONLY these lines, one per message, no preamble and no commentary.

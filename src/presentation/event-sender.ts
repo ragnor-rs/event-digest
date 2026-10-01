@@ -120,7 +120,7 @@ export class EventSender implements IEventReporter {
       const datetime = escapeHtml(formatEventDateTime(event.start_datetime!, event.start_time_known !== false));
       const summary = escapeHtml(event.event_description!.short_summary);
       // The title carries the link to the announcement, which is why there is no
-      // separate 🔗 line. It points at the posting the digest kept; where step 8
+      // separate 🔗 line. It points at the posting the digest kept; where step 9
       // merged several, the others are not linked — one obvious target beats a
       // row of numbered ones, and they are copies of what this already opens.
       const title = `<a href="${escapeHtml(event.message.link)}">${escapeHtml(event.event_description!.title)}</a>`;
@@ -131,7 +131,7 @@ export class EventSender implements IEventReporter {
       // The calendar URL is ~250 characters of query string, so it hides too.
       const calendar = `<a href="${escapeHtml(buildGoogleCalendarUrl(event))}">Add to calendar</a>`;
 
-      // Why step 7 kept the event. Placed between 📍 and 📝 to match the console
+      // Why step 8 kept the event. Placed between 📍 and 📝 to match the console
       // reporter, so the two render the same event in the same order. Escaped like
       // everything else: an interest is free text and "Handcrafting, DIY & makers"
       // would otherwise cost the whole batch.

@@ -3,6 +3,7 @@ import * as path from 'path';
 
 import { Logger } from './logger';
 import {
+  DebugDigestSplittingEntry,
   DebugEventDetectionEntry,
   DebugTypeClassificationEntry,
   DebugScheduleFilteringEntry,
@@ -13,6 +14,7 @@ import {
 
 export class DebugWriter {
   private debugDir = 'debug';
+  private digestSplittingEntries: DebugDigestSplittingEntry[] = [];
   private eventDetectionEntries: DebugEventDetectionEntry[] = [];
   private typeClassificationEntries: DebugTypeClassificationEntry[] = [];
   private scheduleFilteringEntries: DebugScheduleFilteringEntry[] = [];
@@ -27,6 +29,11 @@ export class DebugWriter {
     if (!fs.existsSync(this.debugDir)) {
       fs.mkdirSync(this.debugDir, { recursive: true });
     }
+  }
+
+  writeDigestSplitting(entries: DebugDigestSplittingEntry[]): void {
+    this.digestSplittingEntries = entries;
+    this.writeDigestSplittingFile();
   }
 
   writeEventDetection(entries: DebugEventDetectionEntry[]): void {
@@ -61,6 +68,33 @@ export class DebugWriter {
     this.writeInterestMatching();
     this.writeEventDescription();
     this.logger.log(`Debug files written to ${this.debugDir}/ directory`);
+  }
+
+  private writeDigestSplittingFile(): void {
+    const filename = path.join(this.debugDir, 'digest_splitting.json');
+    const digests = this.digestSplittingEntries.filter((e) => e.isDigest);
+    const data = {
+      step: 'Digest Splitting',
+      description: 'Roundup posts listing several events, split into one message per event',
+      // Candidates only: a message showing none of the gate's digest signals is
+      // never offered to the model, so it has no entry here and reaches detection
+      // unchanged. This count is the gate's output, not the step's input.
+      total_entries: this.digestSplittingEntries.length,
+      result_counts: {
+        digest: digests.length,
+        single: this.digestSplittingEntries.filter((e) => !e.isDigest && !e.truncated).length,
+        // Counted apart from `single`: these were never judged, and folding them
+        // in would read as the model having answered when it was cut off.
+        skipped_truncated: this.digestSplittingEntries.filter((e) => e.truncated).length,
+        events_extracted: digests.reduce((sum, e) => sum + e.fragments.length, 0),
+      },
+      cache_stats: {
+        cached: this.digestSplittingEntries.filter((e) => e.cached).length,
+        uncached: this.digestSplittingEntries.filter((e) => !e.cached).length,
+      },
+      results: this.digestSplittingEntries,
+    };
+    fs.writeFileSync(filename, JSON.stringify(data, null, 2));
   }
 
   private writeEventDetectionFile(): void {

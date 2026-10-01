@@ -47,19 +47,23 @@ export interface ICache {
   cacheMessages(sourceName: string, messages: SourceMessage[], autoSave?: boolean): void;
   getLastMessageTimestamp(sourceName: string): Date | undefined;
 
-  // Event message detection (step 3)
+  // Digest splitting (step 3)
+  getDigestSplitCache(messageLink: string): string[] | undefined;
+  cacheDigestSplit(messageLink: string, fragments: string[], autoSave?: boolean): void;
+
+  // Event message detection (step 4)
   getEventDetectionCache(messageLink: string): CachedEventDetection | undefined;
   cacheEventDetection(messageLink: string, detection: CachedEventDetection, autoSave?: boolean): void;
 
-  // Event type classification (step 4)
+  // Event type classification (step 5)
   getEventTypeCache(messageLink: string): EventTypeClassification | undefined;
   cacheEventType(messageLink: string, classification: EventTypeClassification, autoSave?: boolean): void;
 
-  // Schedule filtering (step 5)
+  // Schedule filtering (step 6)
   getScheduledEventCache(messageLink: string): CachedSchedule | null | undefined;
   cacheScheduledEvent(messageLink: string, schedule: CachedSchedule | null, autoSave?: boolean): void;
 
-  // Location extraction and filtering (step 6)
+  // Location extraction and filtering (step 7)
   getEventLocationCache(messageLink: string, locationFilter: string[]): EventLocation | null | undefined;
   cacheEventLocation(
     messageLink: string,
@@ -68,7 +72,7 @@ export interface ICache {
     autoSave?: boolean
   ): void;
 
-  // Interest matching (step 7)
+  // Interest matching (step 8)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined;
   cacheMatchingInterests(
     messageLink: string,
@@ -77,7 +81,7 @@ export interface ICache {
     autoSave?: boolean
   ): void;
 
-  // Event conversion (step 9)
+  // Event conversion (step 10)
   getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined;
   cacheConvertedEvent(
     messageLink: string,

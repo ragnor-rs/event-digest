@@ -4,6 +4,24 @@
  * They are used by domain services to collect debug information
  */
 
+export interface DebugDigestSplittingEntry {
+  messageLink: string;
+  /** Source text the decision was made from; needed to review or grade the call */
+  messageContent: string;
+  isDigest: boolean;
+  /** One self-contained announcement per event; empty when the message is not a digest */
+  fragments: string[];
+  cached: boolean;
+  /**
+   * The batch this message was in was cut off by the completion limit, so it was
+   * skipped and nothing was cached. `isDigest: false` here means "not judged",
+   * not "judged and found single" — the next run re-asks.
+   */
+  truncated?: boolean;
+  prompt?: string;
+  aiResponse?: string;
+}
+
 export interface DebugEventDetectionEntry {
   messageLink: string;
   /** Source text the decision was made from; needed to review or grade the call */

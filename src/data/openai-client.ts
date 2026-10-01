@@ -47,10 +47,14 @@ export class OpenAIClient implements IAIClient {
   }
 
   async call(prompt: string, options?: AICallOptions): Promise<string | undefined> {
-    return this.callWithEffort(prompt, options?.reasoningEffort ?? DEFAULT_REASONING_EFFORT);
+    return this.callWithEffort(prompt, options?.reasoningEffort ?? DEFAULT_REASONING_EFFORT, options?.onTruncated);
   }
 
-  private async callWithEffort(prompt: string, effort: ReasoningEffort): Promise<string | undefined> {
+  private async callWithEffort(
+    prompt: string,
+    effort: ReasoningEffort,
+    onTruncated?: () => void
+  ): Promise<string | undefined> {
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= OPENAI_MAX_RETRIES; attempt++) {
@@ -66,7 +70,21 @@ export class OpenAIClient implements IAIClient {
           reasoning_effort: effort,
         });
 
-        const result = response.choices[0].message.content?.trim();
+        const choice = response.choices[0];
+        const result = choice.message.content?.trim();
+
+        // 'length' means the model was cut off mid-answer, not that it finished.
+        // Nothing downstream can tell a prefix from a complete reply — the text
+        // is well-formed as far as it goes — so this is the only place the
+        // distinction still exists, and losing it here loses it everywhere.
+        if (choice.finish_reason === 'length') {
+          this.logger.log(
+            `  ⚠ AI response hit the completion limit and was cut off — the answer is incomplete. ` +
+              `Lower the batch size for this step, or its reasoning effort (reasoning tokens share the same budget).`
+          );
+          onTruncated?.();
+        }
+
         await delay(RATE_LIMIT_DELAY);
         return result;
       } catch (error) {

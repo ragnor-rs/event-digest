@@ -155,8 +155,14 @@ export async function filterByLocation(
     const chunk = chunks[i];
     logger.verbose(`  Processing batch ${i + 1}/${chunks.length} (${chunk.length} events)...`);
 
+    // The source is named on its own line rather than inlined, so the model can
+    // tell the channel's title apart from the post's own words — it is weaker
+    // evidence than anything the announcement says, and the prompt says so.
     const messagesText = chunk
-      .map((event, idx) => `${idx + 1}. ${event.message.content.replace(/\n/g, ' ')}`)
+      .map((event, idx) => {
+        const source = event.message.source ? `\n[posted in: ${event.message.source}]` : '';
+        return `${idx + 1}. ${event.message.content.replace(/\n/g, ' ')}${source}`;
+      })
       .join('\n\n');
     const prompt = config
       .locationExtractionPrompt!.replace('{{LOCATIONS}}', locationsText)

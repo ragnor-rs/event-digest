@@ -3,6 +3,7 @@ import { DigestEvent } from '../domain/entities';
 import { IAIClient, ICache, IMessageSource } from '../domain/interfaces';
 import {
   filterByEventCues,
+  splitEventDigests,
   detectEventAnnouncements,
   classifyEventTypes,
   filterBySchedule,
@@ -13,6 +14,7 @@ import {
 } from '../domain/services';
 import { Logger, DebugWriter } from '../shared';
 import {
+  DebugDigestSplittingEntry,
   DebugEventDetectionEntry,
   DebugTypeClassificationEntry,
   DebugScheduleFilteringEntry,
@@ -34,7 +36,7 @@ export class EventPipeline {
   async execute(): Promise<DigestEvent[]> {
     try {
       // Step 1: Fetch messages from message source
-      this.logger.log('Step 1/9: Fetching messages from message source...');
+      this.logger.log('Step 1/10: Fetching messages from message source...');
       const allMessages = await this.messageSource.fetchMessages(
         this.config.groupsToParse,
         this.config.channelsToParse,
@@ -44,15 +46,32 @@ export class EventPipeline {
       this.logger.log('');
 
       // Step 2: Filter by event cues
-      this.logger.log(`Step 2/9: Filtering ${allMessages.length} messages by event cues...`);
+      this.logger.log(`Step 2/10: Filtering ${allMessages.length} messages by event cues...`);
       const eventCueMessages = await filterByEventCues(allMessages, this.config, this.logger);
       this.logger.log('');
 
-      // Step 3: Detect event announcements
-      this.logger.log(`Step 3/9: Detecting event announcements from ${eventCueMessages.length} messages...`);
+      // Step 3: Split roundup posts into one message per event, so detection is
+      // not handed a message that holds six announcements and discards all of them
+      this.logger.log(`Step 3/10: Splitting event digests among ${eventCueMessages.length} messages...`);
+      const debugDigestSplitting: DebugDigestSplittingEntry[] = [];
+      const splitMessages = await splitEventDigests(
+        eventCueMessages,
+        this.config,
+        this.aiClient,
+        this.cache,
+        debugDigestSplitting,
+        this.logger
+      );
+      if (this.config.writeDebugFiles) {
+        this.debugWriter.writeDigestSplitting(debugDigestSplitting);
+      }
+      this.logger.log('');
+
+      // Step 4: Detect event announcements
+      this.logger.log(`Step 4/10: Detecting event announcements from ${splitMessages.length} messages...`);
       const debugEventDetection: DebugEventDetectionEntry[] = [];
       const events = await detectEventAnnouncements(
-        eventCueMessages,
+        splitMessages,
         this.config,
         this.aiClient,
         this.cache,
@@ -64,8 +83,8 @@ export class EventPipeline {
       }
       this.logger.log('');
 
-      // Step 4: Classify event types (offline/online/hybrid)
-      this.logger.log(`Step 4/9: Classifying event types for ${events.length} events...`);
+      // Step 5: Classify event types (offline/online/hybrid)
+      this.logger.log(`Step 5/10: Classifying event types for ${events.length} events...`);
       const debugTypeClassification: DebugTypeClassificationEntry[] = [];
       const classifiedEvents = await classifyEventTypes(
         events,
@@ -78,8 +97,8 @@ export class EventPipeline {
       debugTypeClassification.forEach((entry) => this.debugWriter.addTypeClassificationEntry(entry));
       this.logger.log('');
 
-      // Step 5: Filter by schedule
-      this.logger.log(`Step 5/9: Filtering ${classifiedEvents.length} events by schedule and availability...`);
+      // Step 6: Filter by schedule
+      this.logger.log(`Step 6/10: Filtering ${classifiedEvents.length} events by schedule and availability...`);
       const debugScheduleFiltering: DebugScheduleFilteringEntry[] = [];
       const scheduledEvents = await filterBySchedule(
         classifiedEvents,
@@ -92,9 +111,9 @@ export class EventPipeline {
       debugScheduleFiltering.forEach((entry) => this.debugWriter.addScheduleFilteringEntry(entry));
       this.logger.log('');
 
-      // Step 6: Extract the venue and drop events outside the wanted locations,
+      // Step 7: Extract the venue and drop events outside the wanted locations,
       // before interest matching and description spend AI calls on them
-      this.logger.log(`Step 6/9: Filtering ${scheduledEvents.length} events by location...`);
+      this.logger.log(`Step 7/10: Filtering ${scheduledEvents.length} events by location...`);
       const debugLocationFiltering: DebugLocationFilteringEntry[] = [];
       const locatedEvents = await filterByLocation(
         scheduledEvents,
@@ -107,8 +126,8 @@ export class EventPipeline {
       debugLocationFiltering.forEach((entry) => this.debugWriter.addLocationFilteringEntry(entry));
       this.logger.log('');
 
-      // Step 7: Match to user interests
-      this.logger.log(`Step 7/9: Matching ${locatedEvents.length} events to user interests...`);
+      // Step 8: Match to user interests
+      this.logger.log(`Step 8/10: Matching ${locatedEvents.length} events to user interests...`);
       const debugInterestMatching: DebugInterestMatchingEntry[] = [];
       const matchedEvents = await filterByInterests(
         locatedEvents,
@@ -121,14 +140,14 @@ export class EventPipeline {
       debugInterestMatching.forEach((entry) => this.debugWriter.addInterestMatchingEntry(entry));
       this.logger.log('');
 
-      // Step 8: Collapse the same event announced by multiple sources, before the
+      // Step 9: Collapse the same event announced by multiple sources, before the
       // describer spends AI calls on copies that are about to be merged away
-      this.logger.log(`Step 8/9: Deduplicating ${matchedEvents.length} events...`);
+      this.logger.log(`Step 9/10: Deduplicating ${matchedEvents.length} events...`);
       const uniqueEvents = await deduplicateEvents(matchedEvents, this.config, this.logger);
       this.logger.log('');
 
-      // Step 9: Generate event descriptions
-      this.logger.log(`Step 9/9: Generating descriptions for ${uniqueEvents.length} events...`);
+      // Step 10: Generate event descriptions
+      this.logger.log(`Step 10/10: Generating descriptions for ${uniqueEvents.length} events...`);
       const debugEventDescription: DebugEventDescriptionEntry[] = [];
       const describedEvents = await describeEvents(
         uniqueEvents,

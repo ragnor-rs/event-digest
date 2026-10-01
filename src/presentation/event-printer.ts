@@ -70,7 +70,7 @@ export class EventPrinter implements IEventReporter {
       }
       console.log(`   🏷️ ${event.interest_matches!.map((m) => m.interest).join(', ')}`);
       console.log(`   📝 ${event.event_description!.short_summary}`);
-      // Duplicates collapsed in step 8 join the link line rather than getting
+      // Duplicates collapsed in step 9 join the link line rather than getting
       // their own: they are the same event, so one list of places it was posted.
       const links = [event.message.link, ...(event.duplicate_sources?.map((m) => m.link) ?? [])];
       console.log(`   🔗 ${links.join(', ')}`);

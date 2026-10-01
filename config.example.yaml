@@ -123,7 +123,7 @@ weeklyTimeslots:
 #   ✅ "Tbilisi" — a city is the right granularity
 #   ✅ several cities, when you travel: ["Tbilisi", "Batumi"]
 #
-# Changing this list re-runs step 6, since the list is part of the prompt.
+# Changing this list re-runs step 7, since the list is part of the prompt.
 # NOTE: enable writeDebugFiles: true to get debug/location_filtering.json, which
 #       shows the venue extracted for each event and why anything was dropped.
 # locationFilter:
@@ -159,7 +159,7 @@ weeklyTimeslots:
 
 # Optional: Write debug files (default: false)
 # When enabled, writes detailed debug files to debug/ directory
-# Files include: event_detection.json, event_classification.json, schedule_filtering.json, location_filtering.json, interest_matching.json, event_description.json
+# Files include: digest_splitting.json, event_detection.json, event_classification.json, schedule_filtering.json, location_filtering.json, interest_matching.json, event_description.json
 # writeDebugFiles: false
 
 # Optional: Verbose logging (default: false)
@@ -172,21 +172,32 @@ weeklyTimeslots:
 # verboseLogging: false
 
 # Optional: Keep events whose date is known but whose time is not (default: true)
-# The step 5 prompt asks GPT to report these as "27 Sep 2026 unknown" instead of
+# The step 6 prompt asks GPT to report these as "27 Sep 2026 unknown" instead of
 # giving up on the message; on a sample of 48 posts the step had discarded for
 # "no date/time found", 47 name a date and only omit the hour. Such an event
 # cannot be checked against weeklyTimeslots, so it bypasses that filter and may
 # fall outside your availability. Shown as "27 Sep 2026 (time unspecified)".
-# Applied when reading step 5's cache, so toggling it costs no GPT calls.
+# Applied when reading step 6's cache, so toggling it costs no GPT calls.
 # includeEventsWithoutTime: true
 
 # Optional: Collapse the same event announced by several sources (default: true)
-# Runs as step 8, before descriptions are generated, so merged-away copies cost no
+# Runs as step 9, before descriptions are generated, so merged-away copies cost no
 # AI calls. Compares events within a calendar day by word overlap on the source
 # message text, keeps the earliest posting, and lists the other links under it.
 # Near-verbatim cross-posts collapse; two independently written announcements of
 # the same event do not.
 # deduplicateEvents: true
+
+# Optional: Split roundup posts into one message per event (default: true)
+# Runs as step 3, before detection. An afisha channel often publishes a whole day
+# or weekend as a single post ("планы на четверг", "WEEKEND EVENTS"); detection
+# discards those by design, because one message means one event to every step
+# after it. This step splits such a post into one self-contained announcement per
+# event, each keeping a link back to the original as "<post link>#2".
+# A message is only offered to the AI if it shows three of some digest signal —
+# distinct clock times, distinct dates, or repeated 📍/🎟 markers. A roundup that
+# enumerates its events in prose, with none of those per entry, is still missed.
+# splitEventDigests: true
 
 # Optional: Minimum confidence thresholds for AI filtering (0.0-1.0)
 # GPT assigns confidence scores to predictions; only results above threshold are included
@@ -220,11 +231,12 @@ weeklyTimeslots:
 # Optional: AI batch sizes for processing (defaults shown)
 # Controls how many items are processed in each AI API call
 # Larger batches are faster but may reduce accuracy
-# eventDetectionBatchSize: 16      # Step 3: Event detection
-# eventClassificationBatchSize: 16 # Step 4: Event type classification
-# scheduleExtractionBatchSize: 16  # Step 5: Schedule extraction
-# locationExtractionBatchSize: 16  # Step 6: Location extraction
-# eventDescriptionBatchSize: 3     # Step 9: Event description generation
+# digestSplittingBatchSize: 3      # Step 3: Digest splitting
+# eventDetectionBatchSize: 16      # Step 4: Event detection
+# eventClassificationBatchSize: 16 # Step 5: Event type classification
+# scheduleExtractionBatchSize: 16  # Step 6: Schedule extraction
+# locationExtractionBatchSize: 16  # Step 7: Location extraction
+# eventDescriptionBatchSize: 3     # Step 10: Event description generation
 
 # Optional: Reasoning effort for AI calls (default: low)
 # One of: none, low, medium, high, xhigh
@@ -237,12 +249,13 @@ weeklyTimeslots:
 # Optional: per-step reasoning effort overrides
 # Each falls back to reasoningEffort above when unset. Changing any value invalidates
 # that step's cache only, so the other steps keep their cached results.
-# eventDetectionReasoningEffort: none        # Step 3: Event detection
-# eventClassificationReasoningEffort: none   # Step 4: Event type classification
-# scheduleExtractionReasoningEffort: low     # Step 5: Schedule extraction
-# locationExtractionReasoningEffort: low     # Step 6: Location extraction
-# interestMatchingReasoningEffort: low       # Step 7: Interest matching
-# eventDescriptionReasoningEffort: low       # Step 9: Event description generation
+# digestSplittingReasoningEffort: low        # Step 3: Digest splitting
+# eventDetectionReasoningEffort: none        # Step 4: Event detection
+# eventClassificationReasoningEffort: none   # Step 5: Event type classification
+# scheduleExtractionReasoningEffort: low     # Step 6: Schedule extraction
+# locationExtractionReasoningEffort: low     # Step 7: Location extraction
+# interestMatchingReasoningEffort: low       # Step 8: Interest matching
+# eventDescriptionReasoningEffort: low       # Step 10: Event description generation
 
 # Optional: Send events to a Telegram recipient instead of printing to console
 # When configured, events will be sent as formatted messages to the specified recipient
@@ -305,6 +318,31 @@ weeklyTimeslots:
 #     - "friday"
 #     - "saturday"
 #     - "sunday"
+
+# Custom GPT prompt for digest splitting (optional)
+# Decides whether a message lists several different events, and if so rewrites it
+# as one self-contained announcement per event. Runs as step 3.
+#
+# PLACEHOLDER:
+#   {{MESSAGES}} - numbered list, each preceded by its posting date:
+#                  "1. [posted: Thu Sep 17 2026]\ntext"
+#
+# REQUIRED OUTPUT:
+#   "NUMBER|single" for a message holding at most one event, or a run of
+#   "NUMBER|event" marker lines each followed by that event's text.
+#   A message the reply never mentions is treated as "single".
+#
+# NOTE: each block must state its own date. Entries in a roundup usually give only
+#       a time, with the date written once in the heading; without carrying it down,
+#       schedule extraction reads the fragment against the wrong day.
+#
+# EXAMPLE PROMPT:
+# digestSplittingPrompt: |
+#   Split any message listing several different events into one announcement each.
+#   {{MESSAGES}}
+#   For one event: NUMBER|single
+#   For several:   NUMBER|event followed by the text, repeated per event.
+#   Every block must name its own date, copied down from the heading.
 
 # Custom GPT prompt for event detection (optional)
 # Identifies which messages are single event announcements
@@ -417,7 +455,7 @@ weeklyTimeslots:
 
 # Custom GPT prompt for location extraction and matching (optional)
 # Extracts the venue and address, and decides which locationFilter entry the event
-# is in. Runs as step 6.
+# is in. Runs as step 7.
 #
 # PLACEHOLDERS:
 #   {{LOCATIONS}} - numbered locationFilter entries: "0: Tbilisi\n1: Batumi"

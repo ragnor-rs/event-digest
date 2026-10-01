@@ -18,6 +18,9 @@ export interface Config {
   includeEventsWithoutTime: boolean;
   // Collapse the same event announced by several sources into one entry.
   deduplicateEvents: boolean;
+  // Split a roundup post listing many events ("планы на четверг", "WEEKEND
+  // EVENTS") into one message per event, instead of discarding it at detection.
+  splitEventDigests: boolean;
   // Places whose events you want, e.g. ["Tbilisi"]. Empty means no filtering —
   // venue and address are still extracted, so the digest shows them either way.
   locationFilter: string[];
@@ -28,6 +31,7 @@ export interface Config {
   minEventClassificationConfidence: number; // Minimum confidence threshold for event type classification (0.0-1.0)
   minLocationConfidence: number; // Minimum confidence threshold for location matching (0.0-1.0)
   minInterestConfidence: number; // Minimum confidence threshold for interest matching (0.0-1.0)
+  digestSplittingBatchSize: number;
   eventDetectionBatchSize: number;
   eventClassificationBatchSize: number;
   scheduleExtractionBatchSize: number;
@@ -35,12 +39,14 @@ export interface Config {
   eventDescriptionBatchSize: number;
   reasoningEffort: ReasoningEffort; // Default reasoning effort for every GPT step
   // Per-step overrides; each falls back to reasoningEffort when unset
+  digestSplittingReasoningEffort?: ReasoningEffort;
   eventDetectionReasoningEffort?: ReasoningEffort;
   eventClassificationReasoningEffort?: ReasoningEffort;
   scheduleExtractionReasoningEffort?: ReasoningEffort;
   locationExtractionReasoningEffort?: ReasoningEffort;
   interestMatchingReasoningEffort?: ReasoningEffort;
   eventDescriptionReasoningEffort?: ReasoningEffort;
+  digestSplittingPrompt?: string;
   eventDetectionPrompt?: string;
   interestMatchingPrompt?: string;
   eventTypeClassificationPrompt?: string;

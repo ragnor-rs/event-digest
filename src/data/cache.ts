@@ -38,6 +38,7 @@ export interface CacheVariant {
   model: string;
   /** Per-GPT-store signature; only the changed step re-runs */
   steps: {
+    digest_splits: StepSignature;
     messages: StepSignature;
     event_type_classification: StepSignature;
     scheduled_events: StepSignature;
@@ -54,6 +55,7 @@ export class Cache implements ICache {
   private variantHashes: Record<keyof CacheVariant['steps'], string>;
   private cacheFiles: {
     telegram_messages: string;
+    digest_splits: string;
     messages: string;
     event_type_classification: string;
     matching_interests: string;
@@ -63,12 +65,13 @@ export class Cache implements ICache {
   };
   private cache: {
     telegram_messages: Record<string, SourceMessage[]>; // source name -> source messages (step 1)
-    messages: Record<string, CachedEventDetection>; // message link -> model verdict + score (step 3)
-    event_type_classification: Record<string, EventTypeClassification>; // message link -> type + confidence (step 4)
-    matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 7)
-    scheduled_events: Record<string, CachedSchedule | null>; // message link -> extracted schedule or null if unknown (step 5)
-    event_locations: Record<string, EventLocation | null>; // message link -> venue/address or null if none stated (step 6)
-    events: Record<string, DigestEventDescription>; // message link -> event description object (step 9)
+    digest_splits: Record<string, string[]>; // message link -> per-event fragments, empty when not a digest (step 3)
+    messages: Record<string, CachedEventDetection>; // message link -> model verdict + score (step 4)
+    event_type_classification: Record<string, EventTypeClassification>; // message link -> type + confidence (step 5)
+    matching_interests: Record<string, InterestMatch[]>; // message link -> matched interests with confidence (step 8)
+    scheduled_events: Record<string, CachedSchedule | null>; // message link -> extracted schedule or null if unknown (step 6)
+    event_locations: Record<string, EventLocation | null>; // message link -> venue/address or null if none stated (step 7)
+    events: Record<string, DigestEventDescription>; // message link -> event description object (step 10)
   };
 
   constructor(logger: Logger, variant: CacheVariant) {
@@ -76,6 +79,7 @@ export class Cache implements ICache {
     const signature = (step: StepSignature): string =>
       this.hashPreferences(`${variant.model}|${step.effort}|${step.prompt}|${step.options ?? ''}`);
     this.variantHashes = {
+      digest_splits: signature(variant.steps.digest_splits),
       messages: signature(variant.steps.messages),
       event_type_classification: signature(variant.steps.event_type_classification),
       scheduled_events: signature(variant.steps.scheduled_events),
@@ -86,6 +90,7 @@ export class Cache implements ICache {
     this.cacheDir = path.join(process.cwd(), '.cache');
     this.cacheFiles = {
       telegram_messages: path.join(this.cacheDir, 'telegram_messages.json'),
+      digest_splits: path.join(this.cacheDir, 'digest_splits.json'),
       messages: path.join(this.cacheDir, 'messages.json'),
       event_type_classification: path.join(this.cacheDir, 'event_type_classification.json'),
       matching_interests: path.join(this.cacheDir, 'matching_interests.json'),
@@ -98,6 +103,7 @@ export class Cache implements ICache {
 
   private loadCache(): {
     telegram_messages: Record<string, SourceMessage[]>;
+    digest_splits: Record<string, string[]>;
     messages: Record<string, CachedEventDetection>;
     event_type_classification: Record<string, EventTypeClassification>;
     matching_interests: Record<string, InterestMatch[]>;
@@ -115,6 +121,7 @@ export class Cache implements ICache {
 
     return {
       telegram_messages: this.loadCacheFile('telegram_messages', {}),
+      digest_splits: this.loadCacheFile('digest_splits', {}),
       messages: this.loadCacheFile('messages', {}),
       event_type_classification: this.loadCacheFile('event_type_classification', {}),
       matching_interests: this.loadCacheFile('matching_interests', {}),
@@ -211,6 +218,7 @@ export class Cache implements ICache {
   public save(): void {
     const stores: Array<keyof typeof this.cacheFiles> = [
       'telegram_messages',
+      'digest_splits',
       'messages',
       'event_type_classification',
       'matching_interests',
@@ -266,7 +274,29 @@ export class Cache implements ICache {
     return `${baseKey}|ai:${this.variantHashes[store]}`;
   }
 
-  // Event message detection (step 3)
+  // Digest splitting (step 3)
+  //
+  // An empty array is a real answer — "the model read this and it is not a
+  // digest" — and is distinct from undefined, "never asked". Without that
+  // distinction every non-digest among the candidates would be re-sent to the
+  // model on every run, and the gate deliberately over-selects candidates.
+  getDigestSplitCache(messageLink: string): string[] | undefined {
+    return this.cache.digest_splits[this.variantKey('digest_splits', messageLink)];
+  }
+
+  cacheDigestSplit(messageLink: string, fragments: string[], autoSave: boolean = true): void {
+    this.cache.digest_splits[this.variantKey('digest_splits', messageLink)] = fragments;
+    if (autoSave) {
+      try {
+        this.saveCacheFile('digest_splits');
+      } catch (error) {
+        // Error already logged in saveCacheFile, re-throw to notify caller
+        throw error;
+      }
+    }
+  }
+
+  // Event message detection (step 4)
   getEventDetectionCache(messageLink: string): CachedEventDetection | undefined {
     return this.cache.messages[this.variantKey('messages', messageLink)];
   }
@@ -283,7 +313,7 @@ export class Cache implements ICache {
     }
   }
 
-  // Interest matching (step 7)
+  // Interest matching (step 8)
   getMatchingInterestsCache(messageLink: string, userInterests: string[]): InterestMatch[] | undefined {
     const cacheKey = this.createListScopedKey('matching_interests', messageLink, 'interests', userInterests);
     return this.cache.matching_interests[cacheKey];
@@ -330,7 +360,7 @@ export class Cache implements ICache {
     return this.variantKey(store, `${messageLink}|${label}:${preferencesHash}`);
   }
 
-  // Location extraction and filtering (step 6)
+  // Location extraction and filtering (step 7)
   getEventLocationCache(messageLink: string, locationFilter: string[]): EventLocation | null | undefined {
     return this.cache.event_locations[
       this.createListScopedKey('event_locations', messageLink, 'locations', locationFilter)
@@ -355,7 +385,7 @@ export class Cache implements ICache {
     }
   }
 
-  // Schedule filtering (datetime extraction) (step 5)
+  // Schedule filtering (datetime extraction) (step 6)
   getScheduledEventCache(messageLink: string): CachedSchedule | null | undefined {
     return this.cache.scheduled_events[this.variantKey('scheduled_events', messageLink)];
   }
@@ -372,7 +402,7 @@ export class Cache implements ICache {
     }
   }
 
-  // Event conversion (step 9)
+  // Event conversion (step 10)
   getConvertedEventCache(messageLink: string, userInterests: string[]): DigestEventDescription | undefined {
     const cacheKey = this.createListScopedKey('events', messageLink, 'interests', userInterests);
     return this.cache.events[cacheKey];
@@ -399,6 +429,7 @@ export class Cache implements ICache {
   // Cache statistics
   getStats(): {
     telegram_messages_cached: number;
+    digest_splits_cached: number;
     messages_cached: number;
     event_type_classification_cached: number;
     matching_interests_cached: number;
@@ -413,6 +444,7 @@ export class Cache implements ICache {
     );
     return {
       telegram_messages_cached: telegramMessagesCount,
+      digest_splits_cached: Object.keys(this.cache.digest_splits).length,
       messages_cached: Object.keys(this.cache.messages).length,
       event_type_classification_cached: Object.keys(this.cache.event_type_classification).length,
       matching_interests_cached: Object.keys(this.cache.matching_interests).length,
@@ -421,6 +453,7 @@ export class Cache implements ICache {
       events_cached: Object.keys(this.cache.events).length,
       total_cached:
         telegramMessagesCount +
+        Object.keys(this.cache.digest_splits).length +
         Object.keys(this.cache.messages).length +
         Object.keys(this.cache.event_type_classification).length +
         Object.keys(this.cache.matching_interests).length +
@@ -430,7 +463,7 @@ export class Cache implements ICache {
     };
   }
 
-  // Event type classification (step 4)
+  // Event type classification (step 5)
   getEventTypeCache(messageLink: string): EventTypeClassification | undefined {
     return this.cache.event_type_classification[this.variantKey('event_type_classification', messageLink)];
   }

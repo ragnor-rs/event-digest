@@ -18,6 +18,20 @@ export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 export interface AICallOptions {
   /** Reasoning effort for this call; falls back to the client default when omitted */
   reasoningEffort?: ReasoningEffort;
+  /**
+   * Called when the model stopped because it ran out of completion budget rather
+   * than because it had finished. The text returned alongside is a *prefix* of
+   * the real answer.
+   *
+   * A callback rather than a thrown error or a richer return type: throwing
+   * would let one over-long batch abort an entire run, and widening the return
+   * type would churn all six other call sites for a condition only some of them
+   * can act on. A step that caches its results needs to know — storing a prefix
+   * under a key that will not change turns a transient cut-off into a permanent
+   * wrong answer — while a step that cannot do better than its partial answer
+   * can ignore it and still get the client's warning in the log.
+   */
+  onTruncated?: () => void;
 }
 
 /**

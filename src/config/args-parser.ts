@@ -5,6 +5,7 @@ type ReasoningEffortField =
   | 'reasoningEffort'
   | 'eventDetectionReasoningEffort'
   | 'eventClassificationReasoningEffort'
+  | 'digestSplittingReasoningEffort'
   | 'scheduleExtractionReasoningEffort'
   | 'locationExtractionReasoningEffort'
   | 'interestMatchingReasoningEffort'
@@ -13,6 +14,7 @@ type ReasoningEffortField =
 /** Maps --*-reasoning-effort flags to their Config field */
 const REASONING_EFFORT_OPTIONS: Record<string, ReasoningEffortField> = {
   '--reasoning-effort': 'reasoningEffort',
+  '--digest-splitting-reasoning-effort': 'digestSplittingReasoningEffort',
   '--event-detection-reasoning-effort': 'eventDetectionReasoningEffort',
   '--event-classification-reasoning-effort': 'eventClassificationReasoningEffort',
   '--schedule-extraction-reasoning-effort': 'scheduleExtractionReasoningEffort',
@@ -36,11 +38,13 @@ const VALID_OPTIONS = [
   '--verbose-logging',
   '--include-events-without-time',
   '--deduplicate-events',
+  '--split-event-digests',
   '--include-events-without-location',
   '--min-event-detection-confidence',
   '--min-event-classification-confidence',
   '--min-location-confidence',
   '--min-interest-confidence',
+  '--digest-splitting-batch-size',
   '--event-detection-batch-size',
   '--event-classification-batch-size',
   '--schedule-extraction-batch-size',
@@ -143,6 +147,9 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
       case '--deduplicate-events':
         config.deduplicateEvents = value.toLowerCase() === 'true';
         break;
+      case '--split-event-digests':
+        config.splitEventDigests = value.toLowerCase() === 'true';
+        break;
       case '--include-events-without-location':
         config.includeEventsWithoutLocation = value.toLowerCase() === 'true';
         break;
@@ -180,6 +187,14 @@ export function parseCommandLineArgs(args: string[]): Partial<Config> {
           throw new Error(`Invalid value for --min-interest-confidence: "${value}". Must be between 0.0 and 1.0.`);
         }
         config.minInterestConfidence = parsed;
+        break;
+      }
+      case '--digest-splitting-batch-size': {
+        const parsed = parseInt(value);
+        if (isNaN(parsed) || parsed <= 0) {
+          throw new Error(`Invalid value for --digest-splitting-batch-size: "${value}". Must be a positive integer.`);
+        }
+        config.digestSplittingBatchSize = parsed;
         break;
       }
       case '--event-detection-batch-size': {

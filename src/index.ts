@@ -36,6 +36,10 @@ async function main() {
     const cache = new Cache(logger, {
       model: GPT_MODEL,
       steps: {
+        digest_splits: {
+          effort: getStepReasoningEffort(config, 'digestSplitting'),
+          prompt: config.digestSplittingPrompt ?? '',
+        },
         messages: {
           effort: getStepReasoningEffort(config, 'eventDetection'),
           prompt: config.eventDetectionPrompt ?? '',
