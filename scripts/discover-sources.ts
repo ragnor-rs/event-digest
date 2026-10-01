@@ -1359,11 +1359,22 @@ function prune(flags: Record<string, string>): void {
 
   // Blast-radius guard. See MAX_PRUNE_SHARE: a huge prune means lost evidence
   // far more often than it means a lot of dead sources.
+  //
+  // Measured against SILENT verdicts only, because the guard's reasoning is about
+  // them: silence is *inferred from absent* evidence, so anything that empties or
+  // mis-keys the message cache manufactures it wholesale — which is exactly how
+  // it fired on 2026-10-01, when a case-sensitive lookup invented 9 of them. A
+  // dead verdict is the opposite: counted from cache entries that are present,
+  // and requiring zero events in every observation including the latest. Many
+  // dead sources at once is what a list assembled for topical interest rather
+  // than event density actually looks like, and refusing to act on it was
+  // stopping the one command that trims the list from ever running.
   const ceiling = Math.max(1, Math.floor(configured.all.length * MAX_PRUNE_SHARE));
-  if (actionable.length > ceiling && !isFlagSet(flags, 'force')) {
+  const actionableSilent = actionable.filter((v) => v.state === 'silent');
+  if (actionableSilent.length > ceiling && !isFlagSet(flags, 'force')) {
     console.log(
-      `\nREFUSING to prune: ${actionable.length} of ${configured.all.length} configured sources are\n` +
-        `condemned, over the ceiling of ${ceiling} (${Math.round(MAX_PRUNE_SHARE * 100)}%). Silence is\n` +
+      `\nREFUSING to prune: ${actionableSilent.length} of ${configured.all.length} configured sources are\n` +
+        `condemned as SILENT, over the ceiling of ${ceiling} (${Math.round(MAX_PRUNE_SHARE * 100)}%). Silence is\n` +
         'inferred from a MISSING cache entry, so this pattern usually means the evidence is gone,\n' +
         'not that the sources are. Check in this order:\n' +
         `  1. Is .cache/telegram_messages.json intact? Deleting it makes every source look silent.\n` +
@@ -1372,6 +1383,13 @@ function prune(flags: Record<string, string>): void {
         'config.yaml unchanged. Pass --force to prune anyway.'
     );
     return;
+  }
+  if (actionable.length > ceiling) {
+    console.log(
+      `\nNote: ${actionable.length} sources are being pruned, over the ${ceiling}-source ceiling, but\n` +
+        `${actionableSilent.length} of them are silent. Dead verdicts are counted from cache entries that\n` +
+        'exist, so a large number of them is a real finding rather than missing evidence.'
+    );
   }
 
   if (isFlagSet(flags, 'dry-run')) {
