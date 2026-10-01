@@ -24,12 +24,16 @@ const CLOCK_TIME = /\b([01]?\d|2[0-3])[:.][0-5]\d\b/g;
  * "17 сентября", "3 октября", "5 October" — a day number against a month name.
  *
  * Counting dates as well as times is what catches a roundup that gives each
- * entry a day but no hour. On the run this was tuned against, a times-only gate
- * selected 118 of 966 detection discards and missed two real digests in the very
- * channel that prompted the step — one of them a Boiler Room listing, so missing
- * it cost exactly the music the step was built to recover. Adding dates and
- * venue markers takes the gate to 196 candidates (+78, roughly +26 calls at the
- * default batch size of 3) and catches both.
+ * entry a day but no hour. Tuned against the 966 messages one run had discarded
+ * at detection: a times-only gate selected 118 of them and missed two real
+ * digests in the very channel that prompted the step — one of them a Boiler Room
+ * listing, so missing it cost exactly the music the step was built to recover.
+ * Adding dates and venue markers took it to 196 of those 966 and caught both.
+ *
+ * In production on 2026-10-01 the gate admitted 366 of 2,536 cue-filtered
+ * messages (14%), of which 134 were real digests yielding 1,032 events. So about
+ * a third of what it admits is a digest and the remainder costs one call each to
+ * rule out — the ratio the threshold is trading off.
  */
 const DATE_WITH_MONTH =
   /\b\d{1,2}\s*(?:сентябр|октябр|ноябр|декабр|январ|феврал|март|апрел|ма[яй]|июн|июл|август|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*/gi;

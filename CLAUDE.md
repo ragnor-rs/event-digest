@@ -143,7 +143,7 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 
 1. **Message Fetching** (`data/telegram-client.ts`) - Fetches messages from Telegram groups/channels using GramJS with incremental fetching via minId parameter
 2. **Event Cue Filtering** (`domain/services/event-cues-filter.ts`) - Text-based filtering using configurable date/time keywords
-3. **Digest Splitting** (`domain/services/digest-splitter.ts`) - Turns a roundup post listing several events into one message per event, so detection is not handed a message holding six announcements and made to discard all of them. The afisha channels publish a whole day or weekend as one post ("планы на четверг", "WEEKEND EVENTS"), and `eventDetectionPrompt` excludes digests by design, because one message means one event to every step after it — one datetime, one venue, one cache entry. Splitting here keeps that assumption intact rather than relaxing detection: what leaves this step is still one event per message. A fragment inherits its parent's timestamp and `source`, and takes the link `<parent>#<n>` — unique, so the later caches key it apart, and still a working link, since Telegram ignores the URL fragment and opens the post. A message is offered to the model only if some one signal reaches `MIN_DIGEST_SIGNALS` (3): distinct clock times, distinct day-plus-month dates, or repeated `📍`/`🎟` markers. Any *one* of them suffices, because a programme repeats some field per entry but which one varies — a day's agenda repeats times, a month's roundup repeats dates, a venue list repeats pins; requiring several at once rejects each in turn. The gate was first written on clock times alone, which selected 118 of 966 detection discards and missed two real digests in the very channel that prompted the step, one of them a Boiler Room listing — so the blind spot cost exactly the music the step exists to recover. Counting dates and markers too takes it to 196 candidates (+78, roughly +26 calls at the default batch size) and catches both. What still slips through is a roundup that enumerates events in prose, naming neither times nor dates nor venues per entry; those stay discarded at detection. A reply of one fragment is treated as "not a digest": restating a single announcement as a paraphrase of itself gains nothing. A **truncated** reply is discarded wholesale — the whole batch is skipped for the run and nothing is cached. Partially using one is the trap: the message the cut landed in keeps only the events emitted before it, and the messages numbered *after* it were never answered at all, which the per-message read below takes as "not a digest". Caching either makes it permanent, since the key is link + model + effort + prompt and none of those change on a rerun, so nothing would re-ask. Skipping costs one run's split and leaves the next free to retry. Controlled by `splitEventDigests` (default: true)
+3. **Digest Splitting** (`domain/services/digest-splitter.ts`) - Turns a roundup post listing several events into one message per event, so detection is not handed a message holding six announcements and made to discard all of them. The afisha channels publish a whole day or weekend as one post ("планы на четверг", "WEEKEND EVENTS"), and `eventDetectionPrompt` excludes digests by design, because one message means one event to every step after it — one datetime, one venue, one cache entry. Splitting here keeps that assumption intact rather than relaxing detection: what leaves this step is still one event per message. A fragment inherits its parent's timestamp and `source`, and takes the link `<parent>#<n>` — unique, so the later caches key it apart, and still a working link, since Telegram ignores the URL fragment and opens the post. A message is offered to the model only if some one signal reaches `MIN_DIGEST_SIGNALS` (3): distinct clock times, distinct day-plus-month dates, or repeated `📍`/`🎟` markers. Any *one* of them suffices, because a programme repeats some field per entry but which one varies — a day's agenda repeats times, a month's roundup repeats dates, a venue list repeats pins; requiring several at once rejects each in turn. The gate was first written on clock times alone. Tuned against the 966 messages a *previous* run had discarded at detection, that version selected 118 of them and missed two real digests in the very channel that prompted the step, one of them a Boiler Room listing — so the blind spot cost exactly the music the step exists to recover. Counting dates and markers too took it to 196 of those 966 and caught both. (Beware the baseline when comparing against the diagram below, which counts the full cue-filtered input of a later and larger run, not that run's detection discards.) Measured in anger on 2026-10-01: 366 candidates out of 2,536 cue-filtered messages, of which 134 were real digests — so roughly a third of what the gate admits is a digest, and the rest cost one call each to rule out. What still slips through is a roundup that enumerates events in prose, naming neither times nor dates nor venues per entry; those stay discarded at detection. A reply of one fragment is treated as "not a digest": restating a single announcement as a paraphrase of itself gains nothing. A **truncated** reply is discarded wholesale — the whole batch is skipped for the run and nothing is cached. Partially using one is the trap: the message the cut landed in keeps only the events emitted before it, and the messages numbered *after* it were never answered at all, which the per-message read below takes as "not a digest". Caching either makes it permanent, since the key is link + model + effort + prompt and none of those change on a rerun, so nothing would re-ask. Skipping costs one run's split and leaves the next free to retry. Controlled by `splitEventDigests` (default: true). The branching is drawn under *Step 3's two forks* below
 4. **GPT Event Detection** (`domain/services/event-detector.ts`) - AI-powered filtering to identify single event announcements, returns DigestEvent[] with message field and event_detection_confidence (0.0-1.0 score)
 5. **Event Type Classification** (`domain/services/event-classifier.ts`) - GPT classifies event type (offline/online/hybrid) and applies filtering based on skipOnlineEvents, adds event_type_classification field (EventTypeClassification with type and confidence) to DigestEvent
 6. **Schedule Filtering** (`domain/services/schedule-matcher.ts`) - Extracts datetime with GPT, filters by user availability slots, adds start_datetime field to DigestEvent
@@ -151,6 +151,71 @@ The pipeline is orchestrated by `application/event-pipeline.ts` which coordinate
 8. **Interest Matching** (`domain/services/interest-matcher.ts`) - Matches events to user interests with confidence scoring and validation, adds interest_matches field to DigestEvent
 9. **Deduplication** (`domain/services/event-deduplicator.ts`) - Collapses the same event announced by several sources into one entry. Makes no GPT calls, so it is neither cached nor rate-limited. Runs before description so duplicates never reach the costliest GPT step; the trade-off is that no normalised title exists yet, so events within a calendar day are compared by token overlap on source-message content alone. Posts of at least 20 distinct tokens are compared by containment (share of the *shorter* post's tokens found in the longer one, threshold 0.8) so that a trimmed or reworded repeat announcement still collapses; shorter posts fall back to Jaccard at the same threshold, where a length difference is evidence rather than noise. A post joins a cluster if it matches *any* member, not just the survivor. Keeps the earliest posting and records the rest — including sources those postings had themselves absorbed — in `duplicate_sources`. The printer spells them out on the event's `🔗` line; the sender links only the survivor, from the event title, and shows the rest not at all — they are copies of what the title already opens. When the earliest posting gave a date but no time and a later copy states one, the survivor adopts that time rather than reporting `(time unspecified)` for an hour the cluster knows. Controlled by `deduplicateEvents` (default: true)
 10. **Event Description** (`domain/services/event-describer.ts`) - Generates structured event descriptions with GPT, adds event_description field (DigestEventDescription type) to DigestEvent
+
+#### Step 3's two forks
+
+Splitting is the one step whose output can be *larger* than its input, so it is
+the one place where message counts have to be reconciled rather than just
+filtered. There are two forks, and the distinction between them is the cost
+control: the first is a free text test that keeps the expensive branch narrow,
+and only the second is the model actually judging whether a post is a digest.
+
+Counts are from the run of 2026-10-01, as an illustration of the proportions —
+they are not invariants.
+
+```
+                        After cue filter
+                             2,536
+                               │
+                 ┌─────────────┴─────────────┐
+       FORK 1 (free, text) ── looksLikeDigest()
+                 │                           │
+            no signals                  >=3 of a signal
+            "bypass"                     "candidate"
+              2,170                          366
+                 │                           │
+                 │                 ╔═════════╧═════════╗
+                 │                 ║  STEP 3  (1 GPT   ║
+                 │                 ║  call per 3 msgs) ║
+                 │                 ╚═════════╤═════════╝
+                 │                           │
+                 │              FORK 2 (model's verdict)
+                 │            ┌──────────────┼──────────────┐
+                 │        "N|single"     "N|event"xk     cut off
+                 │            232         134 digests        0
+                 │             │              │              │
+                 │             │        expand 1->k          │
+                 │             │          1,032              │
+                 │             │              │         skip, don't
+                 │             │              │         cache, retry
+                 │             │              │         next run
+                 │             │              │              │
+                 └─────────────┴──────┬───────┴──────────────┘
+                                      │
+                           CONVERGE (original order)
+                        2,170 + 232 + 1,032 + 0 = 3,434
+                                      │
+                                      v
+                            Step 4 - Detection
+                                   3,434
+```
+
+Three things the shape is load-bearing for:
+
+- **The bypass branch is most of the traffic and costs nothing.** 366 of 2,536
+  messages reached the model. That is why fork 1 is a dumb text test and not an
+  AI call — the gate exists to keep the per-message-expensive step narrow.
+- **The two pass-through branches are not the same thing**, though both emit the
+  message unchanged. `N|single` means the model looked and declined, and is
+  cached as `[]` so it is never re-asked. *Cut off* means it was never judged, and
+  is deliberately not cached so the next run retries. Collapsing the two would
+  record a truncated batch as "the model said single" and lose those digests
+  permanently.
+- **Convergence preserves input order.** The output is rebuilt by walking the
+  original message list and substituting fragments in place, not by appending
+  them at the end. Step 9 compares events within a calendar day, so the ordering
+  it sees should not depend on which posts happened to be digests.
+
 
 ### Key Components
 
