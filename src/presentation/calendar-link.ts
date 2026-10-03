@@ -1,4 +1,4 @@
-import { DigestEvent, formatLocation } from '../domain/entities';
+import { DigestEvent, formatLocation, postLink } from '../domain/entities';
 
 /**
  * Google Calendar's prefill endpoint. Not a contractual API, but long-standing
@@ -76,7 +76,7 @@ export function buildGoogleCalendarUrl(event: DigestEvent): string {
   const params = [
     'action=TEMPLATE',
     `text=${encodeURIComponent(event.event_description!.title)}`,
-    `details=${encodeURIComponent(event.message.link)}`,
+    `details=${encodeURIComponent(postLink(event.message))}`,
     ...(location ? [`location=${encodeURIComponent(location)}`] : []),
     // The range separator stays a literal "/": it is legal unencoded in a query
     // value, it is the form Google's own examples use, and the stamps either

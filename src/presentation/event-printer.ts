@@ -1,6 +1,6 @@
 import { buildGoogleCalendarUrl } from './calendar-link';
 import { IEventReporter } from './event-reporter.interface';
-import { DigestEvent, formatLocation } from '../domain/entities';
+import { DigestEvent, formatLocation, postLink } from '../domain/entities';
 import { formatEventDateTime } from '../shared/date-utils';
 
 /**
@@ -72,7 +72,9 @@ export class EventPrinter implements IEventReporter {
       console.log(`   📝 ${event.event_description!.short_summary}`);
       // Duplicates collapsed in step 9 join the link line rather than getting
       // their own: they are the same event, so one list of places it was posted.
-      const links = [event.message.link, ...(event.duplicate_sources?.map((m) => m.link) ?? [])];
+      // Deduplicated after stripping fragments, because two fragments of one
+      // digest post differ only in the suffix that is being dropped here.
+      const links = [...new Set([event.message, ...(event.duplicate_sources ?? [])].map(postLink))];
       console.log(`   🔗 ${links.join(', ')}`);
       console.log(`   ➕ ${buildGoogleCalendarUrl(event)}`);
       console.log('');

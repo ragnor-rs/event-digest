@@ -14,3 +14,17 @@ export interface SourceMessage {
    */
   source?: string;
 }
+
+/**
+ * The link as a reader should see it: without the `#<n>` a step 3 fragment
+ * carries.
+ *
+ * That suffix exists so fragments of one digest key the later caches apart, and
+ * it has to stay on `link` for that. It has no meaning to a reader, though —
+ * Telegram ignores it and opens the parent post either way — so a digest showing
+ * "…/29499#5" is just advertising an internal id. Single source of truth for
+ * both reporters and the calendar link, the way `formatLocation` is for 📍.
+ */
+export function postLink(message: SourceMessage): string {
+  return message.link.replace(/#\d+$/, '');
+}

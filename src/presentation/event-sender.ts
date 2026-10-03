@@ -2,7 +2,7 @@ import { buildGoogleCalendarUrl } from './calendar-link';
 import { IEventReporter } from './event-reporter.interface';
 import { escapeHtml } from './html-escape';
 import { Config } from '../config/types';
-import { DigestEvent, formatLocation } from '../domain/entities';
+import { DigestEvent, formatLocation, postLink } from '../domain/entities';
 import { IMessageSource } from '../domain/interfaces';
 import { delay, Logger, RATE_LIMIT_DELAY } from '../shared';
 import { formatEventDateTime } from '../shared/date-utils';
@@ -123,7 +123,7 @@ export class EventSender implements IEventReporter {
       // separate 🔗 line. It points at the posting the digest kept; where step 9
       // merged several, the others are not linked — one obvious target beats a
       // row of numbered ones, and they are copies of what this already opens.
-      const title = `<a href="${escapeHtml(event.message.link)}">${escapeHtml(event.event_description!.title)}</a>`;
+      const title = `<a href="${escapeHtml(postLink(event.message))}">${escapeHtml(event.event_description!.title)}</a>`;
       // Omitted rather than shown as "unknown": an announcement that named no
       // venue has nothing to print, and a placeholder line only adds noise.
       const venue = event.event_location ? escapeHtml(formatLocation(event.event_location)) : '';

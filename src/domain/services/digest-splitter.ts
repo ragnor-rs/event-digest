@@ -51,6 +51,9 @@ const SINGLE_MARKER = /^(\d+)\|single\s*$/i;
  * A fragment's link, which has to be unique (it is the cache key for every later
  * step) and still open the post it came from. A URL fragment does both: Telegram
  * ignores `#2`, so the link lands on the digest the event was announced in.
+ *
+ * The suffix is an internal id and not for reading, so the reporters render it
+ * through `postLink` instead, which strips it back off.
  */
 function fragmentLink(parentLink: string, index: number): string {
   return `${parentLink}#${index + 1}`;
